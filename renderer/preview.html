@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Claude Buddy Village Preview</title>
+  <style>
+    body { background: #1a1a2e; padding: 20px; font-family: monospace; color: #ccc; }
+    h2 { margin: 12px 0 6px; font-size: 14px; }
+    canvas { display: block; border-radius: 8px; border: 1px solid #333; image-rendering: pixelated; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <script src="speech-bubble.js"></script>
+  <script src="scene.js"></script>
+  <script src="farm.js"></script>
+  <script src="character.js"></script>
+  <script src="state-machine.js"></script>
+  <script>
+    // Mock farm state for preview
+    const mockFarmState = {
+      totalEnergy: 2800,
+      milestoneReached: 2500,
+      plots: [
+        { crop: 'carrot', stage: 4, growthProgress: 0 },
+        { crop: 'sunflower', stage: 3, growthProgress: 10 },
+        { crop: 'watermelon', stage: 4, growthProgress: 0 },
+        { crop: 'tomato', stage: 2, growthProgress: 5 },
+        { crop: 'corn', stage: 3, growthProgress: 12 },
+        { crop: 'carrot', stage: 1, growthProgress: 0 },
+        { crop: 'sunflower', stage: 4, growthProgress: 0 },
+        { crop: 'pumpkin', stage: 2, growthProgress: 8 },
+        { crop: 'watermelon', stage: 3, growthProgress: 15 },
+        { crop: null, stage: 0, growthProgress: 0 },
+        { crop: null, stage: 0, growthProgress: 0 },
+        { crop: null, stage: 0, growthProgress: 0 },
+      ],
+      animals: {
+        chicken: { unlocked: true, homeX: 25 },
+        cow: { unlocked: true, homeX: 50 },
+        pig: { unlocked: true, homeX: 75 },
+        sheep: { unlocked: true, homeX: 40 },
+        cat: { unlocked: true, homeX: 60 },
+      },
+      buildings: {
+        well: true,
+        barn: true,
+        windmill: true,
+        market: true,
+      },
+      unlockedCrops: ['carrot', 'sunflower', 'watermelon', 'tomato', 'corn', 'pumpkin'],
+      totalHarvests: 23,
+    };
+    Farm.setState(mockFarmState);
+
+    // Mock usage state for preview
+    Farm.setUsage({
+      liveOutput: 12450,
+      liveInput: 3200,
+      liveCacheRead: 850000,
+      liveMessages: 42,
+      todayTokens: 245000,
+      todayMessages: 186,
+      totalOutput: 3169853,
+      totalInput: 277993,
+      totalCacheRead: 2280936596,
+      totalSessions: 121,
+      totalMessages: 98320,
+    });
+
+    function demo(title, buddies) {
+      const h = document.createElement('h2');
+      h.textContent = title;
+      document.body.appendChild(h);
+
+      const slotW = 40;
+      const margin = 15;
+      const canvasW = Math.max(330, buddies.length * slotW * Scene.PX + margin * 2 * Scene.PX + 90);
+      const canvasH = 351;
+
+      const c = document.createElement('canvas');
+      c.width = canvasW;
+      c.height = canvasH;
+      document.body.appendChild(c);
+      const ctx = c.getContext('2d');
+
+      let t = 0;
+      function anim() {
+        t++;
+        ctx.clearRect(0, 0, c.width, c.height);
+        Scene.drawBackground(ctx, c.width, t);
+        Farm.drawFarm(ctx, c.width, t);
+
+        const logW = Math.ceil(c.width / Scene.PX);
+        const usable = logW - margin * 2;
+        const sw = Math.min(40, Math.floor(usable / buddies.length));
+
+        buddies.forEach((b, i) => {
+          const sx = margin + i * sw;
+          const frame = ((t / 14) | 0) % 4;
+          Scene.drawStation(ctx, sx, b.state, t + i * 50);
+          Character.draw(ctx, sx, b.state, frame, t + i * 30, i);
+          const hc = Character.HOODIE_COLORS[i % Character.HOODIE_COLORS.length];
+          Scene.drawNameplate(ctx, (sx + sw / 2) * Scene.PX, b.name, hc.o);
+          if (b.detail) {
+            SpeechBubble.draw(ctx, b.detail, (sx + 10) * Scene.PX, (Scene.GROUND_Y - 15) * Scene.PX);
+          }
+        });
+        requestAnimationFrame(anim);
+      }
+      requestAnimationFrame(anim);
+    }
+
+    demo('4 Buddies — Mixed states + Farm', [
+      { name: '~', state: 'thinking', detail: 'Analyzing...' },
+      { name: 'Stock', state: 'writing', detail: 'Edit main.py' },
+      { name: 'anya', state: 'idle', detail: '' },
+      { name: 'kisame', state: 'sleeping', detail: '' },
+    ]);
+
+    demo('8 Buddies — Full village + Farm', [
+      { name: '~', state: 'bash', detail: '$ npm test' },
+      { name: 'Stock', state: 'writing', detail: '' },
+      { name: 'anya', state: 'reading', detail: '' },
+      { name: 'kisame', state: 'thinking', detail: '' },
+      { name: 'churn', state: 'browsing', detail: '' },
+      { name: 'kaonashi', state: 'idle', detail: '' },
+      { name: 'steropes', state: 'tasking', detail: '' },
+      { name: 'Dog', state: 'sleeping', detail: '' },
+    ]);
+  </script>
+</body>
+</html>

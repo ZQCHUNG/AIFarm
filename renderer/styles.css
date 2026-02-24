@@ -1,0 +1,10 @@
+* { margin: 0; padding: 0; }
+html, body {
+  overflow: hidden;
+  background: transparent;
+  -webkit-app-region: no-drag;
+}
+canvas {
+  display: block;
+  image-rendering: pixelated;
+}

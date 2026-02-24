@@ -1,0 +1,11 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('buddy', {
+  onActivityEvent: (cb) => ipcRenderer.on('activity-event', (_e, d) => cb(d)),
+  onSetBuddies: (cb) => ipcRenderer.on('set-buddies', (_e, list) => cb(list)),
+  onResizeCanvas: (cb) => ipcRenderer.on('resize-canvas', (_e, w, h) => cb(w, h)),
+  onFarmUpdate: (cb) => ipcRenderer.on('farm-update', (_e, state) => cb(state)),
+  onFarmEnergyTick: (cb) => ipcRenderer.on('farm-energy-tick', (_e, pts) => cb(pts)),
+  onUsageUpdate: (cb) => ipcRenderer.on('usage-update', (_e, state) => cb(state)),
+  setIgnoreMouseEvents: (ignore, opts) => ipcRenderer.send('set-ignore-mouse', ignore, opts),
+});
