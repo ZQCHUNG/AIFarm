@@ -13,11 +13,20 @@
   const buddyMap = new Map();
   let buddyOrder = []; // ordered list of session IDs
 
+  // Initialize viewport with canvas size
+  Viewport.init(canvas.width, Math.ceil(canvas.width / Scene.PX));
+
   if (window.buddy) {
     window.buddy.onFarmUpdate((state) => Farm.setState(state));
     window.buddy.onFarmEnergyTick((pts) => { /* could add flash animation */ });
     window.buddy.onUsageUpdate((state) => Farm.setUsage(state));
-    window.buddy.onAchievementUnlocked((notif) => Farm.showAchievementNotification(notif));
+    window.buddy.onAchievementUnlocked((notif) => {
+      Farm.showAchievementNotification(notif);
+      // Trigger celebration on all buddies
+      for (const [, buddy] of buddyMap) {
+        buddy.sm.celebrate();
+      }
+    });
 
     window.buddy.onSetBuddies((list) => {
       // Sync buddy list: add new, remove stale, preserve state machines
@@ -52,6 +61,7 @@
       canvas.height = h;
       canvas.style.width = w + 'px';
       canvas.style.height = h + 'px';
+      Viewport.setViewportWidth(w);
     });
 
     canvas.addEventListener('mousemove', (e) => {
@@ -63,7 +73,17 @@
     });
   }
 
+  // Keyboard handler for debug pan mode
+  document.addEventListener('keydown', (e) => {
+    // Ctrl+Shift+D toggles debug camera pan
+    if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+      const active = Viewport.toggleDebugPan();
+      console.log('[Viewport] Debug pan:', active ? 'ON' : 'OFF');
+    }
+  });
+
   function getAnimFrame(state) {
+    if (state === 'celebrating') return 0; // stand facing camera
     if (state === 'idle') return (tick % BLINK_INTERVAL) < BLINK_DURATION ? 1 : 0;
     if (state === 'sleeping') return ((tick / (ANIM_SPEED * 2)) | 0) % 4;
     return ((tick / ANIM_SPEED) | 0) % 4;
@@ -71,19 +91,24 @@
 
   function loop() {
     tick++;
+
+    // Update viewport camera
+    Viewport.update(tick);
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. Shared background (sky, hills, village ground)
+    // 1. Shared background (sky, hills) — fixed, no camera offset
     Scene.drawBackground(ctx, canvas.width, tick);
 
-    // 1.5 Farm layers (below village, above nothing)
+    // 1.5 Farm layers — scrolls with camera
+    Viewport.applyTransform(ctx);
     Farm.drawFarm(ctx, canvas.width, tick);
+    Viewport.restoreTransform(ctx);
 
-    // 2. Per-buddy: station + character + nameplate
-    // Compute slot positions: spread evenly with margins
+    // 2. Per-buddy: station + character + nameplate — fixed (village area)
     const count = buddyOrder.length;
     const logW = Math.ceil(canvas.width / Scene.PX);
-    const margin = 15; // logical margin on each side
+    const margin = 15;
     const usable = logW - margin * 2;
     const slotW = count > 0 ? Math.min(40, Math.floor(usable / count)) : 40;
 
@@ -112,7 +137,7 @@
       Scene.drawNameplate(ctx, slotCenterPx, buddy.project, hc.o);
 
       // Speech bubble for working states
-      if (detail && state !== 'idle' && state !== 'sleeping') {
+      if (detail && state !== 'idle' && state !== 'sleeping' && state !== 'celebrating') {
         const bubbleCX = (slotX + 10) * Scene.PX;
         const bubbleBottom = (Scene.GROUND_Y - 15) * Scene.PX;
         SpeechBubble.draw(ctx, detail, bubbleCX, bubbleBottom);

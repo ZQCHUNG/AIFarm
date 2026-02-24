@@ -2,6 +2,7 @@
 class StateMachine {
   static IDLE_TIMEOUT = 8000;
   static SLEEP_TIMEOUT = 60000;
+  static CELEBRATE_DURATION = 2000; // 2 seconds celebration
 
   static TOOL_MAP = {
     Write: 'writing', Edit: 'writing', NotebookEdit: 'writing',
@@ -24,9 +25,26 @@ class StateMachine {
     this._resetTimers();
   }
 
+  // Trigger celebration state — buddies pause and face camera
+  celebrate() {
+    this._prevState = this.state;
+    this._prevDetail = this.detail;
+    this.state = 'celebrating';
+    this.detail = '';
+    clearTimeout(this._idleTimer);
+    clearTimeout(this._sleepTimer);
+    clearTimeout(this._celebrateTimer);
+    this._celebrateTimer = setTimeout(() => {
+      this.state = this._prevState || 'idle';
+      this.detail = this._prevDetail || '';
+      this._resetTimers();
+    }, StateMachine.CELEBRATE_DURATION);
+  }
+
   _resetTimers() {
     clearTimeout(this._idleTimer);
     clearTimeout(this._sleepTimer);
+    if (this.state === 'celebrating') return; // don't interrupt celebration
     if (this.state !== 'idle' && this.state !== 'sleeping') {
       this._idleTimer = setTimeout(() => {
         this.state = 'idle'; this.detail = '';

@@ -1,5 +1,6 @@
 // Farm state manager — energy tracking, growth, milestones, persistence.
 const fs = require('fs');
+const writeFileAtomic = require('write-file-atomic');
 const cfg = require('./farm-config');
 const AchievementManager = require('./achievement-manager');
 
@@ -55,7 +56,7 @@ class FarmState {
     try {
       this.state.lastSaved = new Date().toISOString();
       this.state.achievements = this.achievements.getSaveState();
-      fs.writeFileSync(cfg.SAVE_PATH, JSON.stringify(this.state, null, 2), 'utf8');
+      writeFileAtomic.sync(cfg.SAVE_PATH, JSON.stringify(this.state, null, 2), 'utf8');
       this._dirty = false;
     } catch (err) {
       console.error('[Farm] Save error:', err.message);

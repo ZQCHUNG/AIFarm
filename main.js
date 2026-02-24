@@ -21,6 +21,29 @@ const MAX_W = 1200;
 // Active buddies: Map<sessionPath, { tailer, project }>
 const buddies = new Map();
 
+// Achievement throttle: buffer events and flush every 1 second
+let achievementEventBuffer = [];
+let achievementFlushTimer = null;
+
+function startAchievementFlush() {
+  achievementFlushTimer = setInterval(() => {
+    if (achievementEventBuffer.length === 0) return;
+    const batch = achievementEventBuffer.splice(0);
+    for (const { evt, sessionPath } of batch) {
+      farm.achievements.onEvent(evt, sessionPath, farm.state);
+    }
+    const notifs = farm.achievements.popNotifications();
+    if (notifs.length > 0 && win && !win.isDestroyed()) {
+      for (const n of notifs) win.webContents.send('achievement-unlocked', n);
+      win.webContents.send('farm-update', farm.getRendererState());
+    }
+  }, 1000);
+}
+
+function stopAchievementFlush() {
+  if (achievementFlushTimer) clearInterval(achievementFlushTimer);
+}
+
 // ---------- Single window ----------
 
 function ensureWindow() {
@@ -120,13 +143,8 @@ function reconcileSessions(activeSessions) {
               win.webContents.send('farm-energy-tick', pts);
               win.webContents.send('farm-update', farm.getRendererState());
             }
-            // Track achievements
-            farm.achievements.onEvent(evt, session.path, farm.state);
-            const notifs = farm.achievements.popNotifications();
-            if (notifs.length > 0 && win && !win.isDestroyed()) {
-              for (const n of notifs) win.webContents.send('achievement-unlocked', n);
-              win.webContents.send('farm-update', farm.getRendererState());
-            }
+            // Buffer achievement events (flushed every 1s to reduce CPU)
+            achievementEventBuffer.push({ evt, sessionPath: session.path });
           }
         }
       });
@@ -213,6 +231,9 @@ app.whenReady().then(() => {
   farm.load();
   farm.startAutoSave();
 
+  // Start achievement throttled flush
+  startAchievementFlush();
+
   // Start usage tracker — sends updates to renderer on change
   usage.start((usageState) => {
     if (win && !win.isDestroyed()) {
@@ -234,6 +255,7 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {});
 app.on('before-quit', () => {
+  stopAchievementFlush();
   farm.stopAutoSave();
   farm.save();
   usage.stop();
