@@ -174,10 +174,98 @@ const SpriteManager = (() => {
     return registry.has(id);
   }
 
+  // ===== Sprite Sheet Config =====
+  // Defines expected sprite sheets and their frame layouts.
+  // Used by iso-farm.js and iso-entity-manager.js to register sprites after generation.
+
+  const SPRITE_CONFIG = {
+    // Characters: 8 hoodie colors × 4 directions × 3 frames
+    // Sheet layout: 3 cols (frames) × 4 rows (down/left/right/up)
+    characters: [
+      { id: 'char_blue',   src: 'sprites/char_blue_sheet.png',   frameWidth: 48, frameHeight: 48, directions: 4, framesPerDir: 3, offsetY: -8 },
+      { id: 'char_red',    src: 'sprites/char_red_sheet.png',    frameWidth: 48, frameHeight: 48, directions: 4, framesPerDir: 3, offsetY: -8 },
+      { id: 'char_green',  src: 'sprites/char_green_sheet.png',  frameWidth: 48, frameHeight: 48, directions: 4, framesPerDir: 3, offsetY: -8 },
+      { id: 'char_purple', src: 'sprites/char_purple_sheet.png', frameWidth: 48, frameHeight: 48, directions: 4, framesPerDir: 3, offsetY: -8 },
+      { id: 'char_orange', src: 'sprites/char_orange_sheet.png', frameWidth: 48, frameHeight: 48, directions: 4, framesPerDir: 3, offsetY: -8 },
+      { id: 'char_teal',   src: 'sprites/char_teal_sheet.png',   frameWidth: 48, frameHeight: 48, directions: 4, framesPerDir: 3, offsetY: -8 },
+      { id: 'char_pink',   src: 'sprites/char_pink_sheet.png',   frameWidth: 48, frameHeight: 48, directions: 4, framesPerDir: 3, offsetY: -8 },
+      { id: 'char_yellow', src: 'sprites/char_yellow_sheet.png', frameWidth: 48, frameHeight: 48, directions: 4, framesPerDir: 3, offsetY: -8 },
+    ],
+    // Animals: 6 types × 4 directions × 2 frames
+    // Sheet layout: 2 cols (frames) × 4 rows (down/left/right/up)
+    animals: [
+      { id: 'animal_chicken', src: 'sprites/animal_chicken_sheet.png', frameWidth: 32, frameHeight: 32, directions: 4, framesPerDir: 2, offsetY: -4 },
+      { id: 'animal_cow',     src: 'sprites/animal_cow_sheet.png',     frameWidth: 32, frameHeight: 32, directions: 4, framesPerDir: 2, offsetY: -4 },
+      { id: 'animal_pig',     src: 'sprites/animal_pig_sheet.png',     frameWidth: 32, frameHeight: 32, directions: 4, framesPerDir: 2, offsetY: -4 },
+      { id: 'animal_sheep',   src: 'sprites/animal_sheep_sheet.png',   frameWidth: 32, frameHeight: 32, directions: 4, framesPerDir: 2, offsetY: -4 },
+      { id: 'animal_cat',     src: 'sprites/animal_cat_sheet.png',     frameWidth: 32, frameHeight: 32, directions: 4, framesPerDir: 2, offsetY: -4 },
+      { id: 'animal_dog',     src: 'sprites/animal_dog_sheet.png',     frameWidth: 32, frameHeight: 32, directions: 4, framesPerDir: 2, offsetY: -4 },
+    ],
+    // Crops: 6 types × 4 stages (each stage is a separate file, loaded as variants)
+    // Single row with 4 columns for growth stages
+    crops: [
+      { id: 'crop_carrot',     src: 'sprites/crop_carrot_sheet.png',     frameWidth: 32, frameHeight: 32, directions: 1, framesPerDir: 4 },
+      { id: 'crop_sunflower',  src: 'sprites/crop_sunflower_sheet.png',  frameWidth: 32, frameHeight: 32, directions: 1, framesPerDir: 4 },
+      { id: 'crop_watermelon', src: 'sprites/crop_watermelon_sheet.png', frameWidth: 32, frameHeight: 32, directions: 1, framesPerDir: 4 },
+      { id: 'crop_tomato',     src: 'sprites/crop_tomato_sheet.png',     frameWidth: 32, frameHeight: 32, directions: 1, framesPerDir: 4 },
+      { id: 'crop_corn',       src: 'sprites/crop_corn_sheet.png',       frameWidth: 32, frameHeight: 32, directions: 1, framesPerDir: 4 },
+      { id: 'crop_pumpkin',    src: 'sprites/crop_pumpkin_sheet.png',    frameWidth: 32, frameHeight: 32, directions: 1, framesPerDir: 4 },
+    ],
+    // Buildings: 7 structures (single static sprite each)
+    buildings: [
+      { id: 'building_well',     src: 'sprites/building_well.png',     frameWidth: 64, frameHeight: 64, directions: 1, framesPerDir: 1 },
+      { id: 'building_barn',     src: 'sprites/building_barn.png',     frameWidth: 64, frameHeight: 64, directions: 1, framesPerDir: 1 },
+      { id: 'building_windmill', src: 'sprites/building_windmill.png', frameWidth: 64, frameHeight: 64, directions: 1, framesPerDir: 1 },
+      { id: 'building_market',   src: 'sprites/building_market.png',   frameWidth: 64, frameHeight: 64, directions: 1, framesPerDir: 1 },
+      { id: 'building_clock',    src: 'sprites/building_clock.png',    frameWidth: 64, frameHeight: 64, directions: 1, framesPerDir: 1 },
+      { id: 'building_townhall', src: 'sprites/building_townhall.png', frameWidth: 64, frameHeight: 64, directions: 1, framesPerDir: 1 },
+      { id: 'building_statue',   src: 'sprites/building_statue.png',   frameWidth: 64, frameHeight: 64, directions: 1, framesPerDir: 1 },
+    ],
+    // Tiles: 8 terrain types (isometric diamond, 32×16 each)
+    tiles: [
+      { id: 'tile_grass',   src: 'sprites/tile_grass.png',   frameWidth: 32, frameHeight: 16, directions: 1, framesPerDir: 1 },
+      { id: 'tile_dirt',    src: 'sprites/tile_dirt.png',    frameWidth: 32, frameHeight: 16, directions: 1, framesPerDir: 1 },
+      { id: 'tile_soil',    src: 'sprites/tile_soil.png',    frameWidth: 32, frameHeight: 16, directions: 1, framesPerDir: 1 },
+      { id: 'tile_water',   src: 'sprites/tile_water.png',   frameWidth: 32, frameHeight: 16, directions: 1, framesPerDir: 1 },
+      { id: 'tile_stone',   src: 'sprites/tile_stone.png',   frameWidth: 32, frameHeight: 16, directions: 1, framesPerDir: 1 },
+      { id: 'tile_sand',    src: 'sprites/tile_sand.png',    frameWidth: 32, frameHeight: 16, directions: 1, framesPerDir: 1 },
+      { id: 'tile_path',    src: 'sprites/tile_path.png',    frameWidth: 32, frameHeight: 16, directions: 1, framesPerDir: 1 },
+      { id: 'tile_flowers', src: 'sprites/tile_flowers.png', frameWidth: 32, frameHeight: 16, directions: 1, framesPerDir: 1 },
+    ],
+  };
+
+  /**
+   * Load all available sprites from config.
+   * Silently skips missing files (procedural fallback remains active).
+   * @param {string} basePath - Base path to sprite directory
+   * @returns {Promise<{loaded: string[], failed: string[]}>}
+   */
+  async function loadAllFromConfig(basePath) {
+    const loaded = [];
+    const failed = [];
+    const allSprites = [
+      ...SPRITE_CONFIG.characters,
+      ...SPRITE_CONFIG.animals,
+      ...SPRITE_CONFIG.crops,
+      ...SPRITE_CONFIG.buildings,
+      ...SPRITE_CONFIG.tiles,
+    ];
+    const results = await Promise.allSettled(
+      allSprites.map(s => register(s.id, { ...s, src: `${basePath}/${s.src}` }))
+    );
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') loaded.push(allSprites[i].id);
+      else failed.push(allSprites[i].id);
+    });
+    return { loaded, failed };
+  }
+
   return {
     DIR_INDEX,
+    SPRITE_CONFIG,
     register,
     registerAll,
+    loadAllFromConfig,
     draw,
     drawStatic,
     has,
