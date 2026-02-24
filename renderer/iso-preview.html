@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>V2.0 Isometric Engine Demo</title>
+  <title>V2.0 Isometric Engine — Entity Manager Demo</title>
   <style>
     body { background: #1a1a2e; padding: 20px; font-family: monospace; color: #ccc; margin: 0; }
     h1 { font-size: 16px; color: #6CB0E8; margin: 10px 20px; }
@@ -13,18 +13,21 @@
   </style>
 </head>
 <body>
-  <h1>V2.0 Isometric Engine — Tile Rendering Demo</h1>
-  <p>Claude Buddy Farm in 2.5D isometric view</p>
+  <h1>V2.0 Isometric Engine — Entity Manager Demo</h1>
+  <p>IsoEntityManager: AI-driven animals, path-following characters, depth-sorted rendering</p>
   <canvas id="iso-canvas" width="640" height="480"></canvas>
   <div class="controls">
     <kbd>Arrow Keys</kbd> Pan camera &nbsp;
     <kbd>1-7</kbd> Paint tile type &nbsp;
     <kbd>Click</kbd> Place tile &nbsp;
-    <kbd>Scroll</kbd> Zoom in/out
+    <kbd>Scroll</kbd> Zoom in/out &nbsp;
+    <kbd>V</kbd> Cycle vibe mood
   </div>
 
   <script src="sprite-manager.js"></script>
+  <script src="animal-ai.js"></script>
   <script src="iso-engine.js"></script>
+  <script src="iso-entity-manager.js"></script>
   <script>
     const canvas = document.getElementById('iso-canvas');
     const ctx = canvas.getContext('2d');
@@ -32,7 +35,6 @@
     // Build a 16x16 demo farm map
     IsoEngine.initMap(16, 16, 'grass');
 
-    // Paint a farm layout
     // Dirt path through the middle
     for (let i = 0; i < 16; i++) {
       IsoEngine.setTile(i, 7, 'path');
@@ -41,74 +43,53 @@
 
     // Farm plots (soil patches)
     for (let r = 3; r <= 5; r++) {
-      for (let c = 2; c <= 6; c++) {
-        IsoEngine.setTile(c, r, 'soil');
-      }
+      for (let c = 2; c <= 6; c++) IsoEngine.setTile(c, r, 'soil');
     }
-
-    // Second farm area
     for (let r = 3; r <= 5; r++) {
-      for (let c = 9; c <= 13; c++) {
-        IsoEngine.setTile(c, r, 'soil');
-      }
+      for (let c = 9; c <= 13; c++) IsoEngine.setTile(c, r, 'soil');
     }
 
     // Pond
     for (let r = 10; r <= 12; r++) {
-      for (let c = 2; c <= 5; c++) {
-        IsoEngine.setTile(c, r, 'water');
-      }
+      for (let c = 2; c <= 5; c++) IsoEngine.setTile(c, r, 'water');
     }
 
     // Stone area (quarry)
     for (let r = 10; r <= 12; r++) {
-      for (let c = 10; c <= 13; c++) {
-        IsoEngine.setTile(c, r, 'stone');
-      }
+      for (let c = 10; c <= 13; c++) IsoEngine.setTile(c, r, 'stone');
     }
 
     // Sand border around pond
-    IsoEngine.setTile(1, 10, 'sand');
-    IsoEngine.setTile(1, 11, 'sand');
-    IsoEngine.setTile(1, 12, 'sand');
-    IsoEngine.setTile(6, 10, 'sand');
-    IsoEngine.setTile(6, 11, 'sand');
-    IsoEngine.setTile(6, 12, 'sand');
-    IsoEngine.setTile(2, 9, 'sand');
-    IsoEngine.setTile(3, 9, 'sand');
-    IsoEngine.setTile(4, 9, 'sand');
-    IsoEngine.setTile(5, 9, 'sand');
-    IsoEngine.setTile(2, 13, 'sand');
-    IsoEngine.setTile(3, 13, 'sand');
-    IsoEngine.setTile(4, 13, 'sand');
-    IsoEngine.setTile(5, 13, 'sand');
+    [[1,10],[1,11],[1,12],[6,10],[6,11],[6,12],
+     [2,9],[3,9],[4,9],[5,9],[2,13],[3,13],[4,13],[5,13]].forEach(([c,r]) => {
+      IsoEngine.setTile(c, r, 'sand');
+    });
 
-    // Add entities: trees
+    // ===== Use IsoEntityManager for all entities =====
+
+    // Trees (static entities)
     const treePositions = [
-      [0, 0], [1, 1], [14, 1], [15, 0], [0, 14], [15, 15],
-      [7, 0], [8, 0], [0, 6], [15, 6], [0, 9], [15, 9],
-      [7, 14], [8, 15], [14, 14],
+      [0,0],[1,1],[14,1],[15,0],[0,14],[15,15],
+      [7,0],[8,0],[0,6],[15,6],[0,9],[15,9],
+      [7,14],[8,15],[14,14],
     ];
     for (const [c, r] of treePositions) {
-      IsoEngine.addEntity({
-        col: c, row: r,
-        draw: (ctx, sx, sy, tick) => IsoEngine.drawIsoTree(ctx, sx, sy, tick),
-      });
+      IsoEntityManager.add(IsoEntityManager.createStatic(c, r,
+        (ctx, sx, sy, tick) => IsoEngine.drawIsoTree(ctx, sx, sy, tick)
+      ));
     }
 
-    // Add crops on farm plots
-    const cropColors = ['#FF8C00', '#FFD700', '#2E8B57', '#FF4444', '#F0E68C', '#FF7518'];
+    // Crops (static entities)
     const cropPositions = [
-      { c: 3, r: 3, stage: 4, color: '#FF8C00' },  // mature carrot
-      { c: 4, r: 3, stage: 3, color: '#FFD700' },  // growing sunflower
-      { c: 5, r: 3, stage: 2, color: '#2E8B57' },  // sprout watermelon
-      { c: 3, r: 4, stage: 4, color: '#FF4444' },  // mature tomato
-      { c: 4, r: 4, stage: 1, color: '#F0E68C' },  // seed corn
-      { c: 5, r: 4, stage: 3, color: '#FF7518' },  // growing pumpkin
-      { c: 3, r: 5, stage: 4, color: '#FFD700' },  // mature sunflower
-      { c: 4, r: 5, stage: 2, color: '#FF8C00' },  // sprout carrot
-      { c: 5, r: 5, stage: 4, color: '#2E8B57' },  // mature watermelon
-      // Second farm
+      { c: 3, r: 3, stage: 4, color: '#FF8C00' },
+      { c: 4, r: 3, stage: 3, color: '#FFD700' },
+      { c: 5, r: 3, stage: 2, color: '#2E8B57' },
+      { c: 3, r: 4, stage: 4, color: '#FF4444' },
+      { c: 4, r: 4, stage: 1, color: '#F0E68C' },
+      { c: 5, r: 4, stage: 3, color: '#FF7518' },
+      { c: 3, r: 5, stage: 4, color: '#FFD700' },
+      { c: 4, r: 5, stage: 2, color: '#FF8C00' },
+      { c: 5, r: 5, stage: 4, color: '#2E8B57' },
       { c: 10, r: 3, stage: 3, color: '#FF4444' },
       { c: 11, r: 3, stage: 4, color: '#F0E68C' },
       { c: 12, r: 3, stage: 2, color: '#FF7518' },
@@ -120,45 +101,65 @@
       { c: 12, r: 5, stage: 3, color: '#F0E68C' },
     ];
     for (const crop of cropPositions) {
-      IsoEngine.addEntity({
-        col: crop.c, row: crop.r,
-        draw: (ctx, sx, sy, tick) => IsoEngine.drawIsoCrop(ctx, sx, sy, crop.stage, crop.color, tick),
-      });
+      IsoEntityManager.add(IsoEntityManager.createStatic(crop.c, crop.r,
+        (ctx, sx, sy, tick) => IsoEngine.drawIsoCrop(ctx, sx, sy, crop.stage, crop.color, tick)
+      ));
     }
 
-    // Add a character walking around
-    let charCol = 7;
-    let charRow = 6;
-    let charDir = 'down';
-    let charFrame = 0;
-    let charMoveTimer = 0;
-    const charPath = [
-      { col: 7, row: 6, dir: 'down' },
-      { col: 7, row: 7, dir: 'down' },
-      { col: 8, row: 7, dir: 'right' },
-      { col: 9, row: 7, dir: 'right' },
-      { col: 10, row: 7, dir: 'right' },
-      { col: 10, row: 8, dir: 'down' },
-      { col: 10, row: 9, dir: 'down' },
-      { col: 9, row: 9, dir: 'left' },
-      { col: 8, row: 9, dir: 'left' },
-      { col: 7, row: 9, dir: 'left' },
-      { col: 7, row: 8, dir: 'up' },
-      { col: 7, row: 7, dir: 'up' },
-      { col: 7, row: 6, dir: 'up' },
+    // Walking character (path following via IsoEntityManager)
+    const walker = IsoEntityManager.add(IsoEntityManager.createCharacter(7, 6, {
+      hoodieColor: '#6C5CE7',
+      name: 'Walker',
+      path: [
+        { col: 7, row: 6, dir: 'down' },
+        { col: 7, row: 7, dir: 'down' },
+        { col: 8, row: 7, dir: 'right' },
+        { col: 9, row: 7, dir: 'right' },
+        { col: 10, row: 7, dir: 'right' },
+        { col: 10, row: 8, dir: 'down' },
+        { col: 10, row: 9, dir: 'down' },
+        { col: 9, row: 9, dir: 'left' },
+        { col: 8, row: 9, dir: 'left' },
+        { col: 7, row: 9, dir: 'left' },
+        { col: 7, row: 8, dir: 'up' },
+        { col: 7, row: 7, dir: 'up' },
+        { col: 7, row: 6, dir: 'up' },
+      ],
+      pathInterval: 30,
+    }));
+
+    // Standing character
+    IsoEntityManager.add(IsoEntityManager.createCharacter(4, 7, {
+      hoodieColor: '#E84393',
+      name: 'Farmer',
+      direction: 'right',
+    }));
+
+    // ===== AI-driven animals (2D isometric behavior tree) =====
+    const animalDefs = [
+      { type: 'chicken', col: 8,  row: 11, radius: 2.5 },
+      { type: 'cow',     col: 12, row: 13, radius: 2.0 },
+      { type: 'pig',     col: 6,  row: 13, radius: 1.8 },
+      { type: 'sheep',   col: 10, row: 14, radius: 2.0 },
+      { type: 'cat',     col: 3,  row: 6,  radius: 1.5 },
+      { type: 'dog',     col: 13, row: 6,  radius: 3.0 },
     ];
-    let pathIndex = 0;
+    for (const def of animalDefs) {
+      IsoEntityManager.add(IsoEntityManager.createAnimal(def.type, def.col, def.row, {
+        wanderRadius: def.radius,
+        minCol: 0, maxCol: 15, minRow: 0, maxRow: 15,
+      }));
+    }
 
-    // Second character (standing still)
-    IsoEngine.addEntity({
-      col: 4, row: 7,
-      draw: (ctx, sx, sy, tick) => IsoEngine.drawIsoCharacter(ctx, sx, sy, 'right', 0, '#E84393', tick),
-    });
+    // Vibe mood cycling (press V to change)
+    const moods = ['calm', 'happy', 'cautious', 'huddled'];
+    let moodIndex = 0;
+    IsoEntityManager.setAnimalMood(moods[moodIndex]);
 
-    // Center camera on map
+    // Center camera
     IsoEngine.centerOnTile(8, 8, canvas.width, canvas.height);
 
-    // Keyboard pan
+    // Keyboard
     const keys = {};
     document.addEventListener('keydown', (e) => { keys[e.key] = true; });
     document.addEventListener('keyup', (e) => { keys[e.key] = false; });
@@ -168,6 +169,10 @@
     const tileKeys = { '1': 'grass', '2': 'dirt', '3': 'soil', '4': 'water', '5': 'stone', '6': 'sand', '7': 'path' };
     document.addEventListener('keydown', (e) => {
       if (tileKeys[e.key]) paintTile = tileKeys[e.key];
+      if (e.key === 'v' || e.key === 'V') {
+        moodIndex = (moodIndex + 1) % moods.length;
+        IsoEntityManager.setAnimalMood(moods[moodIndex]);
+      }
     });
 
     canvas.addEventListener('click', (e) => {
@@ -181,7 +186,7 @@
       }
     });
 
-    // Mouse wheel zoom (centered on cursor)
+    // Mouse wheel zoom
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
@@ -203,52 +208,44 @@
       if (keys['ArrowUp']) IsoEngine.moveCamera(0, PAN_SPEED);
       if (keys['ArrowDown']) IsoEngine.moveCamera(0, -PAN_SPEED);
 
-      // Move character along path
-      charMoveTimer++;
-      if (charMoveTimer >= 30) {
-        charMoveTimer = 0;
-        pathIndex = (pathIndex + 1) % charPath.length;
-        const wp = charPath[pathIndex];
-        charCol = wp.col;
-        charRow = wp.row;
-        charDir = wp.dir;
-        charFrame++;
-      }
+      // Update all entities via IsoEntityManager
+      IsoEntityManager.update(tick);
 
-      // Update walking character entity (remove + re-add)
-      // We need a dynamic entity approach — clear and re-add the walking character each frame
-      // For this demo, we'll draw it manually after the map
+      // Sync managed entities → IsoEngine for depth-sorted rendering
+      IsoEntityManager.syncToEngine();
+
+      // Clear
       ctx.fillStyle = '#1a1a2e';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw sky gradient
+      // Sky gradient
       const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.4);
       skyGrad.addColorStop(0, '#87CEEB');
       skyGrad.addColorStop(1, '#E0F0FF');
       ctx.fillStyle = skyGrad;
       ctx.fillRect(0, 0, canvas.width, canvas.height * 0.4);
 
-      // Draw ground fill below sky
+      // Ground fill
       ctx.fillStyle = '#4A7A3A';
       ctx.fillRect(0, canvas.height * 0.35, canvas.width, canvas.height * 0.65);
 
-      // Draw isometric map
+      // Draw isometric map (tiles + all entities, depth-sorted)
       IsoEngine.drawMap(ctx, canvas.width, canvas.height, tick);
-
-      // Draw walking character on top (dynamic position)
-      const charScreen = IsoEngine.gridToScreen(charCol, charRow);
-      IsoEngine.drawIsoCharacter(ctx, charScreen.x, charScreen.y, charDir, charFrame, '#6C5CE7', tick);
 
       // HUD
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(canvas.width - 180, 8, 172, 50);
+      ctx.fillRect(canvas.width - 200, 8, 192, 64);
       ctx.fillStyle = '#6CB0E8';
       ctx.font = '12px monospace';
-      ctx.fillText('V2.0 ISO ENGINE', canvas.width - 170, 24);
+      ctx.fillText('V2.0 ISO ENTITY MANAGER', canvas.width - 190, 24);
       ctx.fillStyle = '#888';
       ctx.font = '10px monospace';
-      ctx.fillText(`Tile: ${paintTile || 'none'}  Zoom: ${IsoEngine.getZoom().toFixed(1)}x`, canvas.width - 170, 38);
-      ctx.fillText(`Char: (${charCol},${charRow}) ${charDir}`, canvas.width - 170, 50);
+      ctx.fillText(`Tile: ${paintTile || 'none'}  Zoom: ${IsoEngine.getZoom().toFixed(1)}x`, canvas.width - 190, 38);
+      const animals = IsoEntityManager.getByType('animal');
+      const activeCount = animals.filter(a => a.state !== 'rest').length;
+      ctx.fillText(`Animals: ${animals.length} (${activeCount} active)`, canvas.width - 190, 50);
+      ctx.fillStyle = moods[moodIndex] === 'happy' ? '#FFD700' : moods[moodIndex] === 'cautious' ? '#FF8800' : moods[moodIndex] === 'huddled' ? '#FF4444' : '#6CB0E8';
+      ctx.fillText(`Vibe: ${moods[moodIndex]} [V]`, canvas.width - 190, 62);
 
       requestAnimationFrame(loop);
     }
