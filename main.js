@@ -5,12 +5,14 @@ const JsonlTailer = require('./watcher/jsonl-tailer');
 const EventParser = require('./watcher/event-parser');
 const FarmState = require('./farm/farm-state');
 const UsageTracker = require('./watcher/usage-tracker');
+const DataExporter = require('./watcher/data-exporter');
 
 let win = null;
 let tray = null;
 const sessionFinder = new SessionFinder();
 const farm = new FarmState();
 const usage = new UsageTracker();
+const exporter = new DataExporter();
 
 // Per-buddy slot width: must equal scene.js SLOT_W (40) * PX (3)
 const SLOT_W_PX = 40 * 3; // 120 screen pixels
@@ -131,8 +133,16 @@ function reconcileSessions(activeSessions) {
         for (const entry of entries) {
           // Track usage tokens from raw JSONL entry
           usage.trackEntry(entry);
+          // Detect bash errors from raw entry
+          if (entry.type === 'result' && entry.result && entry.result.is_error) {
+            exporter.recordBashError();
+          }
+
           const events = EventParser.parse(entry);
           for (const evt of events) {
+            // Feed to data exporter for vibe analysis
+            exporter.recordEvent(evt);
+
             if (win && !win.isDestroyed()) {
               evt.sessionId = session.path;
               win.webContents.send('activity-event', evt);
@@ -246,11 +256,20 @@ app.whenReady().then(() => {
     }
   });
 
+  // Start data exporter — analyzes coding vibe every 30s
+  exporter.start((vibeState) => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('vibe-update', vibeState);
+    }
+  });
+
   win.webContents.on('did-finish-load', () => {
     console.log('[Claude Buddy] Renderer ready, starting session watcher');
     // Send initial states to renderer
     win.webContents.send('farm-update', farm.getRendererState());
     win.webContents.send('usage-update', usage.getRendererState());
+    const vibeState = exporter.getRendererState();
+    if (vibeState) win.webContents.send('vibe-update', vibeState);
     // Poll every 5s, sessions active if modified in last 6 hours
     sessionFinder.start((sessions) => {
       reconcileSessions(sessions);
@@ -261,6 +280,8 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {});
 app.on('before-quit', () => {
   stopAchievementFlush();
+  exporter.flush();
+  exporter.stop();
   farm.stopAutoSave();
   farm.save();
   usage.stop();

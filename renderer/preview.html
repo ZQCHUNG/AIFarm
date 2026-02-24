@@ -87,6 +87,26 @@
       });
     }, 7000);
 
+    // Mock vibe state for preview
+    Farm.setVibe({
+      timestamp: new Date().toISOString(),
+      vibeScore: 0.78,
+      mood: 'productive',
+      metrics: {
+        eventsPerMinute: 8.5,
+        errorRate: 0.05,
+        toolDiversity: 6,
+        totalEvents: 42,
+        dominantActivity: 'writing',
+      },
+      atmosphere: {
+        skyTint: 'warm',
+        animalMood: 'happy',
+        lampLit: false,
+        groundTint: null,
+      },
+    });
+
     // Activate train station and trigger demo arrival after 2 seconds
     Train.setStationBuilt(true);
     setTimeout(() => {

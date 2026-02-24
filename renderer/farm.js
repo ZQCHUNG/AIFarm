@@ -15,11 +15,14 @@ const Farm = (() => {
 
   let farmState = null;
   let usageState = null;
+  let vibeState = null;
 
   function setState(s) { farmState = s; }
   function getState() { return farmState; }
   function setUsage(s) { usageState = s; }
   function getUsage() { return usageState; }
+  function setVibe(v) { vibeState = v; }
+  function getVibe() { return vibeState; }
 
   function px(ctx, x, y, c) { ctx.fillStyle = c; ctx.fillRect(x * PX, y * PX, PX, PX); }
   function rect(ctx, x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(x * PX, y * PX, w * PX, h * PX); }
@@ -843,6 +846,72 @@ const Farm = (() => {
     return String(n);
   }
 
+  // ===== Vibe atmosphere overlay =====
+
+  function drawVibeAtmosphere(ctx, logW, tick) {
+    if (!vibeState || !vibeState.atmosphere) return;
+    const atm = vibeState.atmosphere;
+
+    // Sky tint overlay (drawn over the entire sky area)
+    if (atm.skyTint === 'warm') {
+      ctx.fillStyle = 'rgba(255, 200, 100, 0.08)';
+      ctx.fillRect(0, 0, logW * PX, 38 * PX);
+    } else if (atm.skyTint === 'cool') {
+      ctx.fillStyle = 'rgba(100, 130, 200, 0.1)';
+      ctx.fillRect(0, 0, logW * PX, 38 * PX);
+    } else if (atm.skyTint === 'dark') {
+      ctx.fillStyle = 'rgba(40, 40, 80, 0.2)';
+      ctx.fillRect(0, 0, logW * PX, 38 * PX);
+    }
+  }
+
+  function drawVibeBadge(ctx, logW, tick) {
+    if (!vibeState) return;
+
+    // Position below milestone label (or below energy meter if no milestone)
+    const badgeX = (logW - 28) * PX;
+    const badgeY = farmState && farmState.milestoneReached > 0 ? 10 * PX : 8 * PX;
+
+    // Mood emoji + vibe score
+    const moodEmoji = {
+      productive: '\u{1F525}',  // fire
+      focused: '\u{1F3AF}',    // target
+      exploring: '\u{1F50D}',  // magnifying glass
+      debugging: '\u{1F41B}',  // bug
+      working: '\u{2699}',     // gear
+      idle: '\u{1F4A4}',       // zzz
+    };
+    const emoji = moodEmoji[vibeState.mood] || '\u{2699}';
+
+    // Background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.fillRect(badgeX, badgeY, 26 * PX, 4 * PX);
+
+    // Vibe bar
+    const barW = 20 * PX;
+    const barH = 2;
+    const barX = badgeX + 16;
+    const barY = badgeY + 5;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(barX, barY, barW, barH);
+
+    // Vibe fill (color based on score)
+    const score = vibeState.vibeScore || 0;
+    let barColor = '#FF4444'; // low
+    if (score >= 0.75) barColor = '#FFD700';
+    else if (score >= 0.5) barColor = '#6AB04C';
+    else if (score >= 0.3) barColor = '#4A90D9';
+    ctx.fillStyle = barColor;
+    ctx.fillRect(barX, barY, Math.floor(barW * score), barH);
+
+    // Text
+    ctx.font = '8px monospace';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#FFF';
+    ctx.fillText(emoji + ' ' + vibeState.mood, badgeX + 3, badgeY + 6);
+  }
+
   // ===== Celebration particle system =====
 
   const particles = [];
@@ -1056,7 +1125,8 @@ const Farm = (() => {
     if (earned.length === 0) return;
 
     const shelfX = (logW - 28) * PX;
-    const shelfY = farmState.milestoneReached > 0 ? 11 * PX : 8 * PX;
+    const hasVibe = vibeState != null;
+    const shelfY = farmState.milestoneReached > 0 ? (hasVibe ? 15 : 11) * PX : (hasVibe ? 12 : 8) * PX;
     const iconSize = 12;
     const cols = 4;
 
@@ -1097,16 +1167,18 @@ const Farm = (() => {
     }
   }
 
-  // Update drawFarm to include achievement rendering + particles + prestige
+  // Update drawFarm to include all overlay rendering
   const _origDrawFarm = drawFarm;
   drawFarm = function(ctx, canvasW, tick) {
     _origDrawFarm(ctx, canvasW, tick);
     const logW = Math.ceil(canvasW / PX);
+    drawVibeAtmosphere(ctx, logW, tick);
+    drawVibeBadge(ctx, logW, tick);
     drawAchievementShelf(ctx, logW, tick);
     drawAchievementNotification(ctx, logW, tick);
     drawPrestigeNotification(ctx, logW, tick);
     updateAndDrawParticles(ctx);
   };
 
-  return { drawFarm, setState, getState, setUsage, getUsage, showAchievementNotification, showPrestigeNotification };
+  return { drawFarm, setState, getState, setUsage, getUsage, setVibe, getVibe, showAchievementNotification, showPrestigeNotification };
 })();

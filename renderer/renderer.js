@@ -25,6 +25,7 @@
       }
     });
     window.buddy.onFarmEnergyTick((pts) => { /* could add flash animation */ });
+    window.buddy.onVibeUpdate((vibe) => Farm.setVibe(vibe));
     window.buddy.onUsageUpdate((state) => Farm.setUsage(state));
     window.buddy.onAchievementUnlocked((notif) => {
       Farm.showAchievementNotification(notif);
