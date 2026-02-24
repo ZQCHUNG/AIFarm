@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>V2.0 Isometric Engine Demo</title>
+  <style>
+    body { background: #1a1a2e; padding: 20px; font-family: monospace; color: #ccc; margin: 0; }
+    h1 { font-size: 16px; color: #6CB0E8; margin: 10px 20px; }
+    p { font-size: 12px; margin: 4px 20px; color: #888; }
+    canvas { display: block; border-radius: 8px; border: 1px solid #333; margin: 10px 20px; }
+    .controls { margin: 10px 20px; font-size: 11px; color: #666; }
+    kbd { background: #333; padding: 2px 6px; border-radius: 3px; color: #aaa; }
+  </style>
+</head>
+<body>
+  <h1>V2.0 Isometric Engine — Tile Rendering Demo</h1>
+  <p>Claude Buddy Farm in 2.5D isometric view</p>
+  <canvas id="iso-canvas" width="640" height="480"></canvas>
+  <div class="controls">
+    <kbd>Arrow Keys</kbd> Pan camera &nbsp;
+    <kbd>1-7</kbd> Paint tile type &nbsp;
+    <kbd>Click</kbd> Place tile
+  </div>
+
+  <script src="iso-engine.js"></script>
+  <script>
+    const canvas = document.getElementById('iso-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Build a 16x16 demo farm map
+    IsoEngine.initMap(16, 16, 'grass');
+
+    // Paint a farm layout
+    // Dirt path through the middle
+    for (let i = 0; i < 16; i++) {
+      IsoEngine.setTile(i, 7, 'path');
+      IsoEngine.setTile(i, 8, 'path');
+    }
+
+    // Farm plots (soil patches)
+    for (let r = 3; r <= 5; r++) {
+      for (let c = 2; c <= 6; c++) {
+        IsoEngine.setTile(c, r, 'soil');
+      }
+    }
+
+    // Second farm area
+    for (let r = 3; r <= 5; r++) {
+      for (let c = 9; c <= 13; c++) {
+        IsoEngine.setTile(c, r, 'soil');
+      }
+    }
+
+    // Pond
+    for (let r = 10; r <= 12; r++) {
+      for (let c = 2; c <= 5; c++) {
+        IsoEngine.setTile(c, r, 'water');
+      }
+    }
+
+    // Stone area (quarry)
+    for (let r = 10; r <= 12; r++) {
+      for (let c = 10; c <= 13; c++) {
+        IsoEngine.setTile(c, r, 'stone');
+      }
+    }
+
+    // Sand border around pond
+    IsoEngine.setTile(1, 10, 'sand');
+    IsoEngine.setTile(1, 11, 'sand');
+    IsoEngine.setTile(1, 12, 'sand');
+    IsoEngine.setTile(6, 10, 'sand');
+    IsoEngine.setTile(6, 11, 'sand');
+    IsoEngine.setTile(6, 12, 'sand');
+    IsoEngine.setTile(2, 9, 'sand');
+    IsoEngine.setTile(3, 9, 'sand');
+    IsoEngine.setTile(4, 9, 'sand');
+    IsoEngine.setTile(5, 9, 'sand');
+    IsoEngine.setTile(2, 13, 'sand');
+    IsoEngine.setTile(3, 13, 'sand');
+    IsoEngine.setTile(4, 13, 'sand');
+    IsoEngine.setTile(5, 13, 'sand');
+
+    // Add entities: trees
+    const treePositions = [
+      [0, 0], [1, 1], [14, 1], [15, 0], [0, 14], [15, 15],
+      [7, 0], [8, 0], [0, 6], [15, 6], [0, 9], [15, 9],
+      [7, 14], [8, 15], [14, 14],
+    ];
+    for (const [c, r] of treePositions) {
+      IsoEngine.addEntity({
+        col: c, row: r,
+        draw: (ctx, sx, sy, tick) => IsoEngine.drawIsoTree(ctx, sx, sy, tick),
+      });
+    }
+
+    // Add crops on farm plots
+    const cropColors = ['#FF8C00', '#FFD700', '#2E8B57', '#FF4444', '#F0E68C', '#FF7518'];
+    const cropPositions = [
+      { c: 3, r: 3, stage: 4, color: '#FF8C00' },  // mature carrot
+      { c: 4, r: 3, stage: 3, color: '#FFD700' },  // growing sunflower
+      { c: 5, r: 3, stage: 2, color: '#2E8B57' },  // sprout watermelon
+      { c: 3, r: 4, stage: 4, color: '#FF4444' },  // mature tomato
+      { c: 4, r: 4, stage: 1, color: '#F0E68C' },  // seed corn
+      { c: 5, r: 4, stage: 3, color: '#FF7518' },  // growing pumpkin
+      { c: 3, r: 5, stage: 4, color: '#FFD700' },  // mature sunflower
+      { c: 4, r: 5, stage: 2, color: '#FF8C00' },  // sprout carrot
+      { c: 5, r: 5, stage: 4, color: '#2E8B57' },  // mature watermelon
+      // Second farm
+      { c: 10, r: 3, stage: 3, color: '#FF4444' },
+      { c: 11, r: 3, stage: 4, color: '#F0E68C' },
+      { c: 12, r: 3, stage: 2, color: '#FF7518' },
+      { c: 10, r: 4, stage: 4, color: '#FF8C00' },
+      { c: 11, r: 4, stage: 3, color: '#FFD700' },
+      { c: 12, r: 4, stage: 1, color: '#2E8B57' },
+      { c: 10, r: 5, stage: 2, color: '#FF4444' },
+      { c: 11, r: 5, stage: 4, color: '#FF7518' },
+      { c: 12, r: 5, stage: 3, color: '#F0E68C' },
+    ];
+    for (const crop of cropPositions) {
+      IsoEngine.addEntity({
+        col: crop.c, row: crop.r,
+        draw: (ctx, sx, sy, tick) => IsoEngine.drawIsoCrop(ctx, sx, sy, crop.stage, crop.color, tick),
+      });
+    }
+
+    // Add a character walking around
+    let charCol = 7;
+    let charRow = 6;
+    let charDir = 'down';
+    let charFrame = 0;
+    let charMoveTimer = 0;
+    const charPath = [
+      { col: 7, row: 6, dir: 'down' },
+      { col: 7, row: 7, dir: 'down' },
+      { col: 8, row: 7, dir: 'right' },
+      { col: 9, row: 7, dir: 'right' },
+      { col: 10, row: 7, dir: 'right' },
+      { col: 10, row: 8, dir: 'down' },
+      { col: 10, row: 9, dir: 'down' },
+      { col: 9, row: 9, dir: 'left' },
+      { col: 8, row: 9, dir: 'left' },
+      { col: 7, row: 9, dir: 'left' },
+      { col: 7, row: 8, dir: 'up' },
+      { col: 7, row: 7, dir: 'up' },
+      { col: 7, row: 6, dir: 'up' },
+    ];
+    let pathIndex = 0;
+
+    // Second character (standing still)
+    IsoEngine.addEntity({
+      col: 4, row: 7,
+      draw: (ctx, sx, sy, tick) => IsoEngine.drawIsoCharacter(ctx, sx, sy, 'right', 0, '#E84393', tick),
+    });
+
+    // Center camera on map
+    IsoEngine.centerOnTile(8, 8, canvas.width, canvas.height);
+
+    // Keyboard pan
+    const keys = {};
+    document.addEventListener('keydown', (e) => { keys[e.key] = true; });
+    document.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+    // Tile painting
+    let paintTile = null;
+    const tileKeys = { '1': 'grass', '2': 'dirt', '3': 'soil', '4': 'water', '5': 'stone', '6': 'sand', '7': 'path' };
+    document.addEventListener('keydown', (e) => {
+      if (tileKeys[e.key]) paintTile = tileKeys[e.key];
+    });
+
+    canvas.addEventListener('click', (e) => {
+      if (!paintTile) return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const { col, row } = IsoEngine.screenToGrid(mx, my);
+      if (col >= 0 && col < 16 && row >= 0 && row < 16) {
+        IsoEngine.setTile(col, row, paintTile);
+      }
+    });
+
+    // Animation loop
+    let tick = 0;
+    function loop() {
+      tick++;
+
+      // Camera panning
+      const PAN_SPEED = 3;
+      if (keys['ArrowLeft']) IsoEngine.moveCamera(PAN_SPEED, 0);
+      if (keys['ArrowRight']) IsoEngine.moveCamera(-PAN_SPEED, 0);
+      if (keys['ArrowUp']) IsoEngine.moveCamera(0, PAN_SPEED);
+      if (keys['ArrowDown']) IsoEngine.moveCamera(0, -PAN_SPEED);
+
+      // Move character along path
+      charMoveTimer++;
+      if (charMoveTimer >= 30) {
+        charMoveTimer = 0;
+        pathIndex = (pathIndex + 1) % charPath.length;
+        const wp = charPath[pathIndex];
+        charCol = wp.col;
+        charRow = wp.row;
+        charDir = wp.dir;
+        charFrame++;
+      }
+
+      // Update walking character entity (remove + re-add)
+      // We need a dynamic entity approach — clear and re-add the walking character each frame
+      // For this demo, we'll draw it manually after the map
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw sky gradient
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.4);
+      skyGrad.addColorStop(0, '#87CEEB');
+      skyGrad.addColorStop(1, '#E0F0FF');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height * 0.4);
+
+      // Draw ground fill below sky
+      ctx.fillStyle = '#4A7A3A';
+      ctx.fillRect(0, canvas.height * 0.35, canvas.width, canvas.height * 0.65);
+
+      // Draw isometric map
+      IsoEngine.drawMap(ctx, canvas.width, canvas.height, tick);
+
+      // Draw walking character on top (dynamic position)
+      const charScreen = IsoEngine.gridToScreen(charCol, charRow);
+      IsoEngine.drawIsoCharacter(ctx, charScreen.x, charScreen.y, charDir, charFrame, '#6C5CE7', tick);
+
+      // HUD
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(canvas.width - 180, 8, 172, 50);
+      ctx.fillStyle = '#6CB0E8';
+      ctx.font = '12px monospace';
+      ctx.fillText('V2.0 ISO ENGINE', canvas.width - 170, 24);
+      ctx.fillStyle = '#888';
+      ctx.font = '10px monospace';
+      ctx.fillText(`Tile: ${paintTile || 'none'}`, canvas.width - 170, 38);
+      ctx.fillText(`Char: (${charCol},${charRow}) ${charDir}`, canvas.width - 170, 50);
+
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
