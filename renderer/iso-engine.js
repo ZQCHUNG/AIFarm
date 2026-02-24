@@ -32,10 +32,11 @@ const IsoEngine = (() => {
 
   // ===== Coordinate conversions =====
 
-  // Grid (col, row) → screen (px, py)
-  function gridToScreen(col, row) {
+  // Grid (col, row, z) → screen (px, py)
+  // z = height layer (0 = ground level, each +1 lifts by TILE_DEPTH)
+  function gridToScreen(col, row, z) {
     const sx = (col - row) * (TILE_W / 2) + camX;
-    const sy = (col + row) * (TILE_H / 2) + camY;
+    const sy = (col + row) * (TILE_H / 2) + camY - (z || 0) * TILE_DEPTH;
     return { x: sx, y: sy };
   }
 
@@ -49,8 +50,9 @@ const IsoEngine = (() => {
   }
 
   // Depth key for sorting (higher row = drawn later = in front)
-  function depthKey(col, row) {
-    return col + row;
+  // z offsets ensure elevated entities render above ground-level ones at same grid pos
+  function depthKey(col, row, z) {
+    return (col + row) + (z || 0) * 0.01;
   }
 
   // ===== Map management =====
@@ -83,7 +85,7 @@ const IsoEngine = (() => {
   // ===== Entity management =====
 
   function addEntity(entity) {
-    // entity: { col, row, draw: (ctx, screenX, screenY, tick) => void }
+    // entity: { col, row, z?, spriteId?, direction?, frame?, draw?: (ctx, screenX, screenY, tick) => void }
     entities.push(entity);
   }
 
@@ -171,9 +173,10 @@ const IsoEngine = (() => {
 
     // Entities
     for (const ent of entities) {
-      const { x, y } = gridToScreen(ent.col, ent.row);
+      const ez = ent.z || 0;
+      const { x, y } = gridToScreen(ent.col, ent.row, ez);
       renderList.push({
-        depth: depthKey(ent.col, ent.row) + 0.5, // entities render slightly after their tile
+        depth: depthKey(ent.col, ent.row, ez) + 0.5, // entities render slightly after their tile
         type: 'entity',
         entity: ent,
         x,
@@ -189,7 +192,13 @@ const IsoEngine = (() => {
       if (item.type === 'tile') {
         drawTile(ctx, item.x, item.y, tileMap[item.row][item.col], tick);
       } else if (item.type === 'entity') {
-        item.entity.draw(ctx, item.x, item.y, tick);
+        const ent = item.entity;
+        // Try sprite-based rendering first
+        if (ent.spriteId && typeof SpriteManager !== 'undefined' && SpriteManager.has(ent.spriteId)) {
+          SpriteManager.draw(ctx, ent.spriteId, item.x, item.y, ent.direction, ent.frame);
+        } else if (ent.draw) {
+          ent.draw(ctx, item.x, item.y, tick);
+        }
       }
     }
   }
