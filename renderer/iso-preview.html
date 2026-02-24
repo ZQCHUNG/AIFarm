@@ -19,7 +19,8 @@
   <div class="controls">
     <kbd>Arrow Keys</kbd> Pan camera &nbsp;
     <kbd>1-7</kbd> Paint tile type &nbsp;
-    <kbd>Click</kbd> Place tile
+    <kbd>Click</kbd> Place tile &nbsp;
+    <kbd>Scroll</kbd> Zoom in/out
   </div>
 
   <script src="sprite-manager.js"></script>
@@ -172,13 +173,23 @@
     canvas.addEventListener('click', (e) => {
       if (!paintTile) return;
       const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
+      const mx = (e.clientX - rect.left) / IsoEngine.getZoom();
+      const my = (e.clientY - rect.top) / IsoEngine.getZoom();
       const { col, row } = IsoEngine.screenToGrid(mx, my);
       if (col >= 0 && col < 16 && row >= 0 && row < 16) {
         IsoEngine.setTile(col, row, paintTile);
       }
     });
+
+    // Mouse wheel zoom (centered on cursor)
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const delta = e.deltaY < 0 ? 1 : -1;
+      IsoEngine.zoom(delta, mx / IsoEngine.getZoom(), my / IsoEngine.getZoom());
+    }, { passive: false });
 
     // Animation loop
     let tick = 0;
@@ -236,7 +247,7 @@
       ctx.fillText('V2.0 ISO ENGINE', canvas.width - 170, 24);
       ctx.fillStyle = '#888';
       ctx.font = '10px monospace';
-      ctx.fillText(`Tile: ${paintTile || 'none'}`, canvas.width - 170, 38);
+      ctx.fillText(`Tile: ${paintTile || 'none'}  Zoom: ${IsoEngine.getZoom().toFixed(1)}x`, canvas.width - 170, 38);
       ctx.fillText(`Char: (${charCol},${charRow}) ${charDir}`, canvas.width - 170, 50);
 
       requestAnimationFrame(loop);

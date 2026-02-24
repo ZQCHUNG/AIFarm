@@ -14,6 +14,10 @@ const IsoEngine = (() => {
   // Camera offset (screen pixels)
   let camX = 0;
   let camY = 0;
+  let camZoom = 1.0;        // zoom level (0.5 to 3.0)
+  const ZOOM_MIN = 0.5;
+  const ZOOM_MAX = 3.0;
+  const ZOOM_SPEED = 0.1;
 
   // Entities to render (sorted by depth each frame)
   let entities = [];
@@ -50,9 +54,9 @@ const IsoEngine = (() => {
   }
 
   // Depth key for sorting (higher row = drawn later = in front)
-  // z offsets ensure elevated entities render above ground-level ones at same grid pos
+  // Multiply grid sum by 10 so z increments (integer) can slot between grid layers
   function depthKey(col, row, z) {
-    return (col + row) + (z || 0) * 0.01;
+    return (col + row) * 10 + (z || 0);
   }
 
   // ===== Map management =====
@@ -80,6 +84,136 @@ const IsoEngine = (() => {
       return tileMap[row][col];
     }
     return null;
+  }
+
+  // ===== Auto-tiling (4-bit bitmask for edge transitions) =====
+  // Groups define which tiles are "similar" for transition purposes
+  const TILE_GROUPS = {
+    grass:  'land',
+    dirt:   'land',
+    soil:   'land',
+    sand:   'land',
+    path:   'land',
+    stone:  'land',
+    water:  'water',
+    empty:  'void',
+  };
+
+  // Transition colors: blended edge when two different groups meet
+  const TRANSITION_COLORS = {
+    'land-water': { edge: '#7CB8A0', blend: 'rgba(74, 144, 217, 0.3)' },
+    'land-void':  { edge: '#6B5030', blend: 'rgba(0, 0, 0, 0.15)' },
+  };
+
+  /**
+   * Compute a 4-bit bitmask for a tile based on its cardinal neighbors.
+   * Bit layout: [North, East, South, West] — bit is 1 if neighbor is DIFFERENT group.
+   * @returns {number} 0-15 bitmask
+   */
+  function getTileBitmask(col, row) {
+    const center = getTile(col, row);
+    if (!center) return 0;
+    const cGroup = TILE_GROUPS[center] || 'land';
+
+    let mask = 0;
+    // North (row - 1)
+    const n = getTile(col, row - 1);
+    if (n && (TILE_GROUPS[n] || 'land') !== cGroup) mask |= 1;
+    // East (col + 1)
+    const e = getTile(col + 1, row);
+    if (e && (TILE_GROUPS[e] || 'land') !== cGroup) mask |= 2;
+    // South (row + 1)
+    const s = getTile(col, row + 1);
+    if (s && (TILE_GROUPS[s] || 'land') !== cGroup) mask |= 4;
+    // West (col - 1)
+    const w = getTile(col - 1, row);
+    if (w && (TILE_GROUPS[w] || 'land') !== cGroup) mask |= 8;
+
+    return mask;
+  }
+
+  /**
+   * Draw transition edges on a tile based on its bitmask.
+   * Called after the base tile is drawn.
+   */
+  function drawTileTransitions(ctx, sx, sy, col, row) {
+    const mask = getTileBitmask(col, row);
+    if (mask === 0) return; // no transitions needed
+
+    const center = getTile(col, row);
+    const cGroup = TILE_GROUPS[center] || 'land';
+
+    const hw = TILE_W / 2;
+    const hh = TILE_H / 2;
+
+    // Determine transition color based on what we're bordering
+    let transColor = 'rgba(100, 150, 200, 0.25)'; // default blue-ish
+    // Check north neighbor to determine transition type
+    const neighbors = [
+      getTile(col, row - 1), getTile(col + 1, row),
+      getTile(col, row + 1), getTile(col - 1, row),
+    ];
+    for (const nb of neighbors) {
+      if (nb) {
+        const nGroup = TILE_GROUPS[nb] || 'land';
+        if (nGroup !== cGroup) {
+          const key = [cGroup, nGroup].sort().join('-');
+          if (TRANSITION_COLORS[key]) {
+            transColor = TRANSITION_COLORS[key].blend;
+          }
+          break;
+        }
+      }
+    }
+
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+
+    // North edge (top-right of diamond)
+    if (mask & 1) {
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - hh);
+      ctx.lineTo(sx + hw, sy);
+      ctx.lineTo(sx + hw * 0.6, sy - hh * 0.2);
+      ctx.closePath();
+      ctx.fillStyle = transColor;
+      ctx.fill();
+    }
+
+    // East edge (bottom-right of diamond)
+    if (mask & 2) {
+      ctx.beginPath();
+      ctx.moveTo(sx + hw, sy);
+      ctx.lineTo(sx, sy + hh);
+      ctx.lineTo(sx + hw * 0.6, sy + hh * 0.2);
+      ctx.closePath();
+      ctx.fillStyle = transColor;
+      ctx.fill();
+    }
+
+    // South edge (bottom-left of diamond)
+    if (mask & 4) {
+      ctx.beginPath();
+      ctx.moveTo(sx, sy + hh);
+      ctx.lineTo(sx - hw, sy);
+      ctx.lineTo(sx - hw * 0.6, sy + hh * 0.2);
+      ctx.closePath();
+      ctx.fillStyle = transColor;
+      ctx.fill();
+    }
+
+    // West edge (top-left of diamond)
+    if (mask & 8) {
+      ctx.beginPath();
+      ctx.moveTo(sx - hw, sy);
+      ctx.lineTo(sx, sy - hh);
+      ctx.lineTo(sx - hw * 0.6, sy - hh * 0.2);
+      ctx.closePath();
+      ctx.fillStyle = transColor;
+      ctx.fill();
+    }
+
+    ctx.restore();
   }
 
   // ===== Entity management =====
@@ -151,6 +285,14 @@ const IsoEngine = (() => {
   function drawMap(ctx, canvasW, canvasH, tick) {
     if (!tileMap) return;
 
+    // Apply zoom transform
+    ctx.save();
+    ctx.scale(camZoom, camZoom);
+
+    // Adjust culling bounds for zoom
+    const cullW = canvasW / camZoom;
+    const cullH = canvasH / camZoom;
+
     // Collect all renderable items with depth
     const renderList = [];
 
@@ -158,8 +300,8 @@ const IsoEngine = (() => {
     for (let r = 0; r < mapHeight; r++) {
       for (let c = 0; c < mapWidth; c++) {
         const { x, y } = gridToScreen(c, r);
-        // Frustum culling
-        if (x < -TILE_W || x > canvasW + TILE_W || y < -TILE_H * 2 || y > canvasH + TILE_H) continue;
+        // Frustum culling (zoom-adjusted)
+        if (x < -TILE_W || x > cullW + TILE_W || y < -TILE_H * 2 || y > cullH + TILE_H) continue;
         renderList.push({
           depth: depthKey(c, r),
           type: 'tile',
@@ -191,6 +333,7 @@ const IsoEngine = (() => {
     for (const item of renderList) {
       if (item.type === 'tile') {
         drawTile(ctx, item.x, item.y, tileMap[item.row][item.col], tick);
+        drawTileTransitions(ctx, item.x, item.y, item.col, item.row);
       } else if (item.type === 'entity') {
         const ent = item.entity;
         // Try sprite-based rendering first
@@ -201,6 +344,8 @@ const IsoEngine = (() => {
         }
       }
     }
+
+    ctx.restore(); // end zoom transform
   }
 
   // ===== Camera =====
@@ -217,9 +362,30 @@ const IsoEngine = (() => {
 
   function centerOnTile(col, row, canvasW, canvasH) {
     const { x, y } = gridToScreen(col, row);
-    camX += canvasW / 2 - x;
-    camY += canvasH / 2 - y;
+    camX += canvasW / 2 / camZoom - x + camX * (1 - 1);
+    camY += canvasH / 2 / camZoom - y + camY * (1 - 1);
   }
+
+  /**
+   * Zoom in/out centered on a screen point (e.g., mouse position).
+   * @param {number} delta - Positive = zoom in, negative = zoom out
+   * @param {number} focusX - Screen X to zoom toward
+   * @param {number} focusY - Screen Y to zoom toward
+   */
+  function zoom(delta, focusX, focusY) {
+    const oldZoom = camZoom;
+    camZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, camZoom + delta * ZOOM_SPEED));
+
+    // Adjust camera to keep the focus point stable
+    if (focusX !== undefined && focusY !== undefined) {
+      const zoomRatio = camZoom / oldZoom;
+      camX = focusX - (focusX - camX) * zoomRatio;
+      camY = focusY - (focusY - camY) * zoomRatio;
+    }
+  }
+
+  function getZoom() { return camZoom; }
+  function setZoom(z) { camZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)); }
 
   // ===== Helpers =====
 
@@ -331,18 +497,25 @@ const IsoEngine = (() => {
     TILE_H,
     TILE_DEPTH,
     TILE_TYPES,
+    TILE_GROUPS,
     gridToScreen,
     screenToGrid,
+    depthKey,
+    getTileBitmask,
     initMap,
     setTile,
     getTile,
     addEntity,
     clearEntities,
     drawTile,
+    drawTileTransitions,
     drawMap,
     setCamera,
     moveCamera,
     centerOnTile,
+    zoom,
+    getZoom,
+    setZoom,
     drawIsoTree,
     drawIsoCharacter,
     drawIsoCrop,
