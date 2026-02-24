@@ -67,6 +67,8 @@
       totalMessages: 98320,
     });
 
+    const SCALE = 2;
+
     function demo(title, buddies) {
       const h = document.createElement('h2');
       h.textContent = title;
@@ -74,23 +76,29 @@
 
       const slotW = 40;
       const margin = 15;
-      const canvasW = Math.max(330, buddies.length * slotW * Scene.PX + margin * 2 * Scene.PX + 90);
-      const canvasH = 351;
+      const baseW = Math.max(330, buddies.length * slotW * Scene.PX + margin * 2 * Scene.PX + 90);
+      const baseH = 351;
 
       const c = document.createElement('canvas');
-      c.width = canvasW;
-      c.height = canvasH;
+      // Canvas at 2x resolution for sharp rendering
+      c.width = baseW * SCALE;
+      c.height = baseH * SCALE;
+      // Display at 2x size via CSS
+      c.style.width = (baseW * SCALE) + 'px';
+      c.style.height = (baseH * SCALE) + 'px';
       document.body.appendChild(c);
       const ctx = c.getContext('2d');
 
       let t = 0;
       function anim() {
         t++;
-        ctx.clearRect(0, 0, c.width, c.height);
-        Scene.drawBackground(ctx, c.width, t);
-        Farm.drawFarm(ctx, c.width, t);
+        ctx.save();
+        ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+        ctx.clearRect(0, 0, baseW, baseH);
+        Scene.drawBackground(ctx, baseW, t);
+        Farm.drawFarm(ctx, baseW, t);
 
-        const logW = Math.ceil(c.width / Scene.PX);
+        const logW = Math.ceil(baseW / Scene.PX);
         const usable = logW - margin * 2;
         const sw = Math.min(40, Math.floor(usable / buddies.length));
 
@@ -105,17 +113,11 @@
             SpeechBubble.draw(ctx, b.detail, (sx + 10) * Scene.PX, (Scene.GROUND_Y - 15) * Scene.PX);
           }
         });
+        ctx.restore();
         requestAnimationFrame(anim);
       }
       requestAnimationFrame(anim);
     }
-
-    demo('4 Buddies — Mixed states + Farm', [
-      { name: '~', state: 'thinking', detail: 'Analyzing...' },
-      { name: 'Stock', state: 'writing', detail: 'Edit main.py' },
-      { name: 'anya', state: 'idle', detail: '' },
-      { name: 'kisame', state: 'sleeping', detail: '' },
-    ]);
 
     demo('8 Buddies — Full village + Farm', [
       { name: '~', state: 'bash', detail: '$ npm test' },
