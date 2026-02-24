@@ -82,6 +82,7 @@ function reconcileSessions(activeSessions) {
     if (!activePaths.has(sp) || timedOut) {
       console.log('[Claude Buddy] -', buddy.project, timedOut ? '(inactive)' : '(old)');
       buddy.tailer.stop();
+      farm.achievements.removeSession(sp);
       buddies.delete(sp);
       changed = true;
     }
@@ -119,6 +120,13 @@ function reconcileSessions(activeSessions) {
               win.webContents.send('farm-energy-tick', pts);
               win.webContents.send('farm-update', farm.getRendererState());
             }
+            // Track achievements
+            farm.achievements.onEvent(evt, session.path, farm.state);
+            const notifs = farm.achievements.popNotifications();
+            if (notifs.length > 0 && win && !win.isDestroyed()) {
+              for (const n of notifs) win.webContents.send('achievement-unlocked', n);
+              win.webContents.send('farm-update', farm.getRendererState());
+            }
           }
         }
       });
@@ -131,6 +139,8 @@ function reconcileSessions(activeSessions) {
   if (changed) {
     resizeWindow(buddies.size);
     sendBuddyList(activeSessions);
+    // Track peak buddy count for achievement
+    farm.achievements.onBuddyCountChange(buddies.size);
   }
 }
 

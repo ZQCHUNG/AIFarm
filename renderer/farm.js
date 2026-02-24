@@ -843,5 +843,151 @@ const Farm = (() => {
     return String(n);
   }
 
-  return { drawFarm, setState, getState, setUsage, getUsage };
+  // ===== Achievement notification system =====
+
+  let achievementNotifQueue = [];
+  let currentNotif = null;
+  let notifStartTick = 0;
+  const NOTIF_DURATION = 180; // ~6 seconds at 30fps
+  const NOTIF_FADE_IN = 20;
+  const NOTIF_FADE_OUT = 30;
+
+  function showAchievementNotification(notif) {
+    achievementNotifQueue.push(notif);
+  }
+
+  function drawAchievementNotification(ctx, logW, tick) {
+    // Advance queue
+    if (!currentNotif && achievementNotifQueue.length > 0) {
+      currentNotif = achievementNotifQueue.shift();
+      notifStartTick = tick;
+    }
+    if (!currentNotif) return;
+
+    const elapsed = tick - notifStartTick;
+    if (elapsed > NOTIF_DURATION) {
+      currentNotif = null;
+      return;
+    }
+
+    // Alpha for fade in/out
+    let alpha = 1;
+    if (elapsed < NOTIF_FADE_IN) {
+      alpha = elapsed / NOTIF_FADE_IN;
+    } else if (elapsed > NOTIF_DURATION - NOTIF_FADE_OUT) {
+      alpha = (NOTIF_DURATION - elapsed) / NOTIF_FADE_OUT;
+    }
+
+    const boxW = 50 * PX;
+    const boxH = 10 * PX;
+    const boxX = Math.floor((logW * PX - boxW) / 2);
+    const boxY = 12 * PX;
+
+    // Slide in from top
+    const slideOffset = elapsed < NOTIF_FADE_IN ? (1 - elapsed / NOTIF_FADE_IN) * -15 : 0;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(0, slideOffset);
+
+    // Background with tier-colored border
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(boxX, boxY, boxW, boxH);
+
+    // Tier color accent border
+    ctx.fillStyle = currentNotif.tierColor || '#FFD700';
+    ctx.fillRect(boxX, boxY, boxW, 2);
+    ctx.fillRect(boxX, boxY + boxH - 2, boxW, 2);
+    ctx.fillRect(boxX, boxY, 2, boxH);
+    ctx.fillRect(boxX + boxW - 2, boxY, 2, boxH);
+
+    // Sparkle effect
+    const sparkleColor = currentNotif.tierColor || '#FFD700';
+    for (let i = 0; i < 4; i++) {
+      const sx = boxX + 6 + Math.sin(tick * 0.15 + i * 1.5) * (boxW / 2 - 10);
+      const sy = boxY - 3 + Math.cos(tick * 0.12 + i * 2) * 4;
+      ctx.fillStyle = sparkleColor;
+      ctx.fillRect(sx, sy, 2, 2);
+    }
+
+    // Icon
+    ctx.font = '14px monospace';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#FFF';
+    ctx.fillText(currentNotif.icon, boxX + 6, boxY + boxH / 2 - 4);
+
+    // Title
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = currentNotif.tierColor || '#FFD700';
+    ctx.fillText(currentNotif.title, boxX + 24, boxY + boxH / 2 - 6);
+
+    // Tier label
+    ctx.font = '8px monospace';
+    ctx.fillStyle = '#CCC';
+    ctx.fillText(currentNotif.tierLabel + ' unlocked!', boxX + 24, boxY + boxH / 2 + 6);
+
+    ctx.restore();
+  }
+
+  // ===== Achievement shelf (right side, below energy meter) =====
+
+  function drawAchievementShelf(ctx, logW, tick) {
+    if (!farmState || !farmState.achievements) return;
+
+    const earned = farmState.achievements.filter(a => a.currentTier);
+    if (earned.length === 0) return;
+
+    const shelfX = (logW - 28) * PX;
+    const shelfY = farmState.milestoneReached > 0 ? 11 * PX : 8 * PX;
+    const iconSize = 12;
+    const cols = 4;
+
+    // Background
+    const rows = Math.ceil(earned.length / cols);
+    const bgH = rows * (iconSize + 2) + 14;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.fillRect(shelfX, shelfY, 26 * PX, bgH);
+
+    // Title
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 8px monospace';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    ctx.fillText('\u{1F3C6} Titles', shelfX + 3, shelfY + 2);
+
+    // Icons in grid
+    for (let i = 0; i < earned.length; i++) {
+      const a = earned[i];
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const ix = shelfX + 4 + col * (iconSize + 4);
+      const iy = shelfY + 14 + row * (iconSize + 2);
+
+      // Tier glow
+      ctx.fillStyle = a.currentTierColor || '#888';
+      ctx.fillRect(ix - 1, iy - 1, iconSize + 2, iconSize + 2);
+
+      // Icon background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(ix, iy, iconSize, iconSize);
+
+      // Icon
+      ctx.font = '9px monospace';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+      ctx.fillText(a.icon, ix + iconSize / 2, iy + iconSize / 2);
+    }
+  }
+
+  // Update drawFarm to include achievement rendering
+  const _origDrawFarm = drawFarm;
+  drawFarm = function(ctx, canvasW, tick) {
+    _origDrawFarm(ctx, canvasW, tick);
+    const logW = Math.ceil(canvasW / PX);
+    drawAchievementShelf(ctx, logW, tick);
+    drawAchievementNotification(ctx, logW, tick);
+  };
+
+  return { drawFarm, setState, getState, setUsage, getUsage, showAchievementNotification };
 })();

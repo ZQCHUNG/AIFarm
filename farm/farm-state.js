@@ -1,12 +1,14 @@
 // Farm state manager — energy tracking, growth, milestones, persistence.
 const fs = require('fs');
 const cfg = require('./farm-config');
+const AchievementManager = require('./achievement-manager');
 
 class FarmState {
   constructor() {
     this._dirty = false;
     this._timer = null;
     this.state = this._defaultState();
+    this.achievements = new AchievementManager();
   }
 
   _defaultState() {
@@ -37,6 +39,8 @@ class FarmState {
         while (this.state.plots.length < cfg.TOTAL_PLOTS) {
           this.state.plots.push({ crop: null, stage: 0, growthProgress: 0 });
         }
+        // Load achievements
+        this.achievements.load(this.state.achievements || null);
         console.log(`[Farm] Loaded: ${this.state.totalEnergy} energy, milestone ${this.state.milestoneReached}`);
       } else {
         console.log('[Farm] No save file, starting fresh');
@@ -50,6 +54,7 @@ class FarmState {
   save() {
     try {
       this.state.lastSaved = new Date().toISOString();
+      this.state.achievements = this.achievements.getSaveState();
       fs.writeFileSync(cfg.SAVE_PATH, JSON.stringify(this.state, null, 2), 'utf8');
       this._dirty = false;
     } catch (err) {
@@ -229,6 +234,7 @@ class FarmState {
       unlockedCrops: this.state.unlockedCrops,
       milestoneReached: this.state.milestoneReached,
       totalHarvests: this.state.stats.totalHarvests,
+      achievements: this.achievements.getRendererState(),
     };
   }
 }

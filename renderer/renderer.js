@@ -17,6 +17,7 @@
     window.buddy.onFarmUpdate((state) => Farm.setState(state));
     window.buddy.onFarmEnergyTick((pts) => { /* could add flash animation */ });
     window.buddy.onUsageUpdate((state) => Farm.setUsage(state));
+    window.buddy.onAchievementUnlocked((notif) => Farm.showAchievementNotification(notif));
 
     window.buddy.onSetBuddies((list) => {
       // Sync buddy list: add new, remove stale, preserve state machines

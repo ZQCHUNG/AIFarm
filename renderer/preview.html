@@ -49,8 +49,31 @@
       },
       unlockedCrops: ['carrot', 'sunflower', 'watermelon', 'tomato', 'corn', 'pumpkin'],
       totalHarvests: 23,
+      achievements: [
+        { id: 'refiner', title: 'The Refiner', icon: '\u{1F52C}', currentTier: 'gold', currentTierColor: '#FFD700', value: 62, nextTier: 'diamond', nextThreshold: 200 },
+        { id: 'architect', title: 'The Architect', icon: '\u{1F3D7}', currentTier: 'silver', currentTierColor: '#C0C0C0', value: 8, nextTier: 'gold', nextThreshold: 15 },
+        { id: 'burner', title: 'The Burner', icon: '\u{1F525}', currentTier: 'diamond', currentTierColor: '#B9F2FF', value: 520000, nextTier: null, nextThreshold: null },
+        { id: 'nightOwl', title: 'Night Owl', icon: '\u{1F989}', currentTier: 'silver', currentTierColor: '#C0C0C0', value: 5, nextTier: 'gold', nextThreshold: 10 },
+        { id: 'marathon', title: 'Marathon Runner', icon: '\u{1F3C3}', currentTier: 'gold', currentTierColor: '#FFD700', value: 6.2, nextTier: 'diamond', nextThreshold: 10 },
+        { id: 'harvestMaster', title: 'Harvest Master', icon: '\u{1F33E}', currentTier: null, currentTierColor: null, value: 23, nextTier: 'silver', nextThreshold: 25 },
+        { id: 'townBuilder', title: 'Town Builder', icon: '\u{1F3D8}', currentTier: 'silver', currentTierColor: '#C0C0C0', value: 4, nextTier: 'gold', nextThreshold: 5 },
+        { id: 'collaborator', title: 'Team Player', icon: '\u{1F91D}', currentTier: null, currentTierColor: null, value: 2, nextTier: 'silver', nextThreshold: 3 },
+        { id: 'earlyBird', title: 'Early Bird', icon: '\u{1F305}', currentTier: null, currentTierColor: null, value: 1, nextTier: 'silver', nextThreshold: 3 },
+      ],
     };
     Farm.setState(mockFarmState);
+
+    // Trigger a demo achievement notification after 3 seconds
+    setTimeout(() => {
+      Farm.showAchievementNotification({
+        id: 'marathon',
+        title: 'Marathon Runner',
+        icon: '\u{1F3C3}',
+        tier: 'gold',
+        tierLabel: 'Gold',
+        tierColor: '#FFD700',
+      });
+    }, 3000);
 
     // Mock usage state for preview
     Farm.setUsage({
