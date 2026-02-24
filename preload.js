@@ -8,5 +8,6 @@ contextBridge.exposeInMainWorld('buddy', {
   onFarmEnergyTick: (cb) => ipcRenderer.on('farm-energy-tick', (_e, pts) => cb(pts)),
   onUsageUpdate: (cb) => ipcRenderer.on('usage-update', (_e, state) => cb(state)),
   onAchievementUnlocked: (cb) => ipcRenderer.on('achievement-unlocked', (_e, notif) => cb(notif)),
+  onPrestigeEvent: (cb) => ipcRenderer.on('prestige-event', (_e, data) => cb(data)),
   setIgnoreMouseEvents: (ignore, opts) => ipcRenderer.send('set-ignore-mouse', ignore, opts),
 });

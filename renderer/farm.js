@@ -843,6 +843,123 @@ const Farm = (() => {
     return String(n);
   }
 
+  // ===== Celebration particle system =====
+
+  const particles = [];
+  const MAX_PARTICLES = 60;
+
+  function spawnParticles(count, originX, originY, colors) {
+    for (let i = 0; i < count && particles.length < MAX_PARTICLES; i++) {
+      particles.push({
+        x: originX,
+        y: originY,
+        vx: (Math.random() - 0.5) * 3,
+        vy: -Math.random() * 2.5 - 0.5,
+        life: 60 + Math.floor(Math.random() * 40),
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: Math.random() > 0.5 ? 2 : 1,
+      });
+    }
+  }
+
+  function updateAndDrawParticles(ctx) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.04; // gravity
+      p.life--;
+      if (p.life <= 0) {
+        particles.splice(i, 1);
+        continue;
+      }
+      const alpha = Math.min(1, p.life / 20);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ===== Prestige (Generation) notification =====
+
+  let prestigeNotif = null;
+  let prestigeStartTick = 0;
+  const PRESTIGE_DURATION = 240; // ~8 seconds
+
+  function showPrestigeNotification(data) {
+    prestigeNotif = data;
+    prestigeStartTick = 0; // will be set on first draw
+    // Spawn celebratory particles
+    const colors = ['#FFD700', '#FF6B8A', '#4A90D9', '#6AB04C', '#DA70D6', '#FFF'];
+    spawnParticles(40, 0, 0, colors); // positions set in draw
+  }
+
+  function drawPrestigeNotification(ctx, logW, tick) {
+    if (!prestigeNotif) return;
+    if (prestigeStartTick === 0) prestigeStartTick = tick;
+
+    const elapsed = tick - prestigeStartTick;
+    if (elapsed > PRESTIGE_DURATION) {
+      prestigeNotif = null;
+      return;
+    }
+
+    // Alpha
+    let alpha = 1;
+    if (elapsed < 20) alpha = elapsed / 20;
+    else if (elapsed > PRESTIGE_DURATION - 40) alpha = (PRESTIGE_DURATION - elapsed) / 40;
+
+    const boxW = 60 * PX;
+    const boxH = 14 * PX;
+    const boxX = Math.floor((logW * PX - boxW) / 2);
+    const boxY = 20 * PX;
+
+    // Spawn particles from the notification box
+    if (elapsed % 4 === 0 && elapsed < PRESTIGE_DURATION - 60) {
+      const colors = ['#FFD700', '#FF6B8A', '#4A90D9', '#6AB04C', '#DA70D6', '#FFF'];
+      spawnParticles(3, boxX + Math.random() * boxW, boxY + boxH, colors);
+    }
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // Background with golden border
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    ctx.fillRect(boxX, boxY, boxW, boxH);
+
+    // Golden border (thick)
+    ctx.fillStyle = '#FFD700';
+    ctx.fillRect(boxX, boxY, boxW, 3);
+    ctx.fillRect(boxX, boxY + boxH - 3, boxW, 3);
+    ctx.fillRect(boxX, boxY, 3, boxH);
+    ctx.fillRect(boxX + boxW - 3, boxY, 3, boxH);
+
+    // Inner glow
+    ctx.fillStyle = 'rgba(255, 215, 0, 0.15)';
+    ctx.fillRect(boxX + 3, boxY + 3, boxW - 6, boxH - 6);
+
+    // Title: "GENERATION UP!"
+    ctx.font = 'bold 12px monospace';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#FFD700';
+    const centerX = boxX + boxW / 2;
+    ctx.fillText('\u2B50 GENERATION UP! \u2B50', centerX, boxY + boxH / 2 - 8);
+
+    // Subtitle: gen label
+    ctx.font = '10px monospace';
+    ctx.fillStyle = '#FFF';
+    ctx.fillText(`Gen ${prestigeNotif.toGen}: ${prestigeNotif.label}`, centerX, boxY + boxH / 2 + 6);
+
+    // World expansion note
+    ctx.font = '8px monospace';
+    ctx.fillStyle = '#AAA';
+    ctx.fillText(`World expanded to ${prestigeNotif.worldWidth}px`, centerX, boxY + boxH / 2 + 18);
+
+    ctx.restore();
+  }
+
   // ===== Achievement notification system =====
 
   let achievementNotifQueue = [];
@@ -980,14 +1097,16 @@ const Farm = (() => {
     }
   }
 
-  // Update drawFarm to include achievement rendering
+  // Update drawFarm to include achievement rendering + particles + prestige
   const _origDrawFarm = drawFarm;
   drawFarm = function(ctx, canvasW, tick) {
     _origDrawFarm(ctx, canvasW, tick);
     const logW = Math.ceil(canvasW / PX);
     drawAchievementShelf(ctx, logW, tick);
     drawAchievementNotification(ctx, logW, tick);
+    drawPrestigeNotification(ctx, logW, tick);
+    updateAndDrawParticles(ctx);
   };
 
-  return { drawFarm, setState, getState, setUsage, getUsage, showAchievementNotification };
+  return { drawFarm, setState, getState, setUsage, getUsage, showAchievementNotification, showPrestigeNotification };
 })();

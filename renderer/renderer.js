@@ -17,7 +17,13 @@
   Viewport.init(canvas.width, Math.ceil(canvas.width / Scene.PX));
 
   if (window.buddy) {
-    window.buddy.onFarmUpdate((state) => Farm.setState(state));
+    window.buddy.onFarmUpdate((state) => {
+      Farm.setState(state);
+      // Sync world width with Viewport
+      if (state && state.worldWidth) {
+        Viewport.setWorldWidth(state.worldWidth);
+      }
+    });
     window.buddy.onFarmEnergyTick((pts) => { /* could add flash animation */ });
     window.buddy.onUsageUpdate((state) => Farm.setUsage(state));
     window.buddy.onAchievementUnlocked((notif) => {
@@ -26,6 +32,17 @@
       for (const [, buddy] of buddyMap) {
         buddy.sm.celebrate();
       }
+    });
+    window.buddy.onPrestigeEvent((data) => {
+      // Generation advancement ceremony
+      console.log(`[Prestige] Gen ${data.fromGen} → ${data.toGen}: ${data.label}`);
+      Viewport.setWorldWidth(data.worldWidth);
+      // Celebrate all buddies
+      for (const [, buddy] of buddyMap) {
+        buddy.sm.celebrate();
+      }
+      // Show prestige notification
+      Farm.showPrestigeNotification(data);
     });
 
     window.buddy.onSetBuddies((list) => {

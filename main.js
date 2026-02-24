@@ -142,6 +142,11 @@ function reconcileSessions(activeSessions) {
             if (pts > 0 && win && !win.isDestroyed()) {
               win.webContents.send('farm-energy-tick', pts);
               win.webContents.send('farm-update', farm.getRendererState());
+              // Check for generation prestige event
+              const prestige = farm.popPrestigeEvent();
+              if (prestige) {
+                win.webContents.send('prestige-event', prestige);
+              }
             }
             // Buffer achievement events (flushed every 1s to reduce CPU)
             achievementEventBuffer.push({ evt, sessionPath: session.path });

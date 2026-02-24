@@ -76,6 +76,16 @@
       });
     }, 3000);
 
+    // Trigger a demo prestige notification after 7 seconds
+    setTimeout(() => {
+      Farm.showPrestigeNotification({
+        fromGen: 1,
+        toGen: 2,
+        label: 'Expansion',
+        worldWidth: 400,
+      });
+    }, 7000);
+
     // Mock usage state for preview
     Farm.setUsage({
       liveOutput: 12450,
@@ -149,7 +159,7 @@
       { name: 'anya', state: 'reading', detail: '' },
       { name: 'kisame', state: 'thinking', detail: '' },
       { name: 'churn', state: 'browsing', detail: '' },
-      { name: 'kaonashi', state: 'idle', detail: '' },
+      { name: 'kaonashi', state: 'celebrating', detail: '' },
       { name: 'steropes', state: 'tasking', detail: '' },
       { name: 'Dog', state: 'sleeping', detail: '' },
     ]);

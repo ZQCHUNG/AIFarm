@@ -73,6 +73,37 @@ const MILESTONES = [
   { energy: 10000, emoji: '\u{1F5FF}', label: 'Legend' },
 ];
 
+// Generation system — infinite growth beyond 10000 energy
+const GENERATIONS = [
+  { gen: 1, threshold: 0,     worldWidth: 200, label: 'The Beginning' },
+  { gen: 2, threshold: 10000, worldWidth: 400, label: 'Expansion' },
+  { gen: 3, threshold: 30000, worldWidth: 600, label: 'Industrialization' },
+  { gen: 4, threshold: 70000, worldWidth: 800, label: 'Prosperity' },
+];
+// Gen 5+ are procedurally generated: threshold += 50000 per gen, worldWidth += 200
+
+function getGeneration(totalEnergy) {
+  let gen = GENERATIONS[GENERATIONS.length - 1];
+  for (const g of GENERATIONS) {
+    if (totalEnergy >= g.threshold) gen = g;
+  }
+  // Procedural generations beyond the defined ones
+  const lastDefined = GENERATIONS[GENERATIONS.length - 1];
+  if (totalEnergy >= lastDefined.threshold) {
+    const beyond = totalEnergy - lastDefined.threshold;
+    const extraGens = Math.floor(beyond / 50000);
+    if (extraGens > 0) {
+      return {
+        gen: lastDefined.gen + extraGens,
+        threshold: lastDefined.threshold + extraGens * 50000,
+        worldWidth: lastDefined.worldWidth + extraGens * 200,
+        label: `Gen ${lastDefined.gen + extraGens}`,
+      };
+    }
+  }
+  return gen;
+}
+
 const SAVE_PATH = require('path').join(__dirname, 'farm-state.json');
 const AUTO_SAVE_INTERVAL = 30000; // 30 seconds
 
@@ -87,6 +118,8 @@ module.exports = {
   ANIMALS,
   BUILDINGS,
   MILESTONES,
+  GENERATIONS,
+  getGeneration,
   SAVE_PATH,
   AUTO_SAVE_INTERVAL,
 };

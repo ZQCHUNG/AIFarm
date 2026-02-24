@@ -220,9 +220,53 @@ const Character = (() => {
 
   // ====== Public API ======
 
+  // ====== Celebrating pose (standing, arms up, particles) ======
+
+  const CELEBRATE = [
+    '..hhhh..',
+    '.hhhhhh.',
+    '.Hssss..',
+    '.sweswe.',
+    '.bssssb.',
+    '..smms..',
+    '...ss...',
+    '.oooooo.',
+    'soooooos',
+    'OooooooO',
+    '.pppppp.',
+    '.pp..pp.',
+    '.xx..xx.',
+  ];
+
+  function drawCelebrating(ctx, sx, frame, tick, hc) {
+    const map = makeMap(hc.o, hc.O);
+    const gy = Scene.GROUND_Y;
+    const cx = sx + 6;
+    const cy = gy - 12;
+    drawSprite(ctx, cx, cy, CELEBRATE, map);
+
+    // Arms raised!
+    const wave = ((tick / 6) | 0) % 2;
+    px(ctx, cx - 1, cy + 6 - wave, P.skin);
+    px(ctx, cx - 1, cy + 5 - wave, P.skin);
+    px(ctx, cx + 8, cy + 6 - wave, P.skin);
+    px(ctx, cx + 8, cy + 5 - wave, P.skin);
+
+    // Mini confetti particles around the character
+    const colors = ['#FFD700', '#FF6B8A', '#4A90D9', '#6AB04C', '#DA70D6'];
+    for (let i = 0; i < 4; i++) {
+      const px_x = cx + Math.sin(tick * 0.15 + i * 1.8) * 6;
+      const px_y = cy - 2 + Math.cos(tick * 0.12 + i * 2.3) * 4;
+      px(ctx, Math.round(px_x), Math.round(px_y), colors[i % colors.length]);
+    }
+  }
+
+  // ====== Public API ======
+
   function draw(ctx, slotX, state, frame, tick, colorIndex) {
     const hc = getHoodie(colorIndex || 0);
     if (state === 'sleeping') drawSleeping(ctx, slotX, frame, tick, hc);
+    else if (state === 'celebrating') drawCelebrating(ctx, slotX, frame, tick, hc);
     else if (state === 'idle') drawIdle(ctx, slotX, frame, tick, hc);
     else drawWorking(ctx, slotX, state, frame, tick, hc);
   }

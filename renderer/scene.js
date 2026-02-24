@@ -10,16 +10,26 @@ const Scene = (() => {
 
   // ===== Shared background (drawn once across full width) =====
 
+  // Parallax rates: 0 = fixed, 1 = full camera speed
+  const PARALLAX_SKY = 0;       // sky doesn't move
+  const PARALLAX_CLOUDS = 0.1;  // clouds drift very slowly with camera
+  const PARALLAX_FAR_HILLS = 0.2;
+  const PARALLAX_NEAR_HILLS = 0.35;
+  const PARALLAX_GROUND = 0;    // village ground is fixed with buddies
+
   function drawBackground(ctx, canvasW, tick) {
     const logW = Math.ceil(canvasW / PX);
     const logH = 117;
 
-    // Sky
+    // Get camera offset for parallax (0 when Viewport not loaded)
+    const camX = (typeof Viewport !== 'undefined') ? Viewport.getCameraX() : 0;
+
+    // Sky (fixed — no parallax)
     rect(ctx, 0, 0, logW, 32, '#7EC8E3');
     rect(ctx, 0, 32, logW, 4, '#A8DCF0');
     rect(ctx, 0, 36, logW, 2, '#C4E8F6');
 
-    // Sun
+    // Sun (fixed)
     const sx = logW - 12, sy = 6;
     for (let dy = -3; dy <= 3; dy++)
       for (let dx = -3; dx <= 3; dx++) {
@@ -30,24 +40,33 @@ const Scene = (() => {
       px(ctx, sx, sy-4, '#FFF0A0'); px(ctx, sx-4, sy, '#FFF0A0'); px(ctx, sx+4, sy, '#FFF0A0');
     }
 
-    // Clouds
+    // Clouds (very slow parallax + drift animation)
+    const cloudOffset = Math.round(camX * PARALLAX_CLOUDS);
     const drift = (tick * 0.015) | 0;
     const cloudW = logW + 20;
-    drawCloud(ctx, ((15 + drift) % cloudW) - 10, 8);
-    drawCloud(ctx, ((Math.floor(cloudW * 0.45) + drift) % cloudW) - 10, 14);
-    drawCloud(ctx, ((Math.floor(cloudW * 0.75) + drift) % cloudW) - 10, 10);
+    drawCloud(ctx, ((15 + drift - cloudOffset) % cloudW + cloudW) % cloudW - 10, 8);
+    drawCloud(ctx, ((Math.floor(cloudW * 0.45) + drift - cloudOffset) % cloudW + cloudW) % cloudW - 10, 14);
+    drawCloud(ctx, ((Math.floor(cloudW * 0.75) + drift - cloudOffset) % cloudW + cloudW) % cloudW - 10, 10);
 
-    // Hills
+    // Far hills (slow parallax)
+    const farOffset = Math.round(camX * PARALLAX_FAR_HILLS);
     for (let x = 0; x < logW; x++) {
-      const h1 = Math.sin(x * 0.05) * 3 + Math.sin(x * 0.11) * 1.5 + 4;
+      const wx = x + farOffset; // world-space x for wave calculation
+      const h1 = Math.sin(wx * 0.05) * 3 + Math.sin(wx * 0.11) * 1.5 + 4;
       const top1 = 34 - (h1 | 0);
       for (let y = top1; y < 38; y++) px(ctx, x, y, y === top1 ? '#8CD47E' : '#72C464');
-      const h2 = Math.sin(x * 0.08 + 1) * 2.5 + Math.cos(x * 0.04) * 1.5 + 3;
+    }
+
+    // Near hills (medium parallax)
+    const nearOffset = Math.round(camX * PARALLAX_NEAR_HILLS);
+    for (let x = 0; x < logW; x++) {
+      const wx = x + nearOffset;
+      const h2 = Math.sin(wx * 0.08 + 1) * 2.5 + Math.cos(wx * 0.04) * 1.5 + 3;
       const top2 = 38 - (h2 | 0);
       for (let y = top2; y < GROUND_Y; y++) px(ctx, x, y, y === top2 ? '#6ABD55' : '#5AAE45');
     }
 
-    // Ground (village area only — farm extends below)
+    // Ground (village area — fixed, no parallax)
     rect(ctx, 0, GROUND_Y, logW, 10, '#4EA040');
     rect(ctx, 0, GROUND_Y, logW, 1, '#5DB84E');
 

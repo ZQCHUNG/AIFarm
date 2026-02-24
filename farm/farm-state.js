@@ -26,6 +26,7 @@ class FarmState {
       buildings: {},
       unlockedCrops: [],
       milestoneReached: 0,
+      currentGeneration: 1,
     };
   }
 
@@ -93,6 +94,7 @@ class FarmState {
     }
 
     this._checkMilestones();
+    this._checkGeneration();
     this._processGrowth();
     this._dirty = true;
 
@@ -145,6 +147,29 @@ class FarmState {
         this.state.milestoneReached = Math.max(this.state.milestoneReached, ms.energy);
       }
     }
+  }
+
+  _checkGeneration() {
+    const gen = cfg.getGeneration(this.state.totalEnergy);
+    if (gen.gen > this.state.currentGeneration) {
+      const oldGen = this.state.currentGeneration;
+      this.state.currentGeneration = gen.gen;
+      console.log(`[Farm] GENERATION UP! ${oldGen} → ${gen.gen}: ${gen.label}`);
+      // Emit prestige event (will be sent to renderer via IPC)
+      this._pendingPrestige = {
+        fromGen: oldGen,
+        toGen: gen.gen,
+        label: gen.label,
+        worldWidth: gen.worldWidth,
+      };
+    }
+  }
+
+  // Pop pending prestige event (called by main.js)
+  popPrestigeEvent() {
+    const evt = this._pendingPrestige;
+    this._pendingPrestige = null;
+    return evt;
   }
 
   _processGrowth() {
@@ -234,6 +259,8 @@ class FarmState {
       buildings: this.state.buildings,
       unlockedCrops: this.state.unlockedCrops,
       milestoneReached: this.state.milestoneReached,
+      currentGeneration: this.state.currentGeneration,
+      worldWidth: cfg.getGeneration(this.state.totalEnergy).worldWidth,
       totalHarvests: this.state.stats.totalHarvests,
       achievements: this.achievements.getRendererState(),
     };
