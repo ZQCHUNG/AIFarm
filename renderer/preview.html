@@ -15,6 +15,7 @@
   <script src="viewport.js"></script>
   <script src="farm.js"></script>
   <script src="character.js"></script>
+  <script src="train.js"></script>
   <script src="state-machine.js"></script>
   <script>
     // Mock farm state for preview
@@ -86,6 +87,16 @@
       });
     }, 7000);
 
+    // Activate train station and trigger demo arrival after 2 seconds
+    Train.setStationBuilt(true);
+    setTimeout(() => {
+      Train.queueArrival('newcomer', 3);
+    }, 2000);
+    // Second train at 10 seconds
+    setTimeout(() => {
+      Train.queueArrival('latecomer', 5);
+    }, 10000);
+
     // Mock usage state for preview
     Farm.setUsage({
       liveOutput: 12450,
@@ -131,6 +142,8 @@
         ctx.clearRect(0, 0, baseW, baseH);
         Scene.drawBackground(ctx, baseW, t);
         Farm.drawFarm(ctx, baseW, t);
+        Train.update(t);
+        Train.draw(ctx, Math.ceil(baseW / Scene.PX), t);
 
         const logW = Math.ceil(baseW / Scene.PX);
         const usable = logW - margin * 2;

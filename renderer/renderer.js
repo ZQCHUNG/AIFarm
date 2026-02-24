@@ -59,6 +59,10 @@
       list.forEach((b, i) => {
         if (!buddyMap.has(b.id)) {
           buddyMap.set(b.id, { sm: new StateMachine(), project: b.project, colorIndex: b.colorIndex, slotIndex: i });
+          // Queue train arrival animation for new buddy
+          if (typeof Train !== 'undefined') {
+            Train.queueArrival(b.project, b.colorIndex);
+          }
         } else {
           const existing = buddyMap.get(b.id);
           existing.project = b.project;
@@ -112,6 +116,14 @@
     // Update viewport camera
     Viewport.update(tick);
 
+    // Update train animations
+    if (typeof Train !== 'undefined') {
+      // Activate station once farm has enough energy (500+ = first animals)
+      const fs = Farm.getState();
+      Train.setStationBuilt(fs && (fs.totalEnergy || 0) >= 200);
+      Train.update(tick);
+    }
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // 1. Shared background (sky, hills) — fixed, no camera offset
@@ -120,6 +132,11 @@
     // 1.5 Farm layers — scrolls with camera
     Viewport.applyTransform(ctx);
     Farm.drawFarm(ctx, canvas.width, tick);
+    // 1.6 Train station & train — also in world space
+    if (typeof Train !== 'undefined') {
+      const logW = Math.ceil(canvas.width / Scene.PX);
+      Train.draw(ctx, logW, tick);
+    }
     Viewport.restoreTransform(ctx);
 
     // 2. Per-buddy: station + character + nameplate — fixed (village area)
