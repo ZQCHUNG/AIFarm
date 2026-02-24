@@ -49,6 +49,9 @@ const IsoFarm = (() => {
     [0,14],[15,14],[8,0],[9,0],
   ];
 
+  // Hoodie color names matching SPRITE_CONFIG and Character.HOODIE_COLORS order
+  const HOODIE_COLOR_NAMES = ['blue', 'red', 'green', 'purple', 'orange', 'teal', 'pink', 'yellow'];
+
   // Crop colors matching farm.js
   const CROP_COLORS = {
     carrot:     '#FF8C00',
@@ -175,8 +178,17 @@ const IsoFarm = (() => {
       if (plot.crop && plot.stage > 0) {
         const color = CROP_COLORS[plot.crop] || '#5AAE45';
         const stage = plot.stage;
+        const cropSpriteId = `crop_${plot.crop}`;
         const ent = IsoEntityManager.add(IsoEntityManager.createStatic(pos.col, pos.row,
-          (ctx, sx, sy, tick) => IsoEngine.drawIsoCrop(ctx, sx, sy, stage, color, tick)
+          (ctx, sx, sy, tick) => {
+            // Try sprite-based crop rendering (variant = stage - 1 for 0-indexed)
+            if (typeof SpriteManager !== 'undefined' && SpriteManager.has(cropSpriteId)) {
+              SpriteManager.drawStatic(ctx, cropSpriteId, sx, sy, Math.min(stage - 1, 3));
+            } else {
+              IsoEngine.drawIsoCrop(ctx, sx, sy, stage, color, tick);
+            }
+          },
+          { spriteId: null } // draw fn handles sprite check internally
         ));
         cropEntities.push(ent);
       }
@@ -248,11 +260,13 @@ const IsoFarm = (() => {
       const hoodieColors = ['#5B8DD9','#E8734A','#6AB04C','#9B59B6','#F39C12','#1ABC9C','#E84393','#F1C40F'];
       const color = hoodieColors[colorIndex % hoodieColors.length];
 
+      const colorName = HOODIE_COLOR_NAMES[colorIndex % HOODIE_COLOR_NAMES.length];
       const ent = IsoEntityManager.add(IsoEntityManager.createCharacter(
         Math.min(slotCol, MAP_W - 2), 7, {
           hoodieColor: color,
           name: project,
           direction: 'down',
+          spriteId: `char_${colorName}`,
         }
       ));
       buddyEntities.set(sessionId, ent);
@@ -269,6 +283,15 @@ const IsoFarm = (() => {
   // ===== Procedural iso building drawing =====
 
   function drawIsoBuilding(ctx, sx, sy, type, tick) {
+    // Try sprite-based rendering first
+    const spriteId = `building_${type}`;
+    if (typeof SpriteManager !== 'undefined' && SpriteManager.has(spriteId)) {
+      SpriteManager.drawStatic(ctx, spriteId, sx, sy);
+      // Still draw animated overlays for windmill/clock on top of sprite
+      if (type === 'windmill') drawWindmillBlades(ctx, sx, sy, tick);
+      return;
+    }
+    // Procedural fallback
     switch (type) {
       case 'well':     drawIsoWell(ctx, sx, sy, tick); break;
       case 'barn':     drawIsoBarn(ctx, sx, sy, tick); break;
@@ -278,6 +301,22 @@ const IsoFarm = (() => {
       case 'townhall': drawIsoTownhall(ctx, sx, sy, tick); break;
       case 'statue':   drawIsoStatue(ctx, sx, sy, tick); break;
     }
+  }
+
+  function drawWindmillBlades(ctx, sx, sy, tick) {
+    const angle = (tick * 0.03) % (Math.PI * 2);
+    const bladeLen = 14;
+    ctx.save();
+    ctx.strokeStyle = '#8B6B3E';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 4; i++) {
+      const a = angle + i * Math.PI / 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy - 20);
+      ctx.lineTo(sx + Math.cos(a) * bladeLen, sy - 20 + Math.sin(a) * bladeLen);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   function drawIsoWell(ctx, sx, sy, tick) {

@@ -13,6 +13,20 @@
   // View mode: 'classic' or 'iso'
   let viewMode = 'classic';
 
+  // Load sprites (async, graceful fallback to procedural rendering)
+  let spritesLoaded = false;
+  if (typeof SpriteManager !== 'undefined') {
+    SpriteManager.loadAllFromConfig('.').then(({ loaded, failed }) => {
+      spritesLoaded = loaded.length > 0;
+      if (loaded.length > 0) {
+        console.log(`[Sprites] Loaded ${loaded.length} sprites:`, loaded);
+      }
+      if (failed.length > 0) {
+        console.log(`[Sprites] ${failed.length} sprites not found (using procedural fallback)`);
+      }
+    });
+  }
+
   // Buddy registry: Map<sessionId, { sm: StateMachine, project: string, slotIndex: number }>
   const buddyMap = new Map();
   let buddyOrder = []; // ordered list of session IDs

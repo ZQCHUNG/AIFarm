@@ -81,7 +81,7 @@ const IsoEntityManager = (() => {
       // Visual
       direction: 'down',
       frame: 0,
-      spriteId: `animal-${type}`,
+      spriteId: `animal_${type}`,
       // Z-axis jump animation
       jumpZ: 0,
       jumpVelocity: 0,
