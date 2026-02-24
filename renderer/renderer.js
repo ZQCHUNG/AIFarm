@@ -1,4 +1,5 @@
 // Unified village renderer — all buddies in one panoramic scene.
+// Supports two view modes: classic (2D side-view) and iso (2.5D isometric).
 (function () {
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
@@ -8,6 +9,9 @@
   const BLINK_INTERVAL = 200;
   const BLINK_DURATION = 8;
   const SLOT_W = Scene.SLOT_W; // logical slot width (matches main.js SLOT_W / PX... roughly 40)
+
+  // View mode: 'classic' or 'iso'
+  let viewMode = 'classic';
 
   // Buddy registry: Map<sessionId, { sm: StateMachine, project: string, slotIndex: number }>
   const buddyMap = new Map();
@@ -93,16 +97,39 @@
     canvas.addEventListener('mouseleave', () => {
       window.buddy.setIgnoreMouseEvents(true, { forward: true });
     });
+
+    // Iso mode: mouse wheel zoom
+    canvas.addEventListener('wheel', (e) => {
+      if (viewMode !== 'iso' || typeof IsoEngine === 'undefined') return;
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const delta = e.deltaY < 0 ? 1 : -1;
+      IsoEngine.zoom(delta, mx / IsoEngine.getZoom(), my / IsoEngine.getZoom());
+    }, { passive: false });
   }
 
-  // Keyboard handler for debug pan mode
+  // Keyboard handler for debug pan mode and view toggle
+  const isoKeys = {};
   document.addEventListener('keydown', (e) => {
+    isoKeys[e.key] = true;
     // Ctrl+Shift+D toggles debug camera pan
     if (e.ctrlKey && e.shiftKey && e.key === 'D') {
       const active = Viewport.toggleDebugPan();
       console.log('[Viewport] Debug pan:', active ? 'ON' : 'OFF');
     }
+    // Ctrl+Shift+I toggles iso/classic view
+    if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+      viewMode = viewMode === 'classic' ? 'iso' : 'classic';
+      console.log('[Renderer] View mode:', viewMode);
+      if (viewMode === 'iso' && typeof IsoFarm !== 'undefined') {
+        IsoFarm.init();
+        IsoFarm.syncState();
+      }
+    }
   });
+  document.addEventListener('keyup', (e) => { isoKeys[e.key] = false; });
 
   function getAnimFrame(state) {
     if (state === 'celebrating') return 0; // stand facing camera
@@ -114,12 +141,23 @@
   function loop() {
     tick++;
 
+    if (viewMode === 'iso') {
+      loopIso();
+    } else {
+      loopClassic();
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  // ===== Classic 2D side-view rendering =====
+
+  function loopClassic() {
     // Update viewport camera
     Viewport.update(tick);
 
     // Update train animations
     if (typeof Train !== 'undefined') {
-      // Activate station once farm has enough energy (500+ = first animals)
       const fs = Farm.getState();
       Train.setStationBuilt(fs && (fs.totalEnergy || 0) >= 200);
       Train.update(tick);
@@ -178,8 +216,68 @@
         SpeechBubble.draw(ctx, detail, bubbleCX, bubbleBottom);
       }
     }
+  }
 
-    requestAnimationFrame(loop);
+  // ===== Isometric 2.5D rendering =====
+
+  function loopIso() {
+    if (typeof IsoFarm === 'undefined' || typeof IsoEngine === 'undefined' || typeof IsoEntityManager === 'undefined') {
+      // Fallback to classic if iso modules not loaded
+      loopClassic();
+      return;
+    }
+
+    // Initialize iso world on first frame
+    IsoFarm.init();
+
+    // Sync farm state → iso entities
+    IsoFarm.syncState();
+
+    // Sync buddies → iso characters
+    for (const [id, buddy] of buddyMap) {
+      IsoFarm.syncBuddy(id, buddy.project, buddy.colorIndex || 0, buddy.sm.state);
+    }
+
+    // Camera panning (arrow keys)
+    const PAN_SPEED = 3;
+    if (isoKeys['ArrowLeft']) IsoEngine.moveCamera(PAN_SPEED, 0);
+    if (isoKeys['ArrowRight']) IsoEngine.moveCamera(-PAN_SPEED, 0);
+    if (isoKeys['ArrowUp']) IsoEngine.moveCamera(0, PAN_SPEED);
+    if (isoKeys['ArrowDown']) IsoEngine.moveCamera(0, -PAN_SPEED);
+
+    // Update entity manager (AI, paths, screen positions)
+    IsoEntityManager.update(tick);
+    IsoEntityManager.syncToEngine();
+
+    // Clear canvas
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Sky gradient
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.4);
+    skyGrad.addColorStop(0, '#87CEEB');
+    skyGrad.addColorStop(1, '#E0F0FF');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height * 0.4);
+
+    // Ground fill
+    ctx.fillStyle = '#4A7A3A';
+    ctx.fillRect(0, canvas.height * 0.35, canvas.width, canvas.height * 0.65);
+
+    // Render isometric map with all entities
+    IsoEngine.drawMap(ctx, canvas.width, canvas.height, tick);
+
+    // HUD overlay
+    IsoFarm.drawHUD(ctx, canvas.width, canvas.height, tick);
+
+    // View mode indicator
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(8, canvas.height - 24, 120, 18);
+    ctx.fillStyle = '#6CB0E8';
+    ctx.font = '10px monospace';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillText('ISO 2.5D [Ctrl+Shift+I]', 14, canvas.height - 15);
   }
 
   requestAnimationFrame(loop);
