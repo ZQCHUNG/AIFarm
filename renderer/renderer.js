@@ -82,6 +82,9 @@
           if (typeof Train !== 'undefined') {
             Train.queueArrival(b.project, b.colorIndex);
           }
+          if (typeof IsoTrain !== 'undefined') {
+            IsoTrain.queueArrival(b.project, b.colorIndex);
+          }
         } else {
           const existing = buddyMap.get(b.id);
           existing.project = b.project;
@@ -110,6 +113,7 @@
     });
     canvas.addEventListener('mouseleave', () => {
       window.buddy.setIgnoreMouseEvents(true, { forward: true });
+      if (typeof IsoEngine !== 'undefined') IsoEngine.setHoverTile(-1, -1);
     });
 
     // Iso mode: mouse wheel zoom
@@ -122,6 +126,31 @@
       const delta = e.deltaY < 0 ? 1 : -1;
       IsoEngine.zoom(delta, mx / IsoEngine.getZoom(), my / IsoEngine.getZoom());
     }, { passive: false });
+
+    // Iso mode: mouse move for tile hover highlight
+    canvas.addEventListener('mousemove', isoMouseHandler);
+    canvas.addEventListener('click', isoClickHandler);
+  }
+
+  function isoMouseHandler(e) {
+    if (viewMode !== 'iso' || typeof IsoEngine === 'undefined') return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const grid = IsoEngine.mouseToGrid(mx, my);
+    IsoEngine.setHoverTile(grid.col, grid.row);
+  }
+
+  function isoClickHandler(e) {
+    if (viewMode !== 'iso' || typeof IsoEngine === 'undefined') return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const grid = IsoEngine.mouseToGrid(mx, my);
+    const tile = IsoEngine.getTile(grid.col, grid.row);
+    if (tile) {
+      console.log(`[Iso] Click: (${grid.col}, ${grid.row}) = ${tile}`);
+    }
   }
 
   // Keyboard handler for debug pan mode and view toggle
@@ -259,6 +288,13 @@
     if (isoKeys['ArrowUp']) IsoEngine.moveCamera(0, PAN_SPEED);
     if (isoKeys['ArrowDown']) IsoEngine.moveCamera(0, -PAN_SPEED);
 
+    // Update iso train
+    if (typeof IsoTrain !== 'undefined') {
+      const fs = Farm.getState();
+      IsoTrain.setStationBuilt(fs && (fs.totalEnergy || 0) >= 200);
+      IsoTrain.update(tick);
+    }
+
     // Update entity manager (AI, paths, screen positions)
     IsoEntityManager.update(tick);
     IsoEntityManager.syncToEngine();
@@ -278,8 +314,30 @@
     ctx.fillStyle = '#4A7A3A';
     ctx.fillRect(0, canvas.height * 0.35, canvas.width, canvas.height * 0.65);
 
+    // Update weather particles
+    if (typeof IsoWeather !== 'undefined') {
+      const vibe = (typeof Farm !== 'undefined') ? Farm.getVibe() : null;
+      if (vibe) {
+        IsoWeather.setMood(vibe.mood, vibe.vibeScore || 0);
+      }
+      IsoWeather.update(tick, canvas.width, canvas.height);
+    }
+
     // Render isometric map with all entities
     IsoEngine.drawMap(ctx, canvas.width, canvas.height, tick);
+
+    // Iso train (drawn after map, before HUD)
+    if (typeof IsoTrain !== 'undefined') {
+      ctx.save();
+      ctx.scale(IsoEngine.getZoom(), IsoEngine.getZoom());
+      IsoTrain.draw(ctx, tick);
+      ctx.restore();
+    }
+
+    // Weather particles (drawn over map, under HUD)
+    if (typeof IsoWeather !== 'undefined') {
+      IsoWeather.draw(ctx, canvas.width, canvas.height, tick);
+    }
 
     // HUD overlay
     IsoFarm.drawHUD(ctx, canvas.width, canvas.height, tick);

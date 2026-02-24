@@ -19,6 +19,10 @@ const IsoEngine = (() => {
   const ZOOM_MAX = 3.0;
   const ZOOM_SPEED = 0.1;
 
+  // Hover state for mouse picking
+  let hoverCol = -1;
+  let hoverRow = -1;
+
   // Entities to render (sorted by depth each frame)
   let entities = [];
 
@@ -51,6 +55,36 @@ const IsoEngine = (() => {
     const col = (rx / (TILE_W / 2) + ry / (TILE_H / 2)) / 2;
     const row = (ry / (TILE_H / 2) - rx / (TILE_W / 2)) / 2;
     return { col: Math.round(col), row: Math.round(row) };
+  }
+
+  /**
+   * Convert screen-space mouse coordinates to grid, accounting for zoom.
+   * @param {number} mouseX - Mouse X relative to canvas
+   * @param {number} mouseY - Mouse Y relative to canvas
+   * @returns {{ col: number, row: number }}
+   */
+  function mouseToGrid(mouseX, mouseY) {
+    // Undo zoom to get world-space coordinates
+    const wx = mouseX / camZoom;
+    const wy = mouseY / camZoom;
+    return screenToGrid(wx, wy);
+  }
+
+  /**
+   * Set the currently hovered tile (for highlight rendering).
+   */
+  function setHoverTile(col, row) {
+    if (col >= 0 && col < mapWidth && row >= 0 && row < mapHeight) {
+      hoverCol = col;
+      hoverRow = row;
+    } else {
+      hoverCol = -1;
+      hoverRow = -1;
+    }
+  }
+
+  function getHoverTile() {
+    return { col: hoverCol, row: hoverRow };
   }
 
   // Depth key for sorting (higher row = drawn later = in front)
@@ -282,6 +316,27 @@ const IsoEngine = (() => {
     ctx.fill();
   }
 
+  function drawTileHighlight(ctx, sx, sy, tick) {
+    const hw = TILE_W / 2;
+    const hh = TILE_H / 2;
+    const pulse = 0.3 + Math.sin(tick * 0.1) * 0.15;
+
+    // Diamond outline
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - hh);
+    ctx.lineTo(sx + hw, sy);
+    ctx.lineTo(sx, sy + hh);
+    ctx.lineTo(sx - hw, sy);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(255, 255, 200, ${pulse})`;
+    ctx.fill();
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+  }
+
   function drawMap(ctx, canvasW, canvasH, tick) {
     if (!tileMap) return;
 
@@ -334,6 +389,10 @@ const IsoEngine = (() => {
       if (item.type === 'tile') {
         drawTile(ctx, item.x, item.y, tileMap[item.row][item.col], tick);
         drawTileTransitions(ctx, item.x, item.y, item.col, item.row);
+        // Hover highlight
+        if (item.col === hoverCol && item.row === hoverRow) {
+          drawTileHighlight(ctx, item.x, item.y, tick);
+        }
       } else if (item.type === 'entity') {
         const ent = item.entity;
         // Try sprite-based rendering first
@@ -519,5 +578,8 @@ const IsoEngine = (() => {
     drawIsoTree,
     drawIsoCharacter,
     drawIsoCrop,
+    mouseToGrid,
+    setHoverTile,
+    getHoverTile,
   };
 })();
