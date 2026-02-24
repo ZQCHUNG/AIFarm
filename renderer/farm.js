@@ -320,29 +320,100 @@ const Farm = (() => {
     }
   }
 
-  // ===== Animals =====
+  // ===== Animals (AI-driven) =====
 
-  function drawAnimals(ctx, logW, tick) {
+  // Persistent animal AI instances (created on first drawAnimals call or state change)
+  let animalInstances = [];  // array of AnimalAI animal objects
+  let animalsDirty = true;   // flag to rebuild instances when farmState changes
+
+  const _origSetState = setState;
+  setState = function(s) {
+    _origSetState(s);
+    animalsDirty = true; // rebuild AI instances when state changes
+  };
+
+  function ensureAnimalInstances(logW) {
+    if (!animalsDirty && animalInstances.length > 0) return;
     if (!farmState || !farmState.animals) return;
+    if (typeof AnimalAI === 'undefined') return;
 
     const animalTypes = ['chicken', 'cow', 'pig', 'sheep', 'cat', 'dog'];
-    let idx = 0;
+    const existing = new Map(animalInstances.map(a => [a.type, a]));
+    const newInstances = [];
 
+    let idx = 0;
     for (const type of animalTypes) {
       const info = farmState.animals[type];
       if (!info || !info.unlocked) continue;
 
-      // Movement: slow wander back and forth
-      const speed = type === 'dog' ? 0.04 : type === 'cat' ? 0.01 : 0.02;
-      const range = logW - 15;
-      const baseX = info.homeX || (10 + idx * 15);
-      const wander = Math.sin(tick * speed + idx * 2.5) * 15;
-      const ax = Math.max(3, Math.min(range, baseX + wander));
-      const ay = PASTURE_Y + 2 + (idx % 3) * 3;
-      const frame = ((tick / 20) | 0) % 2;
-
-      drawAnimalSprite(ctx, Math.floor(ax), ay, type, frame, tick);
+      // Reuse existing instance if available (preserves position/state)
+      if (existing.has(type)) {
+        const a = existing.get(type);
+        a.worldMaxX = logW - 8;
+        newInstances.push(a);
+      } else {
+        const homeX = info.homeX || (10 + idx * 15);
+        const a = AnimalAI.createAnimal(type, homeX, 3, logW - 8);
+        newInstances.push(a);
+      }
       idx++;
+    }
+
+    animalInstances = newInstances;
+    animalsDirty = false;
+  }
+
+  function drawAnimals(ctx, logW, tick) {
+    if (!farmState || !farmState.animals) return;
+
+    // Ensure AI instances are created/synced
+    ensureAnimalInstances(logW);
+
+    // Get vibe mood for AI reactions
+    const animalMood = (vibeState && vibeState.atmosphere && vibeState.atmosphere.animalMood) || 'calm';
+
+    // Update social distances for flocking/huddling
+    if (typeof AnimalAI !== 'undefined' && animalInstances.length > 1) {
+      AnimalAI.updateSocial(animalInstances);
+    }
+
+    // Update and draw each animal
+    for (let i = 0; i < animalInstances.length; i++) {
+      const animal = animalInstances[i];
+
+      // Run behavior tree
+      if (typeof AnimalAI !== 'undefined') {
+        AnimalAI.update(animal, animalMood, tick);
+      }
+
+      // Map AI position to screen Y (stagger rows)
+      const ay = PASTURE_Y + 2 + (i % 3) * 3;
+
+      // Draw state indicator (small dot above animal for debugging — remove later)
+      // Resting animals get a ZZZ effect
+      if (animal.state === 'rest') {
+        const zzz = ((tick / 20) | 0) % 3;
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.font = '6px monospace';
+        ctx.fillText('z', Math.floor(animal.x) * PX + 4 + zzz * 2, (ay - 1) * PX);
+      }
+
+      // Playing animals get sparkles
+      if (animal.state === 'react' && animal.reactBehavior === 'play') {
+        const sparkX = Math.floor(animal.x) * PX + Math.sin(tick * 0.3 + i) * 4;
+        const sparkY = (ay - 1) * PX + Math.cos(tick * 0.2 + i) * 2;
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(sparkX, sparkY, 2, 2);
+      }
+
+      // Sheltering animals get rain drop hint
+      if (animal.state === 'react' && animal.reactBehavior === 'shelter') {
+        const dropY = (ay - 2) * PX + (tick % 8);
+        ctx.fillStyle = 'rgba(100,150,220,0.5)';
+        ctx.fillRect(Math.floor(animal.x) * PX + 3, dropY, 1, 2);
+      }
+
+      drawAnimalSprite(ctx, Math.floor(animal.x), ay, animal.type, animal.frame, tick);
     }
   }
 
