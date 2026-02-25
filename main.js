@@ -117,6 +117,16 @@ function reconcileSessions(activeSessions) {
     const timedOut = (now - buddy.lastDataTime) > INACTIVE_TIMEOUT;
     if (!activePaths.has(sp) || timedOut) {
       console.log('[Claude Buddy] -', buddy.project, timedOut ? '(inactive)' : '(old)');
+      // Record session for NPC history
+      const duration = now - (buddy.startTime || buddy.lastDataTime);
+      farm.recordSession({
+        id: sp,
+        project: buddy.project,
+        startTime: buddy.startTime || (now - duration),
+        endTime: now,
+        duration,
+        colorIndex: buddy.colorIndex || 0,
+      });
       buddy.tailer.stop();
       farm.achievements.removeSession(sp);
       buddies.delete(sp);
@@ -135,6 +145,8 @@ function reconcileSessions(activeSessions) {
         tailer,
         project: session.project,
         lastDataTime: now, // assume alive on discovery
+        startTime: now,    // track session start for NPC history
+        colorIndex: 0,     // assigned later in sendBuddyList
       };
 
       tailer.start((entries) => {
@@ -191,7 +203,12 @@ function reconcileSessions(activeSessions) {
 function sendBuddyList(activeSessions) {
   const list = (activeSessions || [])
     .filter(s => buddies.has(s.path))
-    .map((s, i) => ({ id: s.path, project: s.project, colorIndex: i }));
+    .map((s, i) => {
+      // Store colorIndex on buddy for NPC history recording
+      const buddy = buddies.get(s.path);
+      if (buddy) buddy.colorIndex = i;
+      return { id: s.path, project: s.project, colorIndex: i };
+    });
   if (win && !win.isDestroyed()) {
     win.webContents.send('set-buddies', list);
   }

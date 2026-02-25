@@ -50,11 +50,20 @@
     ResourceInventory.setupListeners();
   }
 
+  // Initialize resource popup sprites (fly-to-HUD on harvest)
+  if (typeof IsoEffects !== 'undefined' && IsoEffects.setupResourceListeners) {
+    IsoEffects.setupResourceListeners();
+  }
+
   if (window.buddy) {
     window.buddy.onFarmUpdate((state) => {
       Farm.setState(state);
       if (state && state.worldWidth) {
         Viewport.setWorldWidth(state.worldWidth);
+      }
+      // Initialize NPCs from session history
+      if (state && state.sessionHistory && typeof NPCManager !== 'undefined') {
+        NPCManager.init(state.sessionHistory);
       }
     });
     window.buddy.onFarmEnergyTick((pts) => { /* could add flash animation */ });
@@ -174,6 +183,10 @@
     if (typeof IsoUI !== 'undefined' && IsoUI.handleClick(grid.col, grid.row)) {
       return;
     }
+    // NPC click handler
+    if (typeof NPCManager !== 'undefined' && NPCManager.handleClick(grid.col, grid.row, tick)) {
+      return;
+    }
     // Tile click available for future interactions
   }
 
@@ -181,11 +194,19 @@
   const keys = {};
   document.addEventListener('keydown', (e) => {
     keys[e.key] = true;
-    // Shipping bin sell action (E key)
+    // Shop/sell action (E key) — shop takes priority over shipping bin
     if ((e.key === 'e' || e.key === 'E') && !e.ctrlKey && !e.shiftKey) {
-      if (typeof IsoFarm !== 'undefined' && IsoFarm.sellAllCrops) {
+      if (typeof ShopUI !== 'undefined' && ShopUI.isOpen()) {
+        ShopUI.handleKey(e.key, tick);
+      } else if (typeof ShopUI !== 'undefined' && ShopUI.isNearShop()) {
+        ShopUI.open();
+      } else if (typeof IsoFarm !== 'undefined' && IsoFarm.sellAllCrops) {
         IsoFarm.sellAllCrops(tick);
       }
+    }
+    // Forward other keys to shop modal when open
+    if (typeof ShopUI !== 'undefined' && ShopUI.isOpen()) {
+      if (ShopUI.handleKey(e.key, tick)) return;
     }
     if (e.ctrlKey && e.shiftKey && e.key === 'D') {
       const active = Viewport.toggleDebugPan();
@@ -305,7 +326,8 @@
     IsoFarm.updateStartupAnimation();
 
     // Player control + camera follow (replaces manual arrow-key panning)
-    const modalLock = typeof IsoUI !== 'undefined' && IsoUI.isOpen();
+    const modalLock = (typeof IsoUI !== 'undefined' && IsoUI.isOpen())
+      || (typeof ShopUI !== 'undefined' && ShopUI.isOpen());
     if (typeof Player !== 'undefined') {
       // Initialize player once at farm center (col 9, row 7)
       if (!playerInited) {
@@ -358,6 +380,11 @@
     // Update buddy AI (farming/tending behavior)
     if (typeof BuddyAI !== 'undefined') {
       BuddyAI.update(tick);
+    }
+
+    // Update NPC AI (historical session characters)
+    if (typeof NPCManager !== 'undefined') {
+      NPCManager.update(tick);
     }
 
     // Update entity manager
@@ -417,10 +444,26 @@
     // HUD (Harvest Moon style)
     IsoFarm.drawHUD(ctx, canvas.width, canvas.height, tick);
 
+    // NPC info popup (when clicked)
+    if (typeof NPCManager !== 'undefined') {
+      NPCManager.draw(ctx, canvas.width, canvas.height, tick);
+    }
+
+    // Shop prompt (when near tool shed)
+    if (typeof ShopUI !== 'undefined') {
+      ShopUI.drawShopPrompt(ctx, canvas.width, canvas.height);
+    }
+
     // Modal overlay (bulletin board daily summary)
     if (typeof IsoUI !== 'undefined') {
       IsoUI.update();
       IsoUI.draw(ctx, canvas.width, canvas.height, tick);
+    }
+
+    // Shop modal overlay
+    if (typeof ShopUI !== 'undefined') {
+      ShopUI.update();
+      ShopUI.draw(ctx, canvas.width, canvas.height, tick);
     }
   }
 

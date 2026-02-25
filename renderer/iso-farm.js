@@ -431,6 +431,8 @@ const IsoFarm = (() => {
   // Draw sell prompt when player is near shipping bin (called from drawHUD)
   function drawSellPrompt(ctx, canvasW, canvasH) {
     if (!shippingBinNearby) return;
+    // Don't show sell prompt when shop prompt is also active (shop takes priority)
+    if (typeof ShopUI !== 'undefined' && ShopUI.isNearShop()) return;
     // Check if there's anything to sell
     if (typeof ResourceInventory === 'undefined') return;
     const sellable = ['carrot', 'sunflower', 'watermelon', 'tomato', 'corn', 'pumpkin', 'wood', 'stone'];

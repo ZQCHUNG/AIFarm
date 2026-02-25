@@ -27,6 +27,7 @@ class FarmState {
       unlockedCrops: [],
       milestoneReached: 0,
       currentGeneration: 1,
+      sessionHistory: [], // Historical sessions for NPC system
     };
   }
 
@@ -251,6 +252,23 @@ class FarmState {
   }
 
   // Get serializable state for renderer
+  /** Record a session ending — for NPC system. */
+  recordSession(sessionData) {
+    if (!this.state.sessionHistory) this.state.sessionHistory = [];
+    // Avoid duplicates (same sessionId)
+    const existing = this.state.sessionHistory.findIndex(s => s.id === sessionData.id);
+    if (existing !== -1) {
+      this.state.sessionHistory[existing] = sessionData;
+    } else {
+      this.state.sessionHistory.push(sessionData);
+    }
+    // Cap at 50 most recent sessions
+    if (this.state.sessionHistory.length > 50) {
+      this.state.sessionHistory = this.state.sessionHistory.slice(-50);
+    }
+    this._dirty = true;
+  }
+
   getRendererState() {
     return {
       totalEnergy: this.state.totalEnergy,
@@ -262,6 +280,7 @@ class FarmState {
       currentGeneration: this.state.currentGeneration,
       worldWidth: cfg.getGeneration(this.state.totalEnergy).worldWidth,
       totalHarvests: this.state.stats.totalHarvests,
+      sessionHistory: this.state.sessionHistory || [],
       achievements: this.achievements.getRendererState(),
     };
   }

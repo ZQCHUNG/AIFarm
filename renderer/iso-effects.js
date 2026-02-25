@@ -164,16 +164,172 @@ const IsoEffects = (() => {
     ctx.restore();
   }
 
+  // ===== Resource pop-up sprites (fly from harvest to HUD) =====
+  const resourcePopups = [];
+  const MAX_POPUPS = 20;
+
+  // Resource icon map (same as iso-farm HUD)
+  const POPUP_ICONS = {
+    gold: '\u{1FA99}',        // 🪙
+    wood: '\u{1FAB5}',        // 🪵
+    stone: '\u{1FAA8}',       // 🪨
+    carrot: '\u{1F955}',      // 🥕
+    sunflower: '\u{1F33B}',   // 🌻
+    watermelon: '\u{1F349}',  // 🍉
+    tomato: '\u{1F345}',      // 🍅
+    corn: '\u{1F33D}',        // 🌽
+    pumpkin: '\u{1F383}',     // 🎃
+  };
+
+  /**
+   * Spawn a resource icon that flies from a grid position toward the top-left HUD.
+   * @param {number} col - Grid column of harvest
+   * @param {number} row - Grid row of harvest
+   * @param {string} resource - Resource id ('carrot', 'wood', etc.)
+   * @param {number} [amount=1] - Amount to display
+   */
+  function spawnResourcePopup(col, row, resource, amount) {
+    if (resourcePopups.length >= MAX_POPUPS) return;
+    const screenPos = (typeof IsoEngine !== 'undefined')
+      ? IsoEngine.gridToScreen(col, row)
+      : { x: col * 32, y: row * 32 };
+
+    const icon = POPUP_ICONS[resource] || '\u{1F4E6}'; // 📦 fallback
+    const FLIGHT_DURATION = 45; // ticks to reach HUD
+
+    // HUD target — in pre-zoom camera space; will be adjusted at draw time
+    const zoom = (typeof IsoEngine !== 'undefined') ? IsoEngine.getZoom() : 1;
+    resourcePopups.push({
+      startX: screenPos.x + 16,
+      startY: screenPos.y,
+      targetX: 20 / zoom,  // HUD resource bar approximate position
+      targetY: 42 / zoom,
+      icon,
+      amount: amount || 1,
+      resource,
+      age: 0,
+      life: FLIGHT_DURATION,
+      rotation: 0,
+    });
+
+    // Also spawn harvest particles at origin
+    if (typeof IsoEngine !== 'undefined') {
+      const color = {
+        carrot: '#FF8C00', sunflower: '#FFD700', watermelon: '#2E8B57',
+        tomato: '#FF4444', corn: '#F0E68C', pumpkin: '#FF7518',
+        wood: '#8B6B3E', stone: '#9E9E9E',
+      }[resource] || '#FFD700';
+      IsoEngine.spawnHarvestParticles(col, row, color, 4);
+    }
+  }
+
+  function updateResourcePopups() {
+    for (let i = resourcePopups.length - 1; i >= 0; i--) {
+      const p = resourcePopups[i];
+      p.age++;
+      p.rotation += 0.15;
+      if (p.age >= p.life) {
+        resourcePopups.splice(i, 1);
+      }
+    }
+  }
+
+  function drawResourcePopups(ctx, canvasW, canvasH) {
+    if (resourcePopups.length === 0) return;
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    for (const p of resourcePopups) {
+      const t = p.age / p.life;
+      // Ease-in-out flight curve
+      const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+      // Arc path (rises up then curves to HUD)
+      const midY = Math.min(p.startY, p.targetY) - 40; // peak of arc
+      const x = p.startX + (p.targetX - p.startX) * ease;
+      const y = p.startY + (midY - p.startY) * Math.sin(ease * Math.PI);
+      const finalY = midY + (p.targetY - midY) * Math.max(0, (ease - 0.5) * 2);
+      const drawY = ease < 0.5 ? y : finalY;
+
+      // Scale: start big, shrink as it approaches HUD
+      const scale = 1.5 - t * 0.8;
+
+      // Alpha: fade at the end
+      const alpha = t > 0.8 ? (1 - t) / 0.2 : 1;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(x, drawY);
+      ctx.rotate(Math.sin(p.rotation) * 0.3);
+      ctx.scale(scale, scale);
+
+      // Icon
+      ctx.font = '10px serif';
+      ctx.fillText(p.icon, 0, 0);
+
+      // Amount text (small, below icon)
+      if (p.amount > 1) {
+        ctx.font = 'bold 6px monospace';
+        ctx.fillStyle = '#FFF';
+        ctx.fillText('+' + p.amount, 0, 8);
+      }
+
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  // ===== EventBus integration for resource pop-ups =====
+  function setupResourceListeners() {
+    if (typeof EventBus === 'undefined') return;
+
+    EventBus.on('CROP_HARVESTED', (data) => {
+      const cropId = data.crop || 'carrot';
+      const plotIndex = data.plotIndex;
+      // Estimate grid position from plot index
+      if (typeof IsoFarm !== 'undefined' && IsoFarm.PLOT_POSITIONS) {
+        const pos = IsoFarm.PLOT_POSITIONS[plotIndex];
+        if (pos) {
+          spawnResourcePopup(pos.col + 1, pos.row, cropId, data.amount || 1);
+          return;
+        }
+      }
+      // Fallback: spawn at center of farm
+      spawnResourcePopup(7, 6, cropId, data.amount || 1);
+    });
+
+    EventBus.on('TREE_CHOPPED', (data) => {
+      const col = data.col || 5;
+      const row = data.row || 1;
+      spawnResourcePopup(col, row, 'wood', data.amount || 2);
+    });
+
+    EventBus.on('ROCK_MINED', (data) => {
+      const col = data.col || 10;
+      const row = data.row || 3;
+      spawnResourcePopup(col, row, 'stone', data.amount || 1);
+    });
+  }
+
   function clear() {
     floatingTexts.length = 0;
+    resourcePopups.length = 0;
   }
 
   return {
     spawnText,
     spawnHarvestReward,
     spawnMilestone,
-    update,
-    draw,
+    spawnResourcePopup,
+    setupResourceListeners,
+    update: () => { update(); updateResourcePopups(); },
+    draw: (ctx, canvasW, canvasH) => {
+      draw(ctx, canvasW, canvasH);
+      drawResourcePopups(ctx, canvasW, canvasH);
+    },
     clear,
   };
 })();
