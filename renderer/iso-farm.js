@@ -1961,6 +1961,11 @@ const IsoFarm = (() => {
     // Snapshot camera button (bottom-right, above vibe)
     drawSnapshotButton(ctx, canvasW - 32, canvasH - 52, tick, canvasW, canvasH);
 
+    // Minimap (top-right corner)
+    if (typeof Minimap !== 'undefined') {
+      Minimap.draw(ctx, canvasW, canvasH, tick);
+    }
+
     // Shipping bin sell prompt (when player is nearby)
     drawSellPrompt(ctx, canvasW, canvasH);
   }
