@@ -100,6 +100,14 @@
     document.body.appendChild(c1);
     const fCtx = c1.getContext('2d');
 
+    // Load sprites (async, graceful fallback to procedural rendering)
+    if (typeof SpriteManager !== 'undefined') {
+      SpriteManager.loadAllFromConfig('.').then(({ loaded, failed }) => {
+        if (loaded.length > 0) console.log(`[Sprites] Loaded ${loaded.length} sprites`);
+        if (failed.length > 0) console.log(`[Sprites] ${failed.length} not found (using procedural fallback)`);
+      });
+    }
+
     // Initialize top-down engine + farm
     IsoFarm.init();
     IsoFarm.syncState();
