@@ -219,6 +219,10 @@
         ShopUI.handleKey(e.key, tick);
       } else if (typeof ShopUI !== 'undefined' && ShopUI.isNearShop()) {
         ShopUI.open();
+      } else if (typeof IsoFishing !== 'undefined' && IsoFishing.isActive()) {
+        IsoFishing.handleAction();
+      } else if (typeof IsoFishing !== 'undefined' && IsoFishing.isNearWater()) {
+        IsoFishing.startFishing();
       } else if (typeof IsoFarm !== 'undefined' && IsoFarm.sellAllCrops) {
         IsoFarm.sellAllCrops(tick);
       }
@@ -407,9 +411,14 @@
       IsoFarm.updateAutoPan();
     }
 
-    // Update processing buildings (mill, workshop)
+    // Update processing buildings (mill, workshop, barn feed)
     if (typeof Processing !== 'undefined') {
       Processing.update();
+    }
+
+    // Update fishing mini-game
+    if (typeof IsoFishing !== 'undefined') {
+      IsoFishing.update(tick);
     }
 
     // Update buddy AI (farming/tending behavior)
@@ -481,6 +490,12 @@
     // Entity tooltips
     if (typeof IsoTooltip !== 'undefined') {
       IsoTooltip.draw(ctx, canvas.width, canvas.height, tick);
+    }
+
+    // Fishing visuals (bobber, line, "!" indicator)
+    if (typeof IsoFishing !== 'undefined') {
+      IsoFishing.draw(ctx, tick);
+      IsoFishing.drawPrompt(ctx, canvas.width, canvas.height);
     }
 
     // HUD (Harvest Moon style)
