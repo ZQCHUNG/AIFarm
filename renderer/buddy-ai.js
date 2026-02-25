@@ -6,9 +6,10 @@ const BuddyAI = (() => {
   const STATE = {
     IDLE: 'idle',
     WALKING: 'walking',
-    FARMING: 'farming',      // watering/hoeing at crop plot
-    TENDING: 'tending',      // feeding animals in pasture
-    HARVESTING: 'harvesting', // picking mature crops
+    PICKUP_TOOL: 'pickup_tool', // stopping at tool shed
+    FARMING: 'farming',         // watering/hoeing at crop plot
+    TENDING: 'tending',         // feeding animals in pasture
+    HARVESTING: 'harvesting',   // picking mature crops
   };
 
   // Movement speed (grid units per tick)
@@ -17,7 +18,12 @@ const BuddyAI = (() => {
   const FARM_DURATION = 120;   // ~2 seconds at 60fps
   const TEND_DURATION = 100;
   const HARVEST_DURATION = 90; // ~1.5 seconds — squat, pull, celebrate
+  const PICKUP_DURATION = 30;  // ~0.5 seconds at tool shed
   const IDLE_LINGER = 180;     // stay idle before picking next task
+
+  // Tool shed location (near field entrance on path row)
+  const TOOL_SHED_COL = 2;
+  const TOOL_SHED_ROW = 10;
 
   // Per-buddy AI state (keyed by sessionId)
   const buddyAI = new Map();
@@ -35,7 +41,7 @@ const BuddyAI = (() => {
     }
 
     // Action locking: ignore new events during walking or active animation
-    if (ai.state === STATE.FARMING || ai.state === STATE.TENDING || ai.state === STATE.WALKING || ai.state === STATE.HARVESTING) return;
+    if (ai.state === STATE.FARMING || ai.state === STATE.TENDING || ai.state === STATE.WALKING || ai.state === STATE.HARVESTING || ai.state === STATE.PICKUP_TOOL) return;
 
     // Map event type to farm action
     if (eventType === 'tool_use' || eventType === 'text' || eventType === 'bash_progress') {
@@ -55,7 +61,7 @@ const BuddyAI = (() => {
 
     if (buddyState === 'idle' || buddyState === 'sleeping') {
       // If currently doing action, let it finish; otherwise walk home
-      if (ai.state === STATE.FARMING || ai.state === STATE.TENDING || ai.state === STATE.HARVESTING) return;
+      if (ai.state === STATE.FARMING || ai.state === STATE.TENDING || ai.state === STATE.HARVESTING || ai.state === STATE.PICKUP_TOOL) return;
       assignHomeTarget(ai, sessionId);
     }
   }
@@ -68,6 +74,9 @@ const BuddyAI = (() => {
       switch (ai.state) {
         case STATE.WALKING:
           updateWalking(ai, ent, tick);
+          break;
+        case STATE.PICKUP_TOOL:
+          updatePickupTool(ai, ent, tick);
           break;
         case STATE.FARMING:
           updateFarming(ai, ent, tick);
@@ -98,13 +107,17 @@ const BuddyAI = (() => {
       state: STATE.IDLE,
       targetCol: 0,
       targetRow: 0,
-      action: null,         // 'watering' | 'feeding' | null
+      action: null,         // 'watering' | 'feeding' | 'harvesting' | null
       actionTimer: 0,
       idleTimer: 0,
       homeCol: 0,
       homeRow: 0,
       claimedPlotKey: null, // 'col,row' of claimed plot
       bobPhase: Math.random() * Math.PI * 2, // per-buddy bob offset
+      // Pending target: stored when routing through tool shed
+      pendingAction: null,
+      pendingTargetCol: 0,
+      pendingTargetRow: 0,
     };
   }
 
@@ -156,7 +169,8 @@ const BuddyAI = (() => {
 
     const offsetCol = (chosen.width || 1) * 0.5 + (Math.random() - 0.5) * 0.4;
     const offsetRow = 0.3 + Math.random() * 0.2;
-    setWalkTarget(ai, chosen.col + offsetCol, chosen.row + offsetRow, action);
+    // Route through tool shed first (if not already near it)
+    routeViaShed(ai, chosen.col + offsetCol, chosen.row + offsetRow, action);
   }
 
   function assignTendTarget(ai, sessionId) {
@@ -167,8 +181,8 @@ const BuddyAI = (() => {
     // Pick a random spot in the pasture zone
     const col = pasture.minCol + 1 + Math.random() * (pasture.maxCol - pasture.minCol - 2);
     const row = pasture.minRow + Math.random() * (pasture.maxRow - pasture.minRow);
-    // CTO: ±0.2 random offset to avoid overlapping
-    setWalkTarget(ai, col + (Math.random() - 0.5) * 0.4, row, 'feeding');
+    // Route through tool shed first
+    routeViaShed(ai, col + (Math.random() - 0.5) * 0.4, row, 'feeding');
   }
 
   function assignHomeTarget(ai, sessionId) {
@@ -195,6 +209,17 @@ const BuddyAI = (() => {
     ai.actionTimer = 0;
   }
 
+  function routeViaShed(ai, destCol, destRow, action) {
+    // Store the real destination
+    ai.pendingAction = action;
+    ai.pendingTargetCol = destCol;
+    ai.pendingTargetRow = destRow;
+    // Walk to tool shed first (with slight random offset so buddies don't stack)
+    const shedX = TOOL_SHED_COL + 0.5 + (Math.random() - 0.5) * 0.6;
+    const shedY = TOOL_SHED_ROW + 0.3;
+    setWalkTarget(ai, shedX, shedY, 'pickup');
+  }
+
   // ===== Update functions =====
 
   function updateWalking(ai, ent, tick) {
@@ -206,7 +231,11 @@ const BuddyAI = (() => {
       // Arrived at target
       ent.gridX = ai.targetCol;
       ent.gridY = ai.targetRow;
-      if (ai.action === 'harvesting') {
+      if (ai.action === 'pickup') {
+        ai.state = STATE.PICKUP_TOOL;
+        ai.actionTimer = PICKUP_DURATION;
+        spawnActionEffect(ent, 'pickup');
+      } else if (ai.action === 'harvesting') {
         ai.state = STATE.HARVESTING;
         ai.actionTimer = HARVEST_DURATION;
         spawnActionEffect(ent, 'harvest');
@@ -246,6 +275,43 @@ const BuddyAI = (() => {
     }
   }
 
+  function updatePickupTool(ai, ent, tick) {
+    ai.actionTimer--;
+
+    // Reach toward shed: lean forward, grab tool
+    const progress = 1 - ai.actionTimer / PICKUP_DURATION;
+    if (progress < 0.5) {
+      // Reaching in
+      ent.z = -progress * 2;
+      ent.frame = 0;
+    } else {
+      // Pulling out with tool
+      ent.z = -(1 - progress) * 2;
+      ent.frame = 1;
+    }
+
+    // Face the shed
+    ent.direction = 'left';
+
+    // Tool sparkle at midpoint
+    if (ai.actionTimer === Math.floor(PICKUP_DURATION / 2) && typeof IsoEffects !== 'undefined') {
+      const toolEmojis = ['\u{1F527}', '\u{1FAA3}', '\u{1F4A7}']; // wrench, bucket, droplet
+      const emoji = ai.pendingAction === 'feeding' ? '\u{1F33E}' : toolEmojis[Math.floor(Math.random() * toolEmojis.length)];
+      IsoEffects.spawnText(ent.gridX, ent.gridY - 0.6, emoji, { color: '#FFD700', life: 40, rise: 0.8 });
+    }
+
+    if (ai.actionTimer <= 0) {
+      ent.z = 0;
+      // Log the pickup
+      if (typeof Farm !== 'undefined' && Farm.logEvent) {
+        Farm.logEvent('\u{1F6E0}', `Buddy grabbed tools`);
+      }
+      // Now walk to the real destination
+      setWalkTarget(ai, ai.pendingTargetCol, ai.pendingTargetRow, ai.pendingAction);
+      ai.pendingAction = null;
+    }
+  }
+
   function updateFarming(ai, ent, tick) {
     ai.actionTimer--;
 
@@ -271,6 +337,9 @@ const BuddyAI = (() => {
     ent.direction = 'down';
     ent.frame = ((tick / 10) | 0) % 2;
 
+    // Character-specific accessory (orange → engineering hat)
+    drawAccessory(ent, tick, 'watering');
+
     if (ai.actionTimer <= 0) {
       ent.z = 0;
       if (ai.claimedPlotKey) {
@@ -283,6 +352,9 @@ const BuddyAI = (() => {
       }
       if (typeof IsoEngine !== 'undefined') {
         IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, '#4FC3F7', 8);
+      }
+      if (typeof Farm !== 'undefined' && Farm.logEvent) {
+        Farm.logEvent('\u{1F4A7}', `Buddy watered crops`);
       }
       ai.state = STATE.IDLE;
       ai.idleTimer = IDLE_LINGER;
@@ -320,6 +392,9 @@ const BuddyAI = (() => {
       }
       if (typeof IsoEngine !== 'undefined') {
         IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, '#FFD54F', 8);
+      }
+      if (typeof Farm !== 'undefined' && Farm.logEvent) {
+        Farm.logEvent('\u{2764}\u{FE0F}', `Buddy fed animals`);
       }
       ai.state = STATE.IDLE;
       ai.idleTimer = IDLE_LINGER;
@@ -373,6 +448,9 @@ const BuddyAI = (() => {
 
     ent.direction = 'down';
 
+    // Character-specific accessory (blue → ripple particles)
+    drawAccessory(ent, tick, 'harvesting');
+
     if (ai.actionTimer <= 0) {
       ent.z = 0;
       if (ai.claimedPlotKey) {
@@ -389,6 +467,9 @@ const BuddyAI = (() => {
       if (typeof IsoEngine !== 'undefined') {
         IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, '#FFD700', 12);
         IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, '#8BC34A', 6);
+      }
+      if (typeof Farm !== 'undefined' && Farm.logEvent) {
+        Farm.logEvent('\u{1F33E}', `Buddy harvested crops`);
       }
       ai.state = STATE.IDLE;
       ai.idleTimer = IDLE_LINGER;
@@ -412,6 +493,36 @@ const BuddyAI = (() => {
     }
   }
 
+  // ===== Character-specific accessories =====
+  // Orange buddy (#F39C12): engineering hat icon while watering
+  // Blue buddy (#5B8DD9): blue ripple particles while harvesting
+
+  const ACCESSORY_COLORS = {
+    '#F39C12': 'orange',  // engineering hat
+    '#5B8DD9': 'blue',    // blue ripples
+  };
+
+  function drawAccessory(ent, tick, action) {
+    const role = ACCESSORY_COLORS[ent.hoodieColor];
+    if (!role) return;
+
+    if (role === 'orange' && action === 'watering') {
+      // Engineering hat — float a hard hat emoji above head every 60 ticks
+      if (tick % 60 === 0 && typeof IsoEffects !== 'undefined') {
+        IsoEffects.spawnText(ent.gridX, ent.gridY - 0.9, '\u{1F477}',
+          { color: '#F39C12', life: 55, rise: 0.15, scale: 0.8 });
+      }
+    } else if (role === 'blue' && action === 'harvesting') {
+      // Blue ripple particles at feet every 8 ticks
+      if (tick % 8 === 0 && typeof IsoEngine !== 'undefined') {
+        const rx = ent.gridX + (Math.random() - 0.5) * 0.6;
+        const ry = ent.gridY + 0.15 + Math.random() * 0.2;
+        IsoEngine.spawnHarvestParticles(rx, ry, '#5B8DD9', 2);
+        IsoEngine.spawnHarvestParticles(rx, ry, '#87CEEB', 1);
+      }
+    }
+  }
+
   // ===== Effects =====
 
   function spawnActionEffect(ent, type) {
@@ -422,13 +533,16 @@ const BuddyAI = (() => {
         IsoEffects.spawnText(ent.gridX, ent.gridY - 0.6, '\u{1F331}', { color: '#8BC34A', life: 50, rise: 0.9 });
       } else if (type === 'harvest') {
         IsoEffects.spawnText(ent.gridX, ent.gridY - 0.6, '\u{270A}', { color: '#FF8C00', life: 50, rise: 0.9 });
+      } else if (type === 'pickup') {
+        IsoEffects.spawnText(ent.gridX, ent.gridY - 0.6, '\u{1F3E0}', { color: '#8B6B3E', life: 30, rise: 0.5 });
       }
     }
     if (typeof IsoEngine !== 'undefined') {
-      const color = type === 'water' ? '#4FC3F7' : '#FFD54F';
-      IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, color, 8);
-      // Extra burst to make arrival visible
-      IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, '#FFFFFF', 3);
+      const color = type === 'water' ? '#4FC3F7' : type === 'pickup' ? '#C8A870' : '#FFD54F';
+      IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, color, type === 'pickup' ? 4 : 8);
+      if (type !== 'pickup') {
+        IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, '#FFFFFF', 3);
+      }
     }
   }
 

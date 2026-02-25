@@ -98,7 +98,7 @@ const IsoUI = (() => {
 
     // -- Modal panel --
     const panelW = Math.min(280, canvasW - 40);
-    const panelH = Math.min(220, canvasH - 40);
+    const panelH = Math.min(320, canvasH - 40);
     const cx = canvasW / 2;
     const cy = canvasH / 2;
 
@@ -279,6 +279,34 @@ const IsoUI = (() => {
         ctx.fillText(`Next: ${fmtK(nextMs)} (${Math.floor(pct * 100)}%)`, LEFT + 4, y);
       }
     }
+
+    // -- Farm Log (recent activity) --
+    const log = (typeof Farm !== 'undefined' && Farm.getLog) ? Farm.getLog() : [];
+    if (log.length > 0) {
+      y += 6;
+      ctx.fillStyle = '#8B5A2B';
+      ctx.font = 'bold 9px monospace';
+      ctx.fillText('\u{1F4DC} Activity', LEFT, y);
+      y += 13;
+
+      ctx.font = '8px monospace';
+      const now = Date.now();
+      const maxShow = Math.min(log.length, 5); // show up to 5 in modal
+      for (let i = 0; i < maxShow; i++) {
+        const entry = log[i];
+        const ago = Math.floor((now - entry.time) / 1000);
+        const agoStr = ago < 60 ? `${ago}s` : `${Math.floor(ago / 60)}m`;
+        ctx.fillStyle = '#4A2800';
+        ctx.fillText(`${entry.emoji} ${entry.text}`, LEFT + 4, y);
+        // Right-align timestamp
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#999';
+        ctx.fillText(agoStr, px + pw - MARGIN, y);
+        ctx.textAlign = 'left';
+        y += 11;
+      }
+    }
+    y += 4;
 
     // -- Vibe indicator (bottom right) --
     if (vibe && vibe.mood) {

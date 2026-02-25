@@ -17,12 +17,22 @@ const Farm = (() => {
   let usageState = null;
   let vibeState = null;
 
+  // Farm activity log (last 8 events)
+  const MAX_LOG = 8;
+  const farmLog = [];
+
   function setState(s) { farmState = s; }
   function getState() { return farmState; }
   function setUsage(s) { usageState = s; }
   function getUsage() { return usageState; }
   function setVibe(v) { vibeState = v; }
   function getVibe() { return vibeState; }
+
+  function logEvent(emoji, text) {
+    farmLog.unshift({ emoji, text, time: Date.now() });
+    if (farmLog.length > MAX_LOG) farmLog.pop();
+  }
+  function getLog() { return farmLog; }
   function isGOAT() {
     if (!farmState || !farmState.achievements) return false;
     const goat = farmState.achievements.find(a => a.id === 'goat');
@@ -1256,5 +1266,5 @@ const Farm = (() => {
     updateAndDrawParticles(ctx);
   };
 
-  return { drawFarm, setState, getState, setUsage, getUsage, setVibe, getVibe, isGOAT, showAchievementNotification, showPrestigeNotification };
+  return { drawFarm, setState, getState, setUsage, getUsage, setVibe, getVibe, isGOAT, showAchievementNotification, showPrestigeNotification, logEvent, getLog };
 })();

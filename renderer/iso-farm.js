@@ -193,6 +193,12 @@ const IsoFarm = (() => {
     ));
     decorEntities.push(boardEnt);
 
+    // Tool shed (buddies stop here to pick up tools before farming)
+    const shedEnt = IsoEntityManager.add(IsoEntityManager.createStatic(2, 10,
+      (ctx, sx, sy, tick) => drawToolShed(ctx, sx, sy, tick)
+    ));
+    decorEntities.push(shedEnt);
+
     // Startup camera animation: start at train station, pan to farm center
     IsoEngine.setZoom(1.8);
     const c = document.getElementById('canvas') || document.getElementById('isoCanvas') || document.getElementById('farm-canvas');
@@ -563,6 +569,62 @@ const IsoFarm = (() => {
     ctx.fillStyle = '#D4A843';
     ctx.fillRect(sx + 7 + sway, sy - 4, 3, 1);
     ctx.fillRect(sx - 9 + sway, sy - 1, 3, 1);
+  }
+
+  function drawToolShed(ctx, sx, sy, tick) {
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy + 4, 14, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Shed body (wooden walls)
+    ctx.fillStyle = '#8B6B3E';
+    ctx.fillRect(sx - 12, sy - 16, 24, 18);
+    // Front face (lighter)
+    ctx.fillStyle = '#A07840';
+    ctx.fillRect(sx - 10, sy - 14, 20, 14);
+    // Wood plank lines
+    ctx.strokeStyle = '#6B4226';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < 4; i++) {
+      const ly = sy - 12 + i * 4;
+      ctx.beginPath();
+      ctx.moveTo(sx - 10, ly);
+      ctx.lineTo(sx + 10, ly);
+      ctx.stroke();
+    }
+
+    // Roof (darker, overhanging)
+    ctx.fillStyle = '#6B4226';
+    ctx.fillRect(sx - 14, sy - 20, 28, 5);
+    ctx.fillStyle = '#5A3418';
+    ctx.fillRect(sx - 13, sy - 21, 26, 2);
+
+    // Door opening (dark)
+    ctx.fillStyle = '#3A2010';
+    ctx.fillRect(sx - 4, sy - 8, 8, 10);
+
+    // Tools leaning against wall
+    // Hoe handle
+    ctx.fillStyle = '#8B6B3E';
+    ctx.fillRect(sx + 10, sy - 18, 2, 16);
+    ctx.fillStyle = '#888';
+    ctx.fillRect(sx + 9, sy - 18, 4, 3);
+    // Watering can
+    ctx.fillStyle = '#4A90D9';
+    ctx.fillRect(sx - 11, sy - 4, 5, 4);
+    ctx.fillStyle = '#3A80C0';
+    ctx.fillRect(sx - 9, sy - 7, 2, 3);
+
+    // Small sign above door
+    ctx.fillStyle = '#D4A460';
+    ctx.fillRect(sx - 6, sy - 12, 12, 4);
+    ctx.fillStyle = '#4A2800';
+    ctx.font = '5px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('TOOLS', sx, sy - 10);
   }
 
   function getCropStage(plotIndex) {
