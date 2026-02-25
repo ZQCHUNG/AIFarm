@@ -57,6 +57,14 @@
         buddy.sm.celebrate();
       }
     });
+    window.buddy.onSpritesReload((data) => {
+      console.log(`[Sprites] Hot-reload triggered by: ${data.trigger}`);
+      if (typeof SpriteManager !== 'undefined') {
+        SpriteManager.reloadAll('.').then(({ loaded, failed }) => {
+          console.log(`[Sprites] Reloaded: ${loaded.length} loaded, ${failed.length} failed`);
+        });
+      }
+    });
     window.buddy.onPrestigeEvent((data) => {
       console.log(`[Prestige] Gen ${data.fromGen} → ${data.toGen}: ${data.label}`);
       Viewport.setWorldWidth(data.worldWidth);

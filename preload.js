@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('buddy', {
   onAchievementUnlocked: (cb) => ipcRenderer.on('achievement-unlocked', (_e, notif) => cb(notif)),
   onPrestigeEvent: (cb) => ipcRenderer.on('prestige-event', (_e, data) => cb(data)),
   onVibeUpdate: (cb) => ipcRenderer.on('vibe-update', (_e, data) => cb(data)),
+  onSpritesReload: (cb) => ipcRenderer.on('sprites-reload', (_e, data) => cb(data)),
   setIgnoreMouseEvents: (ignore, opts) => ipcRenderer.send('set-ignore-mouse', ignore, opts),
 });

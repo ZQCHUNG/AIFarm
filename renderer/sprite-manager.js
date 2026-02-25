@@ -260,12 +260,30 @@ const SpriteManager = (() => {
     return { loaded, failed };
   }
 
+  /**
+   * Clear all cached images and registered sprites, then reload from config.
+   * Used for hot-reloading when sprite files change on disk.
+   * @param {string} basePath - Base path to sprite directory
+   * @returns {Promise<{loaded: string[], failed: string[]}>}
+   */
+  async function reloadAll(basePath) {
+    // Revoke any object URLs to free memory
+    for (const [src, img] of imageCache) {
+      if (src.startsWith('blob:')) URL.revokeObjectURL(src);
+    }
+    registry.clear();
+    imageCache.clear();
+    console.log('[SpriteManager] Cache cleared, reloading all sprites...');
+    return loadAllFromConfig(basePath || '.');
+  }
+
   return {
     DIR_INDEX,
     SPRITE_CONFIG,
     register,
     registerAll,
     loadAllFromConfig,
+    reloadAll,
     draw,
     drawStatic,
     has,

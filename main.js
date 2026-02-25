@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const SessionFinder = require('./watcher/session-finder');
 const JsonlTailer = require('./watcher/jsonl-tailer');
 const EventParser = require('./watcher/event-parser');
@@ -274,8 +275,42 @@ app.whenReady().then(() => {
     sessionFinder.start((sessions) => {
       reconcileSessions(sessions);
     }, 5000, 6 * 60 * 60 * 1000);
+    // Watch sprites/ for hot-reload
+    startSpriteWatcher();
   });
 });
+
+// ===== Sprite folder watcher =====
+// Watches renderer/sprites/ for new or changed PNG files.
+// Debounces changes and notifies renderer to hot-reload SpriteManager.
+let spriteWatcher = null;
+let spriteReloadTimer = null;
+
+function startSpriteWatcher() {
+  const spritesDir = path.join(__dirname, 'renderer', 'sprites');
+  if (!fs.existsSync(spritesDir)) {
+    console.log('[Sprites] sprites/ directory not found, skipping watcher');
+    return;
+  }
+  try {
+    spriteWatcher = fs.watch(spritesDir, { persistent: false }, (eventType, filename) => {
+      if (!filename || !filename.endsWith('.png')) return;
+      console.log(`[Sprites] ${eventType}: ${filename}`);
+      // Debounce: wait 500ms after last change before reloading
+      if (spriteReloadTimer) clearTimeout(spriteReloadTimer);
+      spriteReloadTimer = setTimeout(() => {
+        spriteReloadTimer = null;
+        if (win && !win.isDestroyed()) {
+          console.log('[Sprites] Notifying renderer to reload sprites');
+          win.webContents.send('sprites-reload', { trigger: filename });
+        }
+      }, 500);
+    });
+    console.log(`[Sprites] Watching ${spritesDir} for changes`);
+  } catch (err) {
+    console.warn('[Sprites] Failed to start watcher:', err.message);
+  }
+}
 
 app.on('window-all-closed', () => {});
 app.on('before-quit', () => {
@@ -286,5 +321,6 @@ app.on('before-quit', () => {
   farm.save();
   usage.stop();
   sessionFinder.stop();
+  if (spriteWatcher) { spriteWatcher.close(); spriteWatcher = null; }
   for (const [, b] of buddies) b.tailer.stop();
 });
