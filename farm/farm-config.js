@@ -46,6 +46,15 @@ const ANIMALS = [
   { id: 'dog',     unlock: 3500, w: 5, h: 4 },
 ];
 
+// Animal breeding / growth
+const ANIMAL_BREEDING = {
+  babyDuration: 3600,       // ~1 minute ticks to grow baby → adult
+  breedChance: 0.0005,      // base chance per tick when conditions met
+  breedCooldown: 7200,      // ~2 min cooldown per species after breeding
+  feedBoostMultiplier: 3,   // 3x breeding chance with premium feed
+  maxPerSpecies: 4,         // max animals of same species
+};
+
 // Buildings: ordered by unlock energy, placed left to right
 const BUILDINGS = [
   { id: 'well',     unlock: 1200, w: 6,  h: 7 },
@@ -118,6 +127,7 @@ module.exports = {
   TOTAL_PLOTS,
   PLOT_UNLOCK,
   ANIMALS,
+  ANIMAL_BREEDING,
   BUILDINGS,
   MILESTONES,
   GENERATIONS,

@@ -28,12 +28,22 @@ const Processing = (() => {
       outputAmount: 1,
       duration: 480, // ~8 seconds at 60fps
     },
+    barn: {
+      name: 'Feed Station',
+      icon: '\u{1F963}',
+      input: 'flour',
+      inputAmount: 2,
+      output: 'feed',
+      outputAmount: 1,
+      duration: 300, // ~5 seconds at 60fps
+    },
   };
 
   // Processing state per building
   const state = {
     mill: { processing: false, progress: 0, totalProcessed: 0 },
     workshop: { processing: false, progress: 0, totalProcessed: 0 },
+    barn: { processing: false, progress: 0, totalProcessed: 0 },
   };
 
   /** Check if a processing building is unlocked (via energy milestone or permit). */

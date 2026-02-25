@@ -27,6 +27,8 @@ const ResourceInventory = (() => {
     pumpkin:    12,
     flour:      18,
     plank:      8,
+    feed:       5,
+    fish:       12,
   };
 
   // Current inventory state
@@ -100,7 +102,7 @@ const ResourceInventory = (() => {
   function getSummary() {
     const result = [];
     // Show core resources first, then crops
-    const order = ['gold', 'wood', 'stone', 'flour', 'plank'];
+    const order = ['gold', 'wood', 'stone', 'flour', 'plank', 'feed', 'fish'];
     for (const key of order) {
       if (inventory[key] > 0) result.push({ id: key, amount: inventory[key] });
     }

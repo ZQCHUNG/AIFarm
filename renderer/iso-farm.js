@@ -412,7 +412,7 @@ const IsoFarm = (() => {
   function sellAllCrops(tick) {
     if (!shippingBinNearby) return 0; // Must be near the bin
     if (typeof ResourceInventory === 'undefined') return 0;
-    const sellable = ['carrot', 'sunflower', 'watermelon', 'tomato', 'corn', 'pumpkin', 'wood', 'stone', 'flour', 'plank'];
+    const sellable = ['carrot', 'sunflower', 'watermelon', 'tomato', 'corn', 'pumpkin', 'wood', 'stone', 'flour', 'plank', 'feed', 'fish'];
     let totalGold = 0;
     for (const res of sellable) {
       const amount = ResourceInventory.get(res);
@@ -437,7 +437,7 @@ const IsoFarm = (() => {
     if (typeof ShopUI !== 'undefined' && ShopUI.isNearShop()) return;
     // Check if there's anything to sell
     if (typeof ResourceInventory === 'undefined') return;
-    const sellable = ['carrot', 'sunflower', 'watermelon', 'tomato', 'corn', 'pumpkin', 'wood', 'stone', 'flour', 'plank'];
+    const sellable = ['carrot', 'sunflower', 'watermelon', 'tomato', 'corn', 'pumpkin', 'wood', 'stone', 'flour', 'plank', 'feed', 'fish'];
     let hasItems = false;
     for (const res of sellable) {
       if (ResourceInventory.get(res) > 0) { hasItems = true; break; }
@@ -1130,7 +1130,7 @@ const IsoFarm = (() => {
 
     switch (type) {
       case 'well': drawWell(ctx, sx, sy, tick); break;
-      case 'barn': drawBarn(ctx, sx, sy, tick); break;
+      case 'barn': drawBarn(ctx, sx, sy, tick); drawProcessingBar(ctx, sx, sy - 24, 'barn', tick); break;
       case 'mill': drawMill(ctx, sx, sy, tick); break;
       case 'windmill': drawWindmill(ctx, sx, sy, tick); break;
       case 'workshop': drawWorkshop(ctx, sx, sy, tick); break;
@@ -1841,6 +1841,8 @@ const IsoFarm = (() => {
     pumpkin: '\u{1F383}',     // 🎃
     flour: '\u{1F35E}',       // 🍞
     plank: '\u{1FA9C}',       // 🪜 (close enough)
+    feed: '\u{1F963}',        // 🥣
+    fish: '\u{1F41F}',        // 🐟
   };
 
   // Bounce animations for resource changes

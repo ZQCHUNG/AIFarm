@@ -36,6 +36,18 @@ const IsoEntityManager = (() => {
   // Behavior states (mirrors AnimalAI.STATE)
   const STATE = { WANDER: 'wander', REST: 'rest', REACT: 'react' };
 
+  // Growth stages
+  const GROWTH = { BABY: 'baby', ADULT: 'adult' };
+  const BABY_SCALE = 0.6;
+  const BABY_DURATION = 3600;       // ~1 min to grow up
+  const BREED_CHANCE = 0.0005;      // per tick when conditions met
+  const BREED_COOLDOWN = 7200;      // ~2 min between breeds
+  const FEED_BOOST = 3;             // 3x chance with feed
+  const MAX_PER_SPECIES = 4;        // max same-species animals
+
+  // Breeding cooldown per species
+  const breedCooldowns = {};
+
   // ===== 4-direction detection for isometric view =====
   // In iso: +col = screen right+down (east), +row = screen left+down (south)
   // Direction is determined by the dominant movement axis on the grid.
@@ -86,6 +98,10 @@ const IsoEntityManager = (() => {
       jumpZ: 0,
       jumpVelocity: 0,
       isJumping: false,
+      // Growth & breeding
+      growthStage: (opts && opts.baby) ? GROWTH.BABY : GROWTH.ADULT,
+      growthTimer: (opts && opts.baby) ? BABY_DURATION : 0,
+      scale: (opts && opts.baby) ? BABY_SCALE : 1.0,
       // Social (nearest neighbor)
       nearestDist: 999,
       nearestDirX: 0,
@@ -175,6 +191,7 @@ const IsoEntityManager = (() => {
     for (const ent of entities) {
       if (ent.entityType === TYPE.ANIMAL) {
         updateAnimal(ent, tick);
+        updateGrowth(ent, tick);
         animals.push(ent);
       } else if (ent.entityType === TYPE.CHARACTER && ent.path) {
         updateCharacterPath(ent, tick);
@@ -186,8 +203,113 @@ const IsoEntityManager = (() => {
       updateSocial(animals);
     }
 
+    // Breeding check (every 60 ticks for performance)
+    if (tick % 60 === 0 && animals.length > 1) {
+      updateBreeding(animals, tick);
+    }
+
     // Sync screen positions + depth for ALL entities
     syncScreenPositions();
+  }
+
+  // ===== Growth: baby → adult timer =====
+  function updateGrowth(ent, tick) {
+    if (ent.growthStage !== GROWTH.BABY) return;
+    ent.growthTimer--;
+    if (ent.growthTimer <= 0) {
+      ent.growthStage = GROWTH.ADULT;
+      ent.scale = 1.0;
+      // Growth celebration particles
+      if (typeof IsoEffects !== 'undefined') {
+        IsoEffects.spawnFloatingText(ent.screenX, ent.screenY - 20, '\u{2B50} Grew up!', '#FFD700');
+      }
+    }
+  }
+
+  // ===== Breeding: two same-species adults nearby + happy mood =====
+  function updateBreeding(animals, tick) {
+    // Group adults by species
+    const speciesMap = {};
+    for (const a of animals) {
+      if (a.growthStage !== GROWTH.ADULT) continue;
+      if (!speciesMap[a.type]) speciesMap[a.type] = [];
+      speciesMap[a.type].push(a);
+    }
+
+    for (const [species, adults] of Object.entries(speciesMap)) {
+      if (adults.length < 2) continue;
+
+      // Check species cooldown
+      if (breedCooldowns[species] && breedCooldowns[species] > tick) continue;
+
+      // Count total of this species (including babies)
+      const totalOfSpecies = animals.filter(a => a.type === species).length;
+      if (totalOfSpecies >= MAX_PER_SPECIES) continue;
+
+      // Check if any pair is close enough (within 3 grid units)
+      let breedPair = null;
+      for (let i = 0; i < adults.length && !breedPair; i++) {
+        for (let j = i + 1; j < adults.length; j++) {
+          const dx = adults[i].gridX - adults[j].gridX;
+          const dy = adults[i].gridY - adults[j].gridY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 3.0) {
+            breedPair = [adults[i], adults[j]];
+            break;
+          }
+        }
+      }
+      if (!breedPair) continue;
+
+      // Mood check: only breed when happy
+      if (animalMood !== 'happy') continue;
+
+      // Calculate chance with feed boost
+      let chance = BREED_CHANCE;
+      if (typeof ResourceInventory !== 'undefined' && ResourceInventory.has('feed', 1)) {
+        chance *= FEED_BOOST;
+      }
+
+      if (Math.random() < chance) {
+        // Breed! Spawn baby between parents
+        const midCol = (breedPair[0].gridX + breedPair[1].gridX) / 2;
+        const midRow = (breedPair[0].gridY + breedPair[1].gridY) / 2;
+
+        // Consume feed if available
+        if (typeof ResourceInventory !== 'undefined' && ResourceInventory.has('feed', 1)) {
+          ResourceInventory.spend('feed', 1);
+        }
+
+        const baby = createAnimal(species, midCol, midRow, {
+          baby: true,
+          minCol: breedPair[0].minCol,
+          maxCol: breedPair[0].maxCol,
+          minRow: breedPair[0].minRow,
+          maxRow: breedPair[0].maxRow,
+          wanderRadius: breedPair[0].wanderRadius * 0.7,
+        });
+        add(baby);
+
+        // Set cooldown
+        breedCooldowns[species] = tick + BREED_COOLDOWN;
+
+        // Heart particles on parents
+        if (typeof IsoEffects !== 'undefined') {
+          IsoEffects.spawnFloatingText(breedPair[0].screenX, breedPair[0].screenY - 16, '\u{2764}\u{FE0F}', '#FF6B6B');
+          IsoEffects.spawnFloatingText(breedPair[1].screenX, breedPair[1].screenY - 16, '\u{2764}\u{FE0F}', '#FF6B6B');
+          IsoEffects.spawnFloatingText(
+            (breedPair[0].screenX + breedPair[1].screenX) / 2,
+            Math.min(breedPair[0].screenY, breedPair[1].screenY) - 24,
+            '\u{1F423} Baby!', '#FFD700'
+          );
+        }
+
+        // Log event
+        if (typeof Farm !== 'undefined' && Farm.logEvent) {
+          Farm.logEvent('\u{1F423}', `A baby ${species} was born!`);
+        }
+      }
+    }
   }
 
   // ===== Sync to IsoEngine =====
@@ -234,10 +356,26 @@ const IsoEntityManager = (() => {
           direction: ent.direction,
           frame: ent.frame,
           draw: (ctx, sx, sy, tick) => {
+            const isBaby = ent.growthStage === GROWTH.BABY;
+            if (isBaby) {
+              ctx.save();
+              ctx.translate(sx, sy);
+              ctx.scale(BABY_SCALE, BABY_SCALE);
+              ctx.translate(-sx, -sy);
+            }
             if (typeof IsoEngine !== 'undefined' && IsoEngine.drawAnimal) {
               IsoEngine.drawAnimal(ctx, sx, sy, ent.type, ent.frame, tick);
             } else {
               drawIsoAnimal(ctx, sx, sy, ent, tick);
+            }
+            if (isBaby) {
+              ctx.restore();
+              // Baby indicator: tiny bouncing star
+              const bobY = Math.sin(tick * 0.1) * 2;
+              ctx.fillStyle = '#FFD700';
+              ctx.font = '5px monospace';
+              ctx.textAlign = 'center';
+              ctx.fillText('\u{2B50}', sx, sy - 10 + bobY);
             }
             // State indicators (ZZZ for resting, sparkles for playing)
             if (ent.state === STATE.REST) {
@@ -711,6 +849,7 @@ const IsoEntityManager = (() => {
   return {
     TYPE,
     STATE,
+    GROWTH,
     getDirection,
     createAnimal,
     createCharacter,
