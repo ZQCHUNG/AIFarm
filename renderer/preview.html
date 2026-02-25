@@ -23,6 +23,7 @@
   <script src="iso-train.js"></script>
   <script src="iso-weather.js"></script>
   <script src="iso-tooltip.js"></script>
+  <script src="iso-effects.js"></script>
   <script src="character.js"></script>
   <script src="train.js"></script>
   <script src="state-machine.js"></script>
@@ -122,7 +123,7 @@
       IsoFarm.syncBuddy(b.id, b.project, b.colorIndex, 'working');
     }
 
-    // Demo: periodic harvest particle bursts for testing
+    // Demo: periodic harvest with floating reward text
     setInterval(() => {
       const plotIdx = Math.floor(Math.random() * IsoFarm.PLOT_POSITIONS.length);
       const pos = IsoFarm.PLOT_POSITIONS[plotIdx];
@@ -131,6 +132,11 @@
       for (let tc = 0; tc < (pos.width || 1); tc++) {
         IsoEngine.spawnHarvestParticles(pos.col + tc, pos.row, color, 8);
         IsoEngine.spawnHarvestParticles(pos.col + tc, pos.row, '#FFD700', 4);
+      }
+      // Floating reward text
+      if (typeof IsoEffects !== 'undefined') {
+        const tokens = Math.floor(500 + Math.random() * 2000);
+        IsoEffects.spawnHarvestReward(pos.col + 1, pos.row, tokens);
       }
     }, 3000);
 
@@ -201,11 +207,15 @@
       // Render map + entities
       IsoEngine.drawMap(fCtx, baseW, baseH, farmTick);
 
-      // Draw particles (in zoomed space)
+      // Draw particles + floating effects (in zoomed space)
       fCtx.save();
       fCtx.imageSmoothingEnabled = false;
       fCtx.scale(IsoEngine.getZoom(), IsoEngine.getZoom());
       IsoEngine.drawParticles(fCtx);
+      if (typeof IsoEffects !== 'undefined') {
+        IsoEffects.update();
+        IsoEffects.draw(fCtx, baseW / IsoEngine.getZoom(), baseH / IsoEngine.getZoom());
+      }
       fCtx.restore();
 
       // Weather overlay

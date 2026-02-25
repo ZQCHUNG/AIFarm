@@ -294,11 +294,15 @@
     // Render tile map + entities
     IsoEngine.drawMap(ctx, canvas.width, canvas.height, tick);
 
-    // Draw particles (in zoomed space)
+    // Draw particles + floating effects (in zoomed space)
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.scale(IsoEngine.getZoom(), IsoEngine.getZoom());
     IsoEngine.drawParticles(ctx);
+    if (typeof IsoEffects !== 'undefined') {
+      IsoEffects.update();
+      IsoEffects.draw(ctx, canvas.width / IsoEngine.getZoom(), canvas.height / IsoEngine.getZoom());
+    }
     ctx.restore();
 
     // Weather overlay
