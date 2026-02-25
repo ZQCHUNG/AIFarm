@@ -332,7 +332,6 @@
       // Initialize player once at farm center (col 9, row 7)
       if (!playerInited) {
         Player.init(9, 7, {
-          spriteKey: 'char_blue',
           collisionFn: (wx, wy) => {
             const col = Math.floor(wx / IsoEngine.TILE_W);
             const row = Math.floor(wy / IsoEngine.TILE_H);

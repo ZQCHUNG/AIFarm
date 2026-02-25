@@ -1,209 +1,208 @@
 # AIFarm — Claude Buddy V3.0
 
-A transparent Electron desktop companion that monitors your Claude Code sessions and brings them to life as a **Stardew Valley-style pixel art farming simulation**. The more you code, the more your world grows.
+透明 Electron 桌面夥伴，監控你的 Claude Code 工作階段，將它們化為**星露谷風格的像素農場模擬**。寫越多 code，世界越繁榮。
 
 ![AIFarm Screenshot](Images/screenshot-farm.png)
 
-## How It Works
+## 運作原理
 
-Claude Buddy watches your active Claude Code sessions via JSONL log files. Every coding event (tool use, thinking, text output) generates **energy** that drives your farm forward:
+Claude Buddy 透過 JSONL 日誌檔案監控你的 Claude Code 工作階段。每個程式碼事件（工具呼叫、思考、文字輸出）都會產生**能量**驅動你的農場：
 
-- Crops grow and get harvested automatically
-- Animals unlock and roam the pasture
-- Buildings appear in the town area
-- Your buddies (one per session) walk around tending the farm
-- **You** control a player character to explore, sell, and shop
+- 作物自動生長並收成
+- 動物隨里程碑解鎖，在牧場漫步
+- 建築物隨進度出現在村莊區
+- 你的夥伴（每個工作階段一個）自主在農場工作
+- **你**控制玩家角色探索、賣貨、購物
 
-## Features
+## 功能一覽
 
-### Player Character & Controls
-- WASD / Arrow key movement with velocity + friction physics
-- Gold hoodie "lord" character, distinct from buddy NPCs
-- Sliding tile collision (4-corner hitbox)
-- Smooth lerp camera follow (0.08)
-- Sprint coming soon (Shift key)
+### 玩家角色與控制
+- WASD / 方向鍵移動，帶速度 + 摩擦力物理
+- 金色帽 T「領主」角色，與 NPC 夥伴視覺區分（頭頂金色箭頭指示）
+- 滑動瓷磚碰撞（4 角碰撞箱）
+- 平滑 lerp 鏡頭跟隨（0.08）
 
-### Resource Economy
-- **Multi-resource system**: WOOD, STONE, GOLD, and per-crop resources
-- **Shipping Bin**: Walk near and press [E] to sell crops/resources for GOLD
-- **General Store**: Walk to Tool Shed, press [E] to open shop modal
-  - Buy seeds (Strawberry, Wheat), speed potions, field expansion permits
-- Resource HUD bar with emoji icons and bounce animations on change
-- Resource pop-up sprites fly from harvest position to HUD with arc path
+### 資源經濟
+- **多資源系統**：WOOD、STONE、GOLD 及各作物資源
+- **出貨箱**：走近按 [E] 賣出作物/資源換取 GOLD
+- **雜貨店**：走到工具小屋按 [E] 開啟商店
+  - 購買種子（草莓、小麥）、加速藥水、田地擴張許可證
+- 資源 HUD 列，帶 emoji 圖示與數值變化彈跳動畫
+- 收穫時資源 icon 以弧形軌跡飛向 HUD
 
-### Historical Session NPCs
-- Past Claude Code sessions become NPC characters wandering the village
-- Evolution tiers based on session duration:
-  - **Newbie** (< 30min): Bright color, fast walk, bouncy
-  - **Veteran** (30min - 2hr): Glasses accessory, moderate speed
-  - **Sage** (> 2hr): White/gray, beard, golden glow, slow walk
-- Click NPC to see project name, session duration, and date
-- Up to 8 NPCs visible, selected for tier diversity
+### 歷史工作階段 NPC
+- 過去的 Claude Code 工作階段變成 NPC 角色在村莊漫步
+- 依工作階段時長分進化等級：
+  - **新手** (< 30 分鐘)：明亮顏色、快速走路、活潑
+  - **老手** (30 分鐘 - 2 小時)：戴眼鏡、中等速度
+  - **賢者** (> 2 小時)：白灰色、有鬍子、金色光暈、緩慢步伐
+- 點擊 NPC 查看專案名稱、工作時長、日期
+- 最多顯示 8 個 NPC，依等級多樣性篩選
 
-### Isometric Farm Engine
-- 3/4 top-down perspective with 32x32 tile grid (20x18 map)
-- Smooth camera pan, zoom (mouse wheel), and auto-pan idle tour
-- Multi-layer Z-sorted rendering: terrain, entities, particles, weather, HUD
-- Event Bus architecture for module decoupling
+### 等距農場引擎
+- 3/4 俯視視角，32x32 瓷磚網格（20x18 地圖）
+- 平滑鏡頭平移、縮放（滾輪）及閒置自動巡遊
+- 多層 Z 排序渲染：地形、實體、粒子、天氣、HUD
+- Event Bus 架構實現模組解耦
 
-### Crop System (6+ types)
-Carrot, Sunflower, Watermelon, Tomato, Corn, Pumpkin — each with 5 growth stages. 12 farm plots unlock progressively with energy milestones. New seeds available in shop.
+### 作物系統（6+ 種類）
+紅蘿蔔、向日葵、西瓜、番茄、玉米、南瓜 — 各有 5 個生長階段。12 塊農田隨能量里程碑逐步解鎖。商店可購買新種子。
 
-### Animal System (6 types)
-Chicken, Cow, Pig, Sheep, Cat, Dog — roam the pasture with idle animations, state-machine AI (wander, rest, react).
+### 動物系統（6 種類）
+雞、牛、豬、羊、貓、狗 — 在牧場漫步，帶閒置動畫與狀態機 AI（漫步、休息、反應）。
 
-### Building System (7 structures)
-Well, Barn, Windmill, Market, Clock Tower, Town Hall, Statue — populate the town row as you hit milestones.
+### 建築系統（7 棟建築）
+水井、穀倉、風車、市場、鐘塔、市政廳、雕像 — 隨里程碑出現在村莊列。
 
-### BuddyAI Behavior
-Each Claude Code session spawns a buddy character that autonomously:
-- Picks up tools from the tool shed
-- Waters crops and tends animals
-- Harvests mature crops (with particle effects and floating reward text)
-- Socializes with other buddies when nearby (emoji chat bubbles)
+### 夥伴 AI 行為
+每個 Claude Code 工作階段生成一個夥伴角色，自主：
+- 從工具小屋拿取工具
+- 澆水與照顧動物
+- 收穫成熟作物（帶粒子特效與浮動獎勵文字）
+- 靠近其他夥伴時社交互動（emoji 聊天氣泡）
 
-### Weather & Day/Night Cycle
-- Four seasons with unique sky gradients, ground tints, and particle effects
-- Full day/night cycle: dawn, day, dusk, night with smooth transitions
-- Twinkling stars at night, warm lamp post glow along the farm path
+### 天氣與日夜循環
+- 四季各有獨特天空漸層、地面色調與粒子效果
+- 完整日夜循環：黎明、白天、黃昏、夜晚，平滑過渡
+- 夜晚閃爍星星、農場小路溫暖路燈光暈
 
-### Interactive Elements
-- **Bulletin Board**: Click to open daily summary modal (usage stats, farm progress, activity log)
-- **Golden Bird**: Rare random visitor on the fence — click it for bonus sparkles
-- **Monument**: Unlocks at 10,000 energy with pulsing crystal and total token display
-- **Snapshot Mode**: Camera button in HUD captures farm as PNG with watermark
+### 互動元素
+- **佈告欄**：點擊開啟每日摘要（使用統計、農場進度、活動日誌）
+- **金色小鳥**：稀有隨機訪客出現在圍欄上 — 點擊獲得額外閃光
+- **紀念碑**：10,000 能量解鎖，帶脈動水晶與總 token 顯示
+- **截圖模式**：HUD 相機按鈕將農場截圖為 PNG 含浮水印
 
-### Train System
-New buddies arrive by train at the station. Achievement unlocks trigger golden train events.
+### 火車系統
+新夥伴搭火車抵達車站。成就解鎖觸發金色火車事件。
 
-### Prestige / Generation System
-Reset and expand your farm across multiple generations for long-term progression.
+### 威望 / 世代系統
+重置並擴張農場，跨世代長期進展。
 
-### Vibe System
-Real-time mood detection from coding patterns (productive, focused, creative, frustrated, calm, idle) affects weather and animal behavior.
+### 氛圍系統
+根據寫 code 模式即時偵測情緒（高效、專注、創意、挫折、平靜、閒置），影響天氣與動物行為。
 
-## Controls
+## 操作方式
 
-| Input | Action |
-|-------|--------|
-| WASD / Arrow keys | Move player character |
-| Mouse wheel | Zoom in/out |
-| E | Interact (shop at Tool Shed / sell at Shipping Bin) |
-| W/S + Enter | Navigate shop menu |
-| Escape | Close shop |
-| Click NPC | View session info |
-| Click bulletin board | Open daily summary |
-| Click camera button | Save farm snapshot |
-| Ctrl+Shift+I | Toggle iso/classic view |
-| Ctrl+Shift+D | Toggle debug pan |
+| 輸入 | 動作 |
+|------|------|
+| WASD / 方向鍵 | 移動玩家角色 |
+| 滑鼠滾輪 | 縮放 |
+| E | 互動（在工具小屋購物 / 在出貨箱賣貨） |
+| W/S + Enter | 瀏覽商店選單 |
+| Escape | 關閉商店 |
+| 點擊 NPC | 查看工作階段資訊 |
+| 點擊佈告欄 | 開啟每日摘要 |
+| 點擊相機按鈕 | 儲存農場截圖 |
+| Ctrl+Shift+I | 切換等距/經典視角 |
+| Ctrl+Shift+D | 切換 debug 平移 |
 
-## Energy Milestones
+## 能量里程碑
 
-| Energy | Milestone | Unlocks |
-|--------|-----------|---------|
-| 50 | First Seed | Carrot, plots 1-3 |
-| 150 | Gardener | Sunflower |
-| 300 | Green Thumb | Watermelon |
-| 500 | Farmer | Tomato, plots 4-6, Chicken |
-| 800 | Rancher | Corn, Cow |
-| 1,200 | Pioneer | Pumpkin, Pig, Well |
-| 1,800 | Villager | Sheep, Barn |
-| 2,500 | Town Builder | Cat, Windmill |
-| 3,500 | Prosperous | Dog, Market |
-| 5,000 | Thriving | Clock Tower, plots 7-9 |
-| 7,500 | Metropolis | Town Hall |
-| 10,000 | Legend | Statue, Monument |
+| 能量 | 里程碑 | 解鎖內容 |
+|------|--------|----------|
+| 50 | 第一顆種子 | 紅蘿蔔、農田 1-3 |
+| 150 | 園丁 | 向日葵 |
+| 300 | 綠手指 | 西瓜 |
+| 500 | 農夫 | 番茄、農田 4-6、雞 |
+| 800 | 牧場主 | 玉米、牛 |
+| 1,200 | 拓荒者 | 南瓜、豬、水井 |
+| 1,800 | 村民 | 羊、穀倉 |
+| 2,500 | 城鎮建造者 | 貓、風車 |
+| 3,500 | 繁榮 | 狗、市場 |
+| 5,000 | 興盛 | 鐘塔、農田 7-9 |
+| 7,500 | 大都會 | 市政廳 |
+| 10,000 | 傳奇 | 雕像、紀念碑 |
 
-## Development Progress
+## 開發進度
 
-### Done
+### 已完成
 
-| Sprint | Name | Features |
-|--------|------|----------|
-| 11 | Tool Shed & Farm Log | Tool shed building, farm activity log, character accessories |
-| 12 | Social Life | Buddy social bubbles, monument system, golden bird event |
-| 13 | Atmosphere | Day/night cycle, snapshot mode, auto-pan idle tour |
-| 14 | Seeds of Wealth | Resource inventory + Event Bus, resource HUD, shipping bin |
-| 15 | Growth of Wisdom | Historical session NPCs, general store/shop, resource pop-up sprites |
+| Sprint | 名稱 | 功能 |
+|--------|------|------|
+| 11 | 工具小屋與農場日誌 | 工具小屋建築、農場活動日誌、角色配件 |
+| 12 | 社交生活 | 夥伴社交氣泡、紀念碑系統、金色小鳥事件 |
+| 13 | 氣氛營造 | 日夜循環、截圖模式、閒置自動巡遊 |
+| 14 | 財富之種 | 資源庫存 + Event Bus、資源 HUD、出貨箱 |
+| 15 | 智慧成長 | 歷史工作階段 NPC、雜貨店/商店、資源飛出動畫 |
 
-### Todo (Roadmap)
+### 待辦（路線圖）
 
-| Phase | Sprint | Priority | Feature | Description |
-|-------|--------|----------|---------|-------------|
-| 3 | 16 | P0 | Chunk-based Infinite Map | 16x16 chunks, token-unlock expansion, seed-based terrain gen |
-| 3 | 16 | P1 | Dynamic Lighting 2.0 | Night filter, radial glow on lamps/buildings/NPC windows |
-| 3 | 16 | P2 | Sprint & Stamina | Shift to run, stamina bar, dust particle effects |
-| 3 | 17+ | P2 | Fishing System | River/lake generation, fishing mini-game |
-| 4 | TBD | P0 | Processing Buildings | Mill (wheat -> flour), Sawmill (wood -> lumber) |
-| 4 | TBD | P1 | Tech Tree Upgrades | Tool efficiency, auto-watering, auto-harvest robots |
-| 4 | TBD | P2 | House Customization | Player house interior decoration system |
-| 5 | TBD | P1 | AI Broadcast Board | NPCs comment on git commits in real-time |
-| 5 | TBD | P2 | Museum & Hall of Fame | Display all session stats and rare collectibles |
-| 5 | TBD | P2 | Trade & Diplomacy | Inter-project resource trading simulation |
+| 階段 | Sprint | 優先級 | 功能 | 說明 |
+|------|--------|--------|------|------|
+| 3 | 16 | P0 | Chunk 無限地圖 | 16x16 區塊、token 解鎖擴張、種子式地形生成 |
+| 3 | 16 | P1 | 動態光照 2.0 | 夜間濾鏡、路燈/建築/NPC 窗戶放射光暈 |
+| 3 | 16 | P2 | 衝刺與體力 | Shift 跑步、體力條、灰塵粒子效果 |
+| 3 | 17+ | P2 | 釣魚系統 | 河流/湖泊生成、釣魚小遊戲 |
+| 4 | TBD | P0 | 加工建築 | 磨坊（小麥→麵粉）、鋸木廠（木材→木板） |
+| 4 | TBD | P1 | 科技樹升級 | 工具效率、自動澆水、自動收穫機器人 |
+| 4 | TBD | P2 | 房屋自訂 | 玩家房屋內部裝潢系統 |
+| 5 | TBD | P1 | AI 廣播板 | NPC 即時評論 git commit |
+| 5 | TBD | P2 | 博物館與名人堂 | 展示所有工作階段統計與稀有收藏品 |
+| 5 | TBD | P2 | 貿易與外交 | 跨專案資源交易模擬 |
 
-## Quick Start
+## 快速開始
 
 ```bash
 npm install
 npm start
 ```
 
-Requires an active Claude Code session writing JSONL logs to `~/.claude/projects/`.
+需要有進行中的 Claude Code 工作階段，寫入 JSONL 日誌到 `~/.claude/projects/`。
 
-## Architecture
+## 架構
 
 ```
 claude-buddy/
-  main.js              # Electron main process, session watcher, IPC
-  preload.js           # Bridge between main and renderer
+  main.js              # Electron 主程序、工作階段監控、IPC
+  preload.js           # 主程序與渲染程序的橋接
   farm/
-    farm-config.js     # Constants: energy values, crops, animals, milestones
-    farm-state.js      # Farm state management, growth logic, persistence
-    achievement-manager.js  # Achievement tracking and unlock logic
+    farm-config.js     # 常數：能量值、作物、動物、里程碑
+    farm-state.js      # 農場狀態管理、成長邏輯、持久化
+    achievement-manager.js  # 成就追蹤與解鎖邏輯
   renderer/
-    iso-engine.js      # Tile-based rendering engine, camera, particles
-    iso-farm.js        # Farm layout, entities, HUD, snapshot, auto-pan
-    iso-entity-manager.js  # Entity lifecycle (characters, animals, statics)
-    iso-weather.js     # Seasons, weather particles, day/night cycle
-    iso-train.js       # Train arrival/departure animations
-    iso-effects.js     # Floating text, harvest rewards, resource pop-ups
-    iso-tooltip.js     # Hover tooltips for entities
-    iso-ui.js          # Modal overlays (bulletin board)
-    shop-ui.js         # General Store shop modal
-    event-bus.js       # Pub/sub event system for module decoupling
-    resource-inventory.js  # Multi-resource inventory (WOOD, STONE, GOLD, crops)
-    npc-manager.js     # Historical session NPC system with evolution tiers
-    player.js          # Player-controlled character with physics
-    buddy-ai.js        # Autonomous buddy behavior (farming, social)
-    farm.js            # Shared farm state store for renderer
-    sprite-manager.js  # PNG sprite loading with procedural fallback
-    character.js       # 8-color hoodie character sprites
-    scene.js           # Classic 2D view background
-    viewport.js        # Camera viewport management
-    speech-bubble.js   # Chat bubble rendering
-    state-machine.js   # Activity state machine
-    train.js           # Classic 2D train
-    renderer.js        # Main render loop, input handling, view management
+    iso-engine.js      # 瓷磚式渲染引擎、鏡頭、粒子
+    iso-farm.js        # 農場佈局、實體、HUD、截圖、自動巡遊
+    iso-entity-manager.js  # 實體生命週期（角色、動物、靜態物）
+    iso-weather.js     # 季節、天氣粒子、日夜循環
+    iso-train.js       # 火車進出站動畫
+    iso-effects.js     # 浮動文字、收穫獎勵、資源飛出動畫
+    iso-tooltip.js     # 實體懸停提示
+    iso-ui.js          # 模態覆蓋層（佈告欄）
+    shop-ui.js         # 雜貨店商店模態
+    event-bus.js       # 發布/訂閱事件系統
+    resource-inventory.js  # 多資源庫存（WOOD、STONE、GOLD、作物）
+    npc-manager.js     # 歷史工作階段 NPC 系統與進化等級
+    player.js          # 玩家控制角色與物理
+    buddy-ai.js        # 自主夥伴行為（農作、社交）
+    farm.js            # 渲染端共享農場狀態
+    sprite-manager.js  # PNG 精靈圖載入與程序化回退
+    character.js       # 8 色帽 T 角色精靈圖
+    scene.js           # 經典 2D 視角背景
+    viewport.js        # 鏡頭視窗管理
+    speech-bubble.js   # 聊天氣泡渲染
+    state-machine.js   # 活動狀態機
+    train.js           # 經典 2D 火車
+    renderer.js        # 主渲染迴圈、輸入處理、視角管理
   watcher/
-    data-exporter.js   # JSONL export utilities
+    data-exporter.js   # JSONL 匯出工具
   scripts/
-    recolor_sprites.py # Sprite recoloring via HSV hue-shift
+    recolor_sprites.py # 精靈圖 HSV 色相偏移重新上色
 ```
 
-## Tech Stack
+## 技術棧
 
-- **Electron** — transparent always-on-top desktop window
-- **Canvas 2D** — all rendering is pure canvas (no WebGL, no frameworks)
-- **Node.js** — JSONL file watching, farm state persistence
-- **Event Bus** — pub/sub decoupling for resource, shop, and NPC systems
+- **Electron** — 透明置頂桌面視窗
+- **Canvas 2D** — 所有渲染皆為純 Canvas（無 WebGL、無框架）
+- **Node.js** — JSONL 檔案監控、農場狀態持久化
+- **Event Bus** — 資源、商店、NPC 系統的發布/訂閱解耦
 
-## Dev Team
+## 開發團隊
 
-- **Joe** — Decision Maker, bridges all AI collaborators
-- **Claude** — Primary developer/executor
-- **Gemini CTO** — Architecture decisions and code review
-- **Gemini PM** — Feature priorities and sprint planning
+- **Joe** — 決策者，串接所有 AI 協作者
+- **Claude** — 主要開發者/執行者
+- **Gemini CTO** — 架構決策與程式碼審查
+- **Gemini PM** — 功能優先級與 Sprint 規劃
 
-## License
+## 授權
 
 MIT

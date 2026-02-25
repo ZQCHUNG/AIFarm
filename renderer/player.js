@@ -165,14 +165,27 @@ const Player = (() => {
       col,
       row,
       z: 0,
-      spriteId: spriteKey,
+      // No spriteId — always use procedural gold draw so player is visually distinct
+      spriteId: null,
       direction,
       frame: animFrame,
       type: 'player',
       draw: (ctx, sx, sy, tick) => {
-        // Procedural fallback: use IsoEngine's character drawing with gold hoodie
+        // Gold hoodie character — distinct from buddy NPCs
         if (typeof IsoEngine !== 'undefined' && IsoEngine.drawIsoCharacter) {
           IsoEngine.drawIsoCharacter(ctx, sx, sy, direction, animFrame, PLAYER_COLOR, tick);
+          // Draw player indicator arrow above head
+          ctx.save();
+          ctx.fillStyle = '#FFD700';
+          ctx.globalAlpha = 0.7 + Math.sin(tick * 0.1) * 0.3;
+          const arrowY = sy - 22 + Math.sin(tick * 0.08) * 2;
+          ctx.beginPath();
+          ctx.moveTo(sx, arrowY + 5);
+          ctx.lineTo(sx - 4, arrowY);
+          ctx.lineTo(sx + 4, arrowY);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
         }
       },
     };
