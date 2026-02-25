@@ -264,6 +264,40 @@ const IsoEngine = (() => {
     ctx.restore();
   }
 
+  // ===== Entity shadows =====
+
+  /**
+   * Draw an elliptical shadow beneath an entity.
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} x - Screen center X
+   * @param {number} y - Screen base Y (feet)
+   * @param {number} rx - Horizontal radius
+   */
+  function drawShadow(ctx, x, y, rx) {
+    const ry = rx * 0.4; // squashed ellipse
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /** Return shadow radius based on entity type. 0 = no shadow. */
+  function entityShadowRadius(ent) {
+    if (!ent) return 0;
+    switch (ent.entityType) {
+      case 'character': return 8;
+      case 'animal': {
+        const sizes = { chicken: 4, cow: 7, pig: 6, sheep: 6, cat: 4, dog: 5 };
+        return sizes[ent.type] || 5;
+      }
+      case 'static': return 0; // trees/crops/buildings have their own ground
+      default: return 0;
+    }
+  }
+
   // ===== Main rendering =====
 
   function drawMap(ctx, canvasW, canvasH, tick) {
@@ -321,6 +355,11 @@ const IsoEngine = (() => {
         }
       } else if (item.type === 'entity') {
         const ent = item.entity;
+        // Draw shadow beneath entity
+        const shadowR = entityShadowRadius(ent);
+        if (shadowR > 0) {
+          drawShadow(ctx, item.x + TILE_W / 2, item.y + TILE_H / 2 + 2, shadowR);
+        }
         if (ent.spriteId && typeof SpriteManager !== 'undefined' && SpriteManager.has(ent.spriteId)) {
           SpriteManager.draw(ctx, ent.spriteId, item.x + TILE_W / 2, item.y + TILE_H / 2, ent.direction, ent.frame);
         } else if (ent.draw) {
@@ -1005,6 +1044,7 @@ const IsoEngine = (() => {
     adjustBrightness,
     drawIsoTree, drawIsoCharacter, drawIsoCrop,
     drawAnimal, drawFencePost,
+    drawShadow, entityShadowRadius,
     setHoverTile, getHoverTile,
     spawnHarvestParticles, updateParticles, drawParticles,
     drawMatureGlow,

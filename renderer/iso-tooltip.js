@@ -305,9 +305,10 @@ const IsoTooltip = (() => {
     if (!ent || !data) return;
 
     // Get entity screen position (already computed by IsoEntityManager)
+    // Math.floor for crisp rendering at non-integer zoom levels
     const zoom = (typeof IsoEngine !== 'undefined') ? IsoEngine.getZoom() : 1;
-    const sx = ent.screenX * zoom;
-    const sy = ent.screenY * zoom;
+    const sx = Math.floor(ent.screenX * zoom);
+    const sy = Math.floor(ent.screenY * zoom);
 
     // Measure tooltip size
     ctx.save();
@@ -321,8 +322,8 @@ const IsoTooltip = (() => {
     const tooltipH = data.lines.length * LINE_H + PADDING * 2;
 
     // Position: above entity, centered
-    let tx = sx - tooltipW / 2;
-    let ty = sy - tooltipH - ARROW_SIZE - 16; // 16px above entity head
+    let tx = Math.floor(sx - tooltipW / 2);
+    let ty = Math.floor(sy - tooltipH - ARROW_SIZE - 16); // 16px above entity head
 
     // Clamp to viewport
     tx = Math.max(4, Math.min(canvasW - tooltipW - 4, tx));
@@ -342,7 +343,7 @@ const IsoTooltip = (() => {
     ctx.stroke();
 
     // Arrow pointing down to entity
-    const arrowX = Math.max(tx + 8, Math.min(tx + tooltipW - 8, sx));
+    const arrowX = Math.floor(Math.max(tx + 8, Math.min(tx + tooltipW - 8, sx)));
     ctx.fillStyle = BG_COLOR;
     ctx.beginPath();
     ctx.moveTo(arrowX - ARROW_SIZE, ty + tooltipH);
