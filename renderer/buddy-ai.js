@@ -11,6 +11,7 @@ const BuddyAI = (() => {
     TENDING: 'tending',         // feeding animals in pasture
     HARVESTING: 'harvesting',   // picking mature crops
     SOCIAL: 'social',           // chatting with nearby buddy
+    SHELTER: 'shelter',         // seeking shelter from weather
   };
 
   // Movement speed (grid units per tick)
@@ -49,6 +50,74 @@ const BuddyAI = (() => {
     ['\u{1F60E}', '\u{1F389}'], // cool + party
     ['\u{1F917}', '\u{2764}\u{FE0F}'], // hug + heart
   ];
+
+  // Social event types (weighted selection)
+  const SOCIAL_EVENTS = [
+    { type: 'chat',  weight: 5, duration: 60,  log: '\u{1F4AC} Buddies had a chat' },
+    { type: 'dance', weight: 2, duration: 90,  log: '\u{1F57A} Buddies danced together!' },
+    { type: 'slack', weight: 2, duration: 120, log: '\u{1F634} Buddies took a break together' },
+    { type: 'highfive', weight: 1, duration: 40, log: '\u{1F91A} Buddies high-fived!' },
+  ];
+
+  // Context-aware emojis — chosen based on recent farm events
+  const CONTEXT_EMOJIS = {
+    rain:    [['\u{2614}', '\u{1F327}\u{FE0F}'], ['\u{1F4A7}', '\u{1F32A}\u{FE0F}']],
+    harvest: [['\u{1F33E}', '\u{1F389}'], ['\u{1F955}', '\u{2B50}']],
+    sell:    [['\u{1FA99}', '\u{1F4B0}'], ['\u{1F911}', '\u{1F4B8}']],
+    breed:   [['\u{1F423}', '\u{2764}\u{FE0F}'], ['\u{1F425}', '\u{1F31F}']],
+    night:   [['\u{1F319}', '\u{2B50}'], ['\u{1F30C}', '\u{1F634}']],
+  };
+
+  // Track recent context events (last 30 seconds)
+  let recentContext = []; // { type, tick }
+
+  // Shelter positions (near buildings)
+  const SHELTER_POSITIONS = [
+    { col: 5,  row: 15 },  // barn
+    { col: 2,  row: 10 },  // tool shed
+    { col: 11, row: 15 },  // market
+    { col: 4,  row: 17 },  // townhall
+  ];
+
+  function addContext(type, tick) {
+    recentContext.push({ type, tick });
+    // Trim old entries (keep last 1800 ticks = ~30 seconds)
+    recentContext = recentContext.filter(c => tick - c.tick < 1800);
+  }
+
+  function getContextEmojis(tick) {
+    // Check weather first
+    if (typeof IsoWeather !== 'undefined' && IsoWeather.isRaining && IsoWeather.isRaining()) {
+      const set = CONTEXT_EMOJIS.rain;
+      return set[Math.floor(Math.random() * set.length)];
+    }
+    // Check recent context
+    for (const ctx of recentContext.slice().reverse()) {
+      if (CONTEXT_EMOJIS[ctx.type]) {
+        const set = CONTEXT_EMOJIS[ctx.type];
+        return set[Math.floor(Math.random() * set.length)];
+      }
+    }
+    // Check time of day
+    if (typeof IsoWeather !== 'undefined') {
+      const isNight = (IsoWeather.isNight && IsoWeather.isNight()) || (IsoWeather.isDusk && IsoWeather.isDusk());
+      if (isNight) {
+        const set = CONTEXT_EMOJIS.night;
+        return set[Math.floor(Math.random() * set.length)];
+      }
+    }
+    return null; // fallback to regular CHAT_EMOJIS
+  }
+
+  function pickSocialEvent() {
+    const totalWeight = SOCIAL_EVENTS.reduce((sum, e) => sum + e.weight, 0);
+    let r = Math.random() * totalWeight;
+    for (const evt of SOCIAL_EVENTS) {
+      r -= evt.weight;
+      if (r <= 0) return evt;
+    }
+    return SOCIAL_EVENTS[0];
+  }
 
   // ===== Public API =====
 
@@ -112,9 +181,17 @@ const BuddyAI = (() => {
         case STATE.SOCIAL:
           updateSocial(ai, ent, tick);
           break;
+        case STATE.SHELTER:
+          updateShelter(ai, ent, tick);
+          break;
         case STATE.IDLE:
           updateIdle(ai, ent, tick);
           break;
+      }
+
+      // Weather check: if raining/foggy and idle/walking, seek shelter (low chance per tick)
+      if (tick % 120 === 0 && (ai.state === STATE.IDLE || ai.state === STATE.WALKING)) {
+        checkWeatherShelter(ai, ent, tick);
       }
     }
   }
@@ -146,6 +223,7 @@ const BuddyAI = (() => {
       // Social: stored action to resume after chat
       socialPartner: null,
       socialEmoji: null,
+      socialType: null,
       preSocialState: null,
       preSocialAction: null,
     };
@@ -523,6 +601,93 @@ const BuddyAI = (() => {
     }
   }
 
+  // ===== Weather shelter =====
+
+  function checkWeatherShelter(ai, ent, tick) {
+    if (typeof IsoWeather === 'undefined') return;
+    const isRaining = IsoWeather.isRaining && IsoWeather.isRaining();
+    const isFoggy = IsoWeather.isFoggy && IsoWeather.isFoggy();
+    if (!isRaining && !isFoggy) return;
+
+    // 30% chance to seek shelter per check (every 120 ticks ~ 2s)
+    if (Math.random() > 0.3) return;
+
+    // Find nearest shelter
+    let nearestDist = Infinity;
+    let nearestShelter = null;
+    for (const s of SHELTER_POSITIONS) {
+      const dx = s.col - ent.gridX;
+      const dy = s.row - ent.gridY;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearestShelter = s;
+      }
+    }
+    if (!nearestShelter || nearestDist < 1.5) return; // already sheltered
+
+    ai.state = STATE.SHELTER;
+    ai.targetCol = nearestShelter.col + (Math.random() - 0.5) * 0.5;
+    ai.targetRow = nearestShelter.row + (Math.random() - 0.5) * 0.3;
+    ai.actionTimer = 600; // shelter for ~10 seconds
+
+    // Rain emoji
+    if (typeof IsoEffects !== 'undefined') {
+      IsoEffects.spawnText(ent.gridX, ent.gridY - 0.6, '\u{2614}', { color: '#4FC3F7', life: 40, rise: 0.5 });
+    }
+  }
+
+  function updateShelter(ai, ent, tick) {
+    // Walk toward shelter
+    const dx = ai.targetCol - ent.gridX;
+    const dy = ai.targetRow - ent.gridY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist > 0.2) {
+      // Still walking to shelter
+      const step = Math.min(WALK_SPEED * 1.3, dist); // walk faster in rain
+      ent.gridX += (dx / dist) * step;
+      ent.gridY += (dy / dist) * step;
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        ent.direction = dx > 0 ? 'right' : 'left';
+      } else {
+        ent.direction = dy > 0 ? 'down' : 'up';
+      }
+      ent.frame = ((tick / 6) | 0) % 4; // faster walk animation
+    } else {
+      // Arrived at shelter — huddle animation
+      ent.z = 0;
+      ent.frame = 0;
+      // Shivering bob
+      if (tick % 30 === 0 && typeof IsoEffects !== 'undefined') {
+        const weatherEmojis = ['\u{1F327}\u{FE0F}', '\u{2614}', '\u{1F4A8}', '\u{1F32C}\u{FE0F}'];
+        IsoEffects.spawnText(ent.gridX, ent.gridY - 0.6,
+          weatherEmojis[Math.floor(Math.random() * weatherEmojis.length)],
+          { color: '#90CAF9', life: 30, rise: 0.4 });
+      }
+    }
+
+    ai.actionTimer--;
+    if (ai.actionTimer <= 0) {
+      // Weather passed or done sheltering
+      ai.state = STATE.IDLE;
+      ai.idleTimer = 60;
+      if (typeof Farm !== 'undefined' && Farm.logEvent) {
+        Farm.logEvent('\u{2614}', `Buddy waited out the weather`);
+      }
+    }
+
+    // Early exit if weather clears
+    if (typeof IsoWeather !== 'undefined') {
+      const stillBad = (IsoWeather.isRaining && IsoWeather.isRaining()) ||
+                       (IsoWeather.isFoggy && IsoWeather.isFoggy());
+      if (!stillBad) {
+        ai.state = STATE.IDLE;
+        ai.idleTimer = 30;
+      }
+    }
+  }
+
   // ===== Social interactions =====
 
   function checkSocialProximity(tick) {
@@ -550,35 +715,47 @@ const BuddyAI = (() => {
         const lastChat = socialCooldowns.get(pairKey) || 0;
         if (tick - lastChat < SOCIAL_COOLDOWN) continue;
 
-        // Trigger social interaction!
+        // Pick social event type
+        const socialEvent = pickSocialEvent();
         socialCooldowns.set(pairKey, tick);
-        const emojis = CHAT_EMOJIS[Math.floor(Math.random() * CHAT_EMOJIS.length)];
 
-        // Save current state so we can resume after chat
+        // Get context-aware emojis or fallback to CHAT_EMOJIS
+        const contextEmojis = getContextEmojis(tick);
+        const emojis = contextEmojis || CHAT_EMOJIS[Math.floor(Math.random() * CHAT_EMOJIS.length)];
+
+        // Save current state so we can resume after
         aiA.preSocialState = aiA.state;
         aiA.preSocialAction = aiA.action;
         aiB.preSocialState = aiB.state;
         aiB.preSocialAction = aiB.action;
 
         aiA.state = STATE.SOCIAL;
-        aiA.actionTimer = SOCIAL_DURATION;
+        aiA.actionTimer = socialEvent.duration;
         aiA.socialPartner = idB;
         aiA.socialEmoji = emojis[0];
+        aiA.socialType = socialEvent.type;
 
         aiB.state = STATE.SOCIAL;
-        aiB.actionTimer = SOCIAL_DURATION;
+        aiB.actionTimer = socialEvent.duration;
         aiB.socialPartner = idA;
         aiB.socialEmoji = emojis[1];
+        aiB.socialType = socialEvent.type;
 
         // Face each other
         entA.direction = dx > 0 ? 'left' : 'right';
         entB.direction = dx > 0 ? 'right' : 'left';
 
-        // Initial greeting sparkle
+        // Initial effect based on event type
         if (typeof IsoEngine !== 'undefined') {
           const midX = (entA.gridX + entB.gridX) / 2;
           const midY = (entA.gridY + entB.gridY) / 2;
-          IsoEngine.spawnHarvestParticles(midX, midY, '#FFD700', 4);
+          if (socialEvent.type === 'dance') {
+            IsoEngine.spawnHarvestParticles(midX, midY, '#FF69B4', 6);
+          } else if (socialEvent.type === 'highfive') {
+            IsoEngine.spawnHarvestParticles(midX, midY, '#FFD700', 8);
+          } else {
+            IsoEngine.spawnHarvestParticles(midX, midY, '#FFD700', 4);
+          }
         }
         break; // one social event per tick is enough
       }
@@ -587,13 +764,50 @@ const BuddyAI = (() => {
 
   function updateSocial(ai, ent, tick) {
     ai.actionTimer--;
+    const socialType = ai.socialType || 'chat';
+    const totalDuration = (SOCIAL_EVENTS.find(e => e.type === socialType) || SOCIAL_EVENTS[0]).duration;
 
-    // Gentle bob while chatting
-    ent.z = Math.sin(tick * 0.2 + ai.bobPhase) * 0.5;
-    ent.frame = 0;
+    if (socialType === 'dance') {
+      // Dance: bouncy movement with spin
+      ent.z = Math.abs(Math.sin(tick * 0.25 + ai.bobPhase)) * 2;
+      ent.frame = ((tick / 6) | 0) % 4;
+      // Music note particles
+      if (tick % 20 === 0 && typeof IsoEffects !== 'undefined') {
+        const notes = ['\u{1F3B5}', '\u{1F3B6}', '\u{266A}'];
+        IsoEffects.spawnText(ent.gridX + (Math.random() - 0.5) * 0.4,
+          ent.gridY - 0.8, notes[Math.floor(Math.random() * notes.length)],
+          { color: '#FF69B4', life: 35, rise: 0.8 });
+      }
+    } else if (socialType === 'slack') {
+      // Slack: sit still, occasional ZZZ
+      ent.z = -1; // crouching
+      ent.frame = 0;
+      if (tick % 40 === 0 && typeof IsoEffects !== 'undefined') {
+        IsoEffects.spawnText(ent.gridX, ent.gridY - 0.6, '\u{1F4A4}',
+          { color: '#90CAF9', life: 30, rise: 0.4 });
+      }
+    } else if (socialType === 'highfive') {
+      // High five: quick approach + burst
+      const progress = 1 - ai.actionTimer / totalDuration;
+      if (progress < 0.5) {
+        ent.z = progress * 3; // raise hand
+      } else {
+        ent.z = (1 - progress) * 3; // lower
+      }
+      ent.frame = progress < 0.5 ? 1 : 0;
+      // Impact sparkles at midpoint
+      if (ai.actionTimer === Math.floor(totalDuration / 2) && typeof IsoEffects !== 'undefined') {
+        IsoEffects.spawnText(ent.gridX, ent.gridY - 0.8, '\u{1F91A}\u{2728}',
+          { color: '#FFD700', life: 40, rise: 0.8 });
+      }
+    } else {
+      // Chat: gentle bob (original behavior)
+      ent.z = Math.sin(tick * 0.2 + ai.bobPhase) * 0.5;
+      ent.frame = 0;
+    }
 
     // Show emoji bubble at start and midpoint
-    if ((ai.actionTimer === SOCIAL_DURATION - 1 || ai.actionTimer === Math.floor(SOCIAL_DURATION / 2))
+    if ((ai.actionTimer === totalDuration - 1 || ai.actionTimer === Math.floor(totalDuration / 2))
         && typeof IsoEffects !== 'undefined' && ai.socialEmoji) {
       IsoEffects.spawnText(ent.gridX, ent.gridY - 0.8, ai.socialEmoji,
         { color: '#FFF', life: 45, rise: 0.6 });
@@ -611,18 +825,19 @@ const BuddyAI = (() => {
       if (ai.socialPartner && ai.socialPartner > '') {
         const partnerEnt = getBuddyEntity(ai.socialPartner);
         if (partnerEnt && typeof Farm !== 'undefined' && Farm.logEvent) {
-          // Only log from the buddy whose entity name comes first alphabetically
           if (!partnerEnt.name || ent.name <= partnerEnt.name) {
-            Farm.logEvent('\u{1F4AC}', `Buddies had a chat`);
+            const evt = SOCIAL_EVENTS.find(e => e.type === socialType);
+            Farm.logEvent(socialType === 'dance' ? '\u{1F57A}' : '\u{1F4AC}', evt ? evt.log : 'Buddies interacted');
           }
         }
       }
 
-      // Resume previous activity — go back to idle (will pick up next task naturally)
+      // Resume — go back to idle
       ai.socialPartner = null;
       ai.socialEmoji = null;
+      ai.socialType = null;
       ai.state = STATE.IDLE;
-      ai.idleTimer = 30; // short pause before next action
+      ai.idleTimer = 30;
     }
   }
 
@@ -685,5 +900,6 @@ const BuddyAI = (() => {
     onStateChange,
     update,
     remove,
+    addContext,
   };
 })();

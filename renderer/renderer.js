@@ -64,6 +64,12 @@
     });
   }
 
+  // Feed context events to BuddyAI for context-aware social emojis
+  if (typeof EventBus !== 'undefined' && typeof BuddyAI !== 'undefined') {
+    EventBus.on('CROP_HARVESTED', () => BuddyAI.addContext('harvest', tick));
+    EventBus.on('RESOURCE_SOLD', () => BuddyAI.addContext('sell', tick));
+  }
+
   if (window.buddy) {
     window.buddy.onFarmUpdate((state) => {
       Farm.setState(state);
