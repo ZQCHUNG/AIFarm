@@ -156,11 +156,19 @@
       console.log('[Viewport] Debug pan:', active ? 'ON' : 'OFF');
     }
     if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+      // Save camera state before switching away from iso
+      if (viewMode === 'iso' && typeof IsoEngine !== 'undefined') {
+        IsoEngine.saveViewportState();
+      }
       viewMode = viewMode === 'classic' ? 'iso' : 'classic';
       console.log('[Renderer] View mode:', viewMode);
       if (viewMode === 'iso' && typeof IsoFarm !== 'undefined') {
         IsoFarm.init();
         IsoFarm.syncState();
+        // Restore previous camera position if available
+        if (typeof IsoEngine !== 'undefined' && IsoEngine.hasSavedViewport()) {
+          IsoEngine.restoreViewportState();
+        }
       }
     }
   });

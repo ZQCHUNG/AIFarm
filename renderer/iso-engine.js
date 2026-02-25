@@ -356,6 +356,21 @@ const IsoEngine = (() => {
   function getZoom() { return camZoom; }
   function setZoom(z) { camZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)); }
 
+  // Viewport state persistence (survives view mode toggles)
+  let savedViewport = null;
+  function saveViewportState() {
+    savedViewport = { camX, camY, zoom: camZoom };
+  }
+  function restoreViewportState() {
+    if (!savedViewport) return false;
+    camX = savedViewport.camX;
+    camY = savedViewport.camY;
+    camZoom = savedViewport.zoom;
+    savedViewport = null;
+    return true;
+  }
+  function hasSavedViewport() { return !!savedViewport; }
+
   // ===== Helpers =====
 
   function adjustBrightness(hex, amount) {
@@ -986,6 +1001,7 @@ const IsoEngine = (() => {
     drawMap,
     setCamera, moveCamera, centerOnTile,
     zoom, getZoom, setZoom,
+    saveViewportState, restoreViewportState, hasSavedViewport,
     adjustBrightness,
     drawIsoTree, drawIsoCharacter, drawIsoCrop,
     drawAnimal, drawFencePost,
