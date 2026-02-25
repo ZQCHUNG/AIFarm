@@ -1938,8 +1938,11 @@ const IsoFarm = (() => {
     const seasonEmoji = { spring: '\u{1F338}', summer: '\u{2600}\u{FE0F}', autumn: '\u{1F341}', winter: '\u{2744}\u{FE0F}' };
     const season = (typeof IsoWeather !== 'undefined') ? IsoWeather.getSeason() : null;
     const seasonBadge = season ? (seasonEmoji[season] || '') + season.charAt(0).toUpperCase() + season.slice(1) : '';
+    const weather = (typeof IsoWeather !== 'undefined') ? IsoWeather.getWeather() : null;
+    const weatherEmoji = { clear: '\u{2600}\u{FE0F}', cloudy: '\u{2601}\u{FE0F}', rain: '\u{1F327}\u{FE0F}', fog: '\u{1F32B}\u{FE0F}' };
+    const weatherBadge = weather ? ' ' + (weatherEmoji[weather] || '') : '';
     {
-      const label = seasonBadge + (animalCount > 0 || cropCount > 0 ? `  \u{1F43E}${animalCount}  \u{1F33E}${cropCount}` : '');
+      const label = seasonBadge + weatherBadge + (animalCount > 0 || cropCount > 0 ? `  \u{1F43E}${animalCount}  \u{1F33E}${cropCount}` : '');
       ctx.fillStyle = 'rgba(20, 20, 40, 0.7)';
       roundRect(ctx, 8, canvasH - 26, 140, 20, 4);
       ctx.fill();

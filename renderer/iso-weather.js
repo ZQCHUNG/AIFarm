@@ -53,6 +53,192 @@ const IsoWeather = (() => {
     },
   };
 
+  // ===== Dynamic Weather System (Sprint 17 P1) =====
+  // Weather conditions independent of coding mood.
+  // Conditions: clear, cloudy, rain, fog
+  // Rain: +50% crop growth, rain particles
+  // Fog: reduced visibility, muted colors
+  const WEATHER_CONDITIONS = ['clear', 'clear', 'clear', 'cloudy', 'cloudy', 'rain', 'rain', 'fog'];
+  const WEATHER_MIN_DURATION = 3600;   // ~1 minute at 60fps
+  const WEATHER_MAX_DURATION = 10800;  // ~3 minutes at 60fps
+
+  let currentWeather = 'clear';
+  let weatherTimer = 0;
+  let weatherDuration = WEATHER_MIN_DURATION;
+  let weatherTransition = 0;  // 0-1 blend into new weather
+  let prevWeather = 'clear';
+  let weatherSent = false;    // track if we notified main process
+
+  // Rain-specific state
+  const weatherRain = [];
+  const MAX_WEATHER_RAIN = 120;
+  let lightningFlash = 0;
+  let lightningCooldown = 0;
+
+  // Fog-specific state
+  let fogDensity = 0;
+
+  function getWeather() { return currentWeather; }
+  function isRaining() { return currentWeather === 'rain'; }
+  function isFoggy() { return currentWeather === 'fog'; }
+
+  function updateWeatherSystem(tick, canvasW, canvasH) {
+    weatherTimer++;
+
+    // Weather transition blend (smooth 60-frame transition)
+    if (weatherTransition < 1) {
+      weatherTransition = Math.min(1, weatherTransition + 1 / 60);
+    }
+
+    // Check for weather change
+    if (weatherTimer >= weatherDuration) {
+      prevWeather = currentWeather;
+      currentWeather = WEATHER_CONDITIONS[Math.floor(Math.random() * WEATHER_CONDITIONS.length)];
+      weatherTimer = 0;
+      weatherDuration = WEATHER_MIN_DURATION + Math.floor(Math.random() * (WEATHER_MAX_DURATION - WEATHER_MIN_DURATION));
+      weatherTransition = 0;
+      weatherSent = false;
+
+      // Night bias: more likely fog
+      const h = getHour();
+      if ((h < 6 || h > 20) && Math.random() < 0.3) {
+        currentWeather = 'fog';
+      }
+    }
+
+    // Notify main process of weather change for crop growth bonus
+    if (!weatherSent && typeof window !== 'undefined' && window.buddy && window.buddy.setWeather) {
+      window.buddy.setWeather(currentWeather);
+      weatherSent = true;
+    }
+
+    // Update weather-specific effects
+    if (currentWeather === 'rain' || (prevWeather === 'rain' && weatherTransition < 1)) {
+      updateWeatherRain(tick, canvasW, canvasH);
+    }
+    if (currentWeather === 'fog' || (prevWeather === 'fog' && weatherTransition < 1)) {
+      const targetDensity = currentWeather === 'fog' ? 0.25 : 0;
+      fogDensity += (targetDensity - fogDensity) * 0.02;
+    } else {
+      fogDensity *= 0.98;
+    }
+
+    // Lightning (rare during rain)
+    if (currentWeather === 'rain' && lightningCooldown <= 0 && Math.random() < 0.001) {
+      lightningFlash = 8;
+      lightningCooldown = 300; // ~5 second cooldown
+    }
+    if (lightningFlash > 0) lightningFlash--;
+    if (lightningCooldown > 0) lightningCooldown--;
+
+    // Clean up rain drops
+    for (let i = weatherRain.length - 1; i >= 0; i--) {
+      weatherRain[i].life--;
+      if (weatherRain[i].life <= 0) weatherRain.splice(i, 1);
+    }
+  }
+
+  function updateWeatherRain(tick, canvasW, canvasH) {
+    // Spawn rain particles
+    const intensity = currentWeather === 'rain' ? weatherTransition : (1 - weatherTransition);
+    const spawnCount = Math.floor(3 * intensity);
+    for (let i = 0; i < spawnCount && weatherRain.length < MAX_WEATHER_RAIN; i++) {
+      weatherRain.push({
+        x: Math.random() * (canvasW + 40) - 20,
+        y: -5 - Math.random() * 20,
+        vx: -1.5 - Math.random() * 0.5, // wind angle
+        vy: 6 + Math.random() * 3,
+        life: 50 + Math.floor(Math.random() * 30),
+        length: 4 + Math.random() * 6,
+      });
+    }
+    // Update rain physics
+    for (const drop of weatherRain) {
+      drop.x += drop.vx;
+      drop.y += drop.vy;
+    }
+  }
+
+  function drawWeatherEffects(ctx, canvasW, canvasH, tick) {
+    // Rain rendering
+    if (weatherRain.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(170, 200, 230, 0.35)';
+      ctx.lineWidth = 1;
+      for (const drop of weatherRain) {
+        const alpha = Math.min(1, drop.life / 15);
+        ctx.globalAlpha = alpha * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(drop.x, drop.y);
+        ctx.lineTo(drop.x + drop.vx * 0.5, drop.y + drop.length);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Rain darkening overlay
+    if (currentWeather === 'rain') {
+      ctx.save();
+      ctx.fillStyle = `rgba(20, 30, 50, ${(0.12 * weatherTransition).toFixed(3)})`;
+      ctx.fillRect(0, 0, canvasW, canvasH);
+      ctx.restore();
+    }
+
+    // Lightning flash
+    if (lightningFlash > 0) {
+      ctx.save();
+      ctx.fillStyle = `rgba(255, 255, 255, ${(lightningFlash / 8 * 0.3).toFixed(3)})`;
+      ctx.fillRect(0, 0, canvasW, canvasH);
+      ctx.restore();
+    }
+
+    // Fog overlay
+    if (fogDensity > 0.01) {
+      ctx.save();
+      // Multiple fog layers for depth
+      const fogColor = `rgba(200, 210, 220, ${(fogDensity * 0.8).toFixed(3)})`;
+      ctx.fillStyle = fogColor;
+      ctx.fillRect(0, 0, canvasW, canvasH);
+
+      // Drifting fog wisps
+      ctx.globalAlpha = fogDensity * 0.4;
+      for (let i = 0; i < 5; i++) {
+        const wx = ((tick * 0.3 + i * canvasW / 5) % (canvasW + 200)) - 100;
+        const wy = canvasH * (0.3 + i * 0.12);
+        const ww = 80 + i * 30;
+        ctx.fillStyle = 'rgba(220, 225, 235, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(wx, wy, ww, 15 + i * 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Cloudy overlay (subtle darkening)
+    if (currentWeather === 'cloudy') {
+      ctx.save();
+      ctx.fillStyle = `rgba(100, 110, 130, ${(0.06 * weatherTransition).toFixed(3)})`;
+      ctx.fillRect(0, 0, canvasW, canvasH);
+      ctx.restore();
+    }
+  }
+
+  /** Draw weather indicator badge (called from HUD). */
+  function drawWeatherBadge(ctx, x, y) {
+    const weatherEmoji = {
+      clear: '\u{2600}\u{FE0F}',   // ☀️
+      cloudy: '\u{2601}\u{FE0F}',  // ☁️
+      rain: '\u{1F327}\u{FE0F}',   // 🌧️
+      fog: '\u{1F32B}\u{FE0F}',    // 🌫️
+    };
+    const emoji = weatherEmoji[currentWeather] || '\u{2600}\u{FE0F}';
+    ctx.fillStyle = '#FFF';
+    ctx.font = '9px monospace';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillText(emoji, x, y);
+  }
+
   let currentSeason = detectSeason();
 
   function detectSeason() {
@@ -150,7 +336,22 @@ const IsoWeather = (() => {
         grassBot: s.grassBot,
       };
     }
-    return { skyTop: s.skyTop, skyMid: s.skyMid, grassTop: s.grassTop, grassBot: s.grassBot };
+    let result = { skyTop: s.skyTop, skyMid: s.skyMid, grassTop: s.grassTop, grassBot: s.grassBot };
+    // Weather-based sky modification
+    if (currentWeather === 'rain') {
+      const t = weatherTransition * 0.3;
+      result.skyTop = blendColor(result.skyTop, '#4A5568', t);
+      result.skyMid = blendColor(result.skyMid, '#718096', t);
+    } else if (currentWeather === 'cloudy') {
+      const t = weatherTransition * 0.15;
+      result.skyTop = blendColor(result.skyTop, '#A0AEC0', t);
+      result.skyMid = blendColor(result.skyMid, '#CBD5E0', t);
+    } else if (currentWeather === 'fog') {
+      const t = weatherTransition * 0.25;
+      result.skyTop = blendColor(result.skyTop, '#C8D0D8', t);
+      result.skyMid = blendColor(result.skyMid, '#D0D8E0', t);
+    }
+    return result;
   }
 
   /** Blend two hex colors. t=0 returns a, t=1 returns b. */
@@ -190,6 +391,9 @@ const IsoWeather = (() => {
 
   function update(tick, canvasW, canvasH) {
     timeOffset = tick; // for accelerated time mode
+
+    // Dynamic weather system
+    updateWeatherSystem(tick, canvasW, canvasH);
 
     switch (currentMood) {
       case 'productive': updateProductive(tick, canvasW, canvasH); break;
@@ -573,10 +777,15 @@ const IsoWeather = (() => {
     draw,
     drawGroundTint,
     drawNightOverlay,
+    drawWeatherEffects,
+    drawWeatherBadge,
     getSeason,
     setSeason,
     getSkyGradient,
     getGroundTint,
+    getWeather,
+    isRaining,
+    isFoggy,
     setTimeScale,
     getHour,
     getDayPhase,

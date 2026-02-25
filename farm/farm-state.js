@@ -8,8 +8,13 @@ class FarmState {
   constructor() {
     this._dirty = false;
     this._timer = null;
+    this._weatherMultiplier = 1.0;
     this.state = this._defaultState();
     this.achievements = new AchievementManager();
+  }
+
+  setWeatherMultiplier(m) {
+    this._weatherMultiplier = m;
   }
 
   _defaultState() {
@@ -192,8 +197,8 @@ class FarmState {
       return;
     }
 
-    // Spread growth evenly across active plots
-    const perPlot = Math.max(1, Math.floor(this.state.pendingGrowth / activePlots.length));
+    // Spread growth evenly across active plots (weather multiplier applied)
+    const perPlot = Math.max(1, Math.floor(this.state.pendingGrowth * this._weatherMultiplier / activePlots.length));
 
     for (const idx of activePlots) {
       const plot = this.state.plots[idx];

@@ -262,6 +262,15 @@ ipcMain.on('set-ignore-mouse', (e, ignore, opts) => {
   if (w) w.setIgnoreMouseEvents(ignore, opts || {});
 });
 
+ipcMain.on('set-weather', (e, condition) => {
+  // Rain gives +50% crop growth rate
+  if (condition === 'rain') {
+    farm.setWeatherMultiplier(1.5);
+  } else {
+    farm.setWeatherMultiplier(1.0);
+  }
+});
+
 ipcMain.on('unlock-building', (e, id) => {
   if (!farm.state.buildings[id]) {
     farm.state.buildings[id] = true;

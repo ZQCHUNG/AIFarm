@@ -13,4 +13,5 @@ contextBridge.exposeInMainWorld('buddy', {
   onSpritesReload: (cb) => ipcRenderer.on('sprites-reload', (_e, data) => cb(data)),
   setIgnoreMouseEvents: (ignore, opts) => ipcRenderer.send('set-ignore-mouse', ignore, opts),
   unlockBuilding: (id) => ipcRenderer.send('unlock-building', id),
+  setWeather: (condition) => ipcRenderer.send('set-weather', condition),
 });

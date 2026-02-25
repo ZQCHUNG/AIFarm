@@ -462,6 +462,8 @@
     // Weather overlay
     if (typeof IsoWeather !== 'undefined') {
       IsoWeather.draw(ctx, canvas.width, canvas.height, tick);
+      // Dynamic weather effects (rain, fog, lightning)
+      IsoWeather.drawWeatherEffects(ctx, canvas.width, canvas.height, tick);
       // Dynamic lighting replaces simple night overlay when available
       if (typeof IsoLighting !== 'undefined') {
         IsoLighting.draw(ctx, canvas.width, canvas.height, tick);
