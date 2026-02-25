@@ -65,10 +65,36 @@ const IsoFarm = (() => {
     [0, 17], [1, 17], [18, 17], [19, 17],
   ];
 
-  // Flower/bush decorations
+  // Flower/bush decorations (expanded to fill empty areas)
   const FLOWER_POSITIONS = [
     [1, 2], [13, 2], [14, 3], [1, 8], [13, 8],
     [15, 5], [16, 4], [17, 6], [18, 5], [12, 4], [12, 7],
+    // Right side meadow flowers
+    [14, 5], [15, 7], [16, 2], [17, 4], [18, 7], [13, 6],
+    [15, 3], [17, 8], [14, 9], [18, 3], [16, 9],
+    // Pasture flowers
+    [2, 12], [6, 13], [10, 12], [14, 11], [4, 11],
+  ];
+
+  // Small rocks (scattered on grass areas)
+  const ROCK_POSITIONS = [
+    [12, 3], [15, 6], [17, 2], [18, 8], [13, 9],
+    [16, 5], [19, 4], [14, 7], [2, 13], [8, 14],
+    [12, 12], [18, 14],
+  ];
+
+  // Fence posts (field boundary + pasture boundary)
+  const FENCE_POSITIONS = [
+    // Field top border
+    ...Array.from({length: 9}, (_, i) => [3 + i, 2, 'h']),
+    // Field bottom border
+    ...Array.from({length: 9}, (_, i) => [3 + i, 9, 'h']),
+    // Field left border
+    ...Array.from({length: 8}, (_, i) => [3, 2 + i, 'v']),
+    // Field right border
+    ...Array.from({length: 8}, (_, i) => [11, 2 + i, 'v']),
+    // Pasture bottom fence
+    ...Array.from({length: 18}, (_, i) => [1 + i, 14, 'h']),
   ];
 
   const HOODIE_COLOR_NAMES = ['blue', 'red', 'green', 'purple', 'orange', 'teal', 'pink', 'yellow'];
@@ -164,6 +190,29 @@ const IsoFarm = (() => {
       decorEntities.push(ent);
     }
 
+    // Rocks
+    for (const [c, r] of ROCK_POSITIONS) {
+      const seed = c * 7 + r * 13;
+      const ent = IsoEntityManager.add(IsoEntityManager.createStatic(c, r,
+        (ctx, sx, sy, tick) => drawRock(ctx, sx, sy, tick, seed)
+      ));
+      decorEntities.push(ent);
+    }
+
+    // Fences
+    for (const [c, r, orientation] of FENCE_POSITIONS) {
+      const ent = IsoEntityManager.add(IsoEntityManager.createStatic(c, r,
+        (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, orientation)
+      ));
+      decorEntities.push(ent);
+    }
+
+    // Dirt path connecting main road to town
+    for (let r = 11; r <= 14; r++) {
+      IsoEngine.setTile(9, r, 'path');
+      IsoEngine.setTile(10, r, 'path');
+    }
+
     // Bulletin board (usage data sign, right of crop fields)
     const boardEnt = IsoEntityManager.add(IsoEntityManager.createStatic(12, 5,
       (ctx, sx, sy, tick) => drawBulletinBoard(ctx, sx, sy, tick),
@@ -177,6 +226,47 @@ const IsoFarm = (() => {
     const cw = c ? c.width : 660;
     const ch = c ? c.height : 500;
     IsoEngine.centerOnTile(9, 7, cw, ch);
+  }
+
+  // Draw a small rock
+  function drawRock(ctx, sx, sy, tick, seed) {
+    const shades = ['#9E9E9E', '#8B8B8B', '#A8A8A8', '#7A7A7A'];
+    const shade = shades[seed % shades.length];
+    const size = 3 + (seed % 3);
+
+    ctx.fillStyle = shade;
+    ctx.beginPath();
+    ctx.ellipse(sx, sy, size, size * 0.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Highlight
+    ctx.fillStyle = '#BFBFBF';
+    ctx.fillRect(sx - size / 2, sy - size * 0.4, size * 0.5, size * 0.3);
+  }
+
+  // Draw a fence post segment
+  function drawFence(ctx, sx, sy, tick, orientation) {
+    const woodColor = '#8B6B3E';
+    const darkWood = '#6B4226';
+
+    if (orientation === 'h') {
+      // Horizontal fence rail
+      ctx.fillStyle = darkWood;
+      ctx.fillRect(sx - 14, sy - 4, 28, 3);
+      ctx.fillStyle = woodColor;
+      ctx.fillRect(sx - 14, sy - 6, 28, 3);
+      // Posts at ends
+      ctx.fillStyle = darkWood;
+      ctx.fillRect(sx - 14, sy - 10, 3, 12);
+      ctx.fillRect(sx + 11, sy - 10, 3, 12);
+    } else {
+      // Vertical fence rail
+      ctx.fillStyle = darkWood;
+      ctx.fillRect(sx - 1, sy - 12, 3, 14);
+      ctx.fillStyle = woodColor;
+      ctx.fillRect(sx - 2, sy - 6, 3, 2);
+      ctx.fillRect(sx - 2, sy - 2, 3, 2);
+    }
   }
 
   // Draw a small flower bush

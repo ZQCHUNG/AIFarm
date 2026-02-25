@@ -559,6 +559,13 @@ const IsoEngine = (() => {
   function drawIsoCrop(ctx, sx, sy, stage, cropType, tick) {
     if (stage === 0) return;
 
+    // Per-tile random offset to break grid feel (seeded by position)
+    const seed = (sx * 7 + sy * 13) & 0xFFFF;
+    const offX = ((seed % 5) - 2);        // -2 to +2 px
+    const offY = (((seed >> 3) % 5) - 2); // -2 to +2 px
+    sx += offX;
+    sy += offY;
+
     // Stage 1: Universal seedling (2 small sprouts per tile)
     if (stage === 1) {
       for (let i = -1; i <= 1; i += 2) {
@@ -607,11 +614,22 @@ const IsoEngine = (() => {
       default: _drawGenericCrop(ctx, sx, sy, mature, glow, tick); break;
     }
 
+    // Extra leaf overlay for mature crops — adds lushness
+    if (mature) {
+      const leafSway = Math.sin(tick * 0.025 + seed * 0.01) * 0.5;
+      ctx.fillStyle = 'rgba(106, 192, 80, 0.35)';
+      ctx.fillRect(sx - 10 + leafSway, sy - 20, 4, 3);
+      ctx.fillRect(sx + 6 + leafSway, sy - 18, 4, 3);
+      ctx.fillRect(sx - 7 + leafSway, sy - 14, 3, 2);
+      ctx.fillRect(sx + 8 + leafSway, sy - 22, 3, 2);
+    }
+
     // Harvest sparkle for mature crops
     if (glow) {
       ctx.fillStyle = '#FFD700';
       ctx.fillRect(sx - 11, sy - 22, 2, 2);
       ctx.fillRect(sx + 9, sy - 18, 2, 2);
+      ctx.fillRect(sx - 3, sy - 25, 2, 2);
     }
   }
 
