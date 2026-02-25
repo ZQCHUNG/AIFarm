@@ -170,15 +170,14 @@ const IsoTooltip = (() => {
   }
 
   function getCropAtPosition(col, row, farmState) {
-    const PLOT_POSITIONS = [
-      { col: 2, row: 3 }, { col: 3, row: 3 }, { col: 4, row: 3 },
-      { col: 5, row: 3 }, { col: 6, row: 3 }, { col: 7, row: 3 },
-      { col: 2, row: 5 }, { col: 3, row: 5 }, { col: 4, row: 5 },
-      { col: 5, row: 5 }, { col: 6, row: 5 }, { col: 7, row: 5 },
-    ];
-    for (let i = 0; i < PLOT_POSITIONS.length; i++) {
-      const pos = PLOT_POSITIONS[i];
-      if (Math.abs(pos.col - col) < 0.5 && Math.abs(pos.row - row) < 0.5) {
+    // Use IsoFarm's plot positions (multi-tile rows)
+    const positions = (typeof IsoFarm !== 'undefined') ? IsoFarm.PLOT_POSITIONS : [];
+    for (let i = 0; i < positions.length; i++) {
+      const pos = positions[i];
+      const w = pos.width || 1;
+      // Check if col is within the plot's tile range
+      if (row >= pos.row - 0.5 && row < pos.row + 0.5 &&
+          col >= pos.col - 0.5 && col < pos.col + w + 0.5) {
         const plot = farmState.plots && farmState.plots[i];
         if (plot && plot.crop) {
           return { ...plot, index: i };
@@ -189,17 +188,20 @@ const IsoTooltip = (() => {
   }
 
   function getBuildingAtPosition(col, row, farmState) {
-    const BUILDING_POSITIONS = {
-      well:     { col: 1,  row: 14 },
-      barn:     { col: 4,  row: 14 },
-      windmill: { col: 7,  row: 14 },
-      market:   { col: 10, row: 14 },
-      clock:    { col: 13, row: 14 },
-      townhall: { col: 3,  row: 15 },
-      statue:   { col: 12, row: 15 },
-    };
-    for (const [name, pos] of Object.entries(BUILDING_POSITIONS)) {
-      if (Math.abs(pos.col - col) < 1 && Math.abs(pos.row - row) < 1) {
+    // Use IsoFarm's positions if available, otherwise fallback
+    const positions = (typeof IsoFarm !== 'undefined' && IsoFarm.BUILDING_POSITIONS)
+      ? IsoFarm.BUILDING_POSITIONS
+      : {
+          well:     { col: 2,  row: 15 },
+          barn:     { col: 5,  row: 15 },
+          windmill: { col: 8,  row: 15 },
+          market:   { col: 11, row: 15 },
+          clock:    { col: 14, row: 15 },
+          townhall: { col: 4,  row: 17 },
+          statue:   { col: 15, row: 17 },
+        };
+    for (const [name, pos] of Object.entries(positions)) {
+      if (Math.abs(pos.col - col) < 1.5 && Math.abs(pos.row - row) < 1.5) {
         if (farmState.buildings && farmState.buildings[name]) {
           return { name, col: pos.col, row: pos.row };
         }
