@@ -171,9 +171,12 @@ const IsoFarm = (() => {
     ));
     decorEntities.push(boardEnt);
 
-    // Center camera on the crop area (tightly zoomed)
+    // Center camera with balanced view of crops, path, and pasture
     IsoEngine.setZoom(1.8);
-    IsoEngine.centerOnTile(7, 5, 660, 500);
+    const c = document.getElementById('canvas') || document.getElementById('isoCanvas') || document.getElementById('farm-canvas');
+    const cw = c ? c.width : 660;
+    const ch = c ? c.height : 500;
+    IsoEngine.centerOnTile(9, 7, cw, ch);
   }
 
   // Draw a small flower bush

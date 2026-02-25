@@ -303,6 +303,10 @@ const IsoEngine = (() => {
   function drawMap(ctx, canvasW, canvasH, tick) {
     if (!tileMap) return;
 
+    // Track canvas size for camera clamping
+    lastCanvasW = canvasW;
+    lastCanvasH = canvasH;
+
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.scale(camZoom, camZoom);
@@ -373,13 +377,20 @@ const IsoEngine = (() => {
 
   // ===== Camera =====
 
-  function setCamera(x, y) { camX = x; camY = y; }
+  // Last known canvas size for boundary clamping
+  let lastCanvasW = 660;
+  let lastCanvasH = 500;
+  const CAM_MARGIN = 64; // allow panning this far past the map edge (pixels)
 
-  function moveCamera(dx, dy) { camX += dx; camY += dy; }
+  function setCamera(x, y) { camX = x; camY = y; clampCamera(); }
+
+  function moveCamera(dx, dy) { camX += dx; camY += dy; clampCamera(); }
 
   function centerOnTile(col, row, canvasW, canvasH) {
-    camX = canvasW / 2 / camZoom - col * TILE_W - TILE_W / 2;
-    camY = canvasH / 2 / camZoom - row * TILE_H - TILE_H / 2;
+    if (canvasW) lastCanvasW = canvasW;
+    if (canvasH) lastCanvasH = canvasH;
+    camX = (canvasW || lastCanvasW) / 2 / camZoom - col * TILE_W - TILE_W / 2;
+    camY = (canvasH || lastCanvasH) / 2 / camZoom - row * TILE_H - TILE_H / 2;
   }
 
   function zoom(delta, focusX, focusY) {
@@ -390,6 +401,23 @@ const IsoEngine = (() => {
       camX = focusX - (focusX - camX) * zoomRatio;
       camY = focusY - (focusY - camY) * zoomRatio;
     }
+    clampCamera();
+  }
+
+  /** Clamp camera so the map stays mostly on-screen. */
+  function clampCamera() {
+    if (!tileMap) return;
+    const vw = lastCanvasW / camZoom;
+    const vh = lastCanvasH / camZoom;
+    const worldW = mapWidth * TILE_W;
+    const worldH = mapHeight * TILE_H;
+    // Camera offset ranges: map should fill viewport with margin
+    const minX = -(worldW - vw + CAM_MARGIN);
+    const maxX = CAM_MARGIN;
+    const minY = -(worldH - vh + CAM_MARGIN);
+    const maxY = CAM_MARGIN;
+    camX = Math.max(minX, Math.min(maxX, camX));
+    camY = Math.max(minY, Math.min(maxY, camY));
   }
 
   function getZoom() { return camZoom; }
@@ -1038,7 +1066,7 @@ const IsoEngine = (() => {
     addEntity, clearEntities,
     drawTile, drawTileTransitions, drawTileHighlight,
     drawMap,
-    setCamera, moveCamera, centerOnTile,
+    setCamera, moveCamera, centerOnTile, clampCamera,
     zoom, getZoom, setZoom,
     saveViewportState, restoreViewportState, hasSavedViewport,
     adjustBrightness,
