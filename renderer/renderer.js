@@ -141,6 +141,10 @@
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     const grid = IsoEngine.mouseToGrid(mx, my);
+    // Bulletin board modal takes priority
+    if (typeof IsoUI !== 'undefined' && IsoUI.handleClick(grid.col, grid.row)) {
+      return;
+    }
     const tile = IsoEngine.getTile(grid.col, grid.row);
     if (tile) {
       console.log(`[TopDown] Click: (${grid.col}, ${grid.row}) = ${tile}`);
@@ -317,6 +321,12 @@
 
     // HUD (Harvest Moon style)
     IsoFarm.drawHUD(ctx, canvas.width, canvas.height, tick);
+
+    // Modal overlay (bulletin board daily summary)
+    if (typeof IsoUI !== 'undefined') {
+      IsoUI.update();
+      IsoUI.draw(ctx, canvas.width, canvas.height, tick);
+    }
   }
 
   requestAnimationFrame(loop);

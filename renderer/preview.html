@@ -24,6 +24,7 @@
   <script src="iso-weather.js"></script>
   <script src="iso-tooltip.js"></script>
   <script src="iso-effects.js"></script>
+  <script src="iso-ui.js"></script>
   <script src="character.js"></script>
   <script src="train.js"></script>
   <script src="state-machine.js"></script>
@@ -156,6 +157,15 @@
     c1.addEventListener('mouseleave', () => {
       IsoEngine.setHoverTile(-1, -1);
     });
+    c1.addEventListener('click', (e) => {
+      const rect = c1.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const grid = IsoEngine.mouseToGrid(mx, my);
+      if (typeof IsoUI !== 'undefined') {
+        IsoUI.handleClick(grid.col, grid.row);
+      }
+    });
     c1.addEventListener('wheel', (e) => {
       e.preventDefault();
       const rect = c1.getBoundingClientRect();
@@ -230,6 +240,12 @@
 
       // HUD
       IsoFarm.drawHUD(fCtx, baseW, baseH, farmTick);
+
+      // Modal overlay (bulletin board daily summary)
+      if (typeof IsoUI !== 'undefined') {
+        IsoUI.update();
+        IsoUI.draw(fCtx, baseW, baseH, farmTick);
+      }
 
       requestAnimationFrame(farmLoop);
     }
