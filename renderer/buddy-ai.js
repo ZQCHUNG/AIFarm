@@ -10,6 +10,7 @@ const BuddyAI = (() => {
     FARMING: 'farming',         // watering/hoeing at crop plot
     TENDING: 'tending',         // feeding animals in pasture
     HARVESTING: 'harvesting',   // picking mature crops
+    SOCIAL: 'social',           // chatting with nearby buddy
   };
 
   // Movement speed (grid units per tick)
@@ -20,6 +21,9 @@ const BuddyAI = (() => {
   const HARVEST_DURATION = 90; // ~1.5 seconds — squat, pull, celebrate
   const PICKUP_DURATION = 30;  // ~0.5 seconds at tool shed
   const IDLE_LINGER = 180;     // stay idle before picking next task
+  const SOCIAL_DURATION = 60;  // ~1 second chat
+  const SOCIAL_DISTANCE = 1.5; // grid units to trigger
+  const SOCIAL_COOLDOWN = 600; // ~10 seconds between chats per pair
 
   // Tool shed location (near field entrance on path row)
   const TOOL_SHED_COL = 2;
@@ -31,6 +35,21 @@ const BuddyAI = (() => {
   // Track which plots are currently targeted (avoid crowding)
   const claimedPlots = new Set();
 
+  // Social cooldown: tracks last chat tick per buddy pair (key = sorted id pair)
+  const socialCooldowns = new Map();
+
+  // Chat emoji pairs (both buddies show one each)
+  const CHAT_EMOJIS = [
+    ['\u{1F44B}', '\u{1F60A}'], // wave + smile
+    ['\u{2615}',  '\u{1F4AC}'], // coffee + speech
+    ['\u{1F31F}', '\u{1F44D}'], // star + thumbsup
+    ['\u{1F3B5}', '\u{1F3B6}'], // music notes
+    ['\u{1F4AA}', '\u{1F525}'], // muscle + fire
+    ['\u{1F331}', '\u{2728}'],  // seedling + sparkles
+    ['\u{1F60E}', '\u{1F389}'], // cool + party
+    ['\u{1F917}', '\u{2764}\u{FE0F}'], // hug + heart
+  ];
+
   // ===== Public API =====
 
   function onActivity(sessionId, eventType) {
@@ -41,7 +60,7 @@ const BuddyAI = (() => {
     }
 
     // Action locking: ignore new events during walking or active animation
-    if (ai.state === STATE.FARMING || ai.state === STATE.TENDING || ai.state === STATE.WALKING || ai.state === STATE.HARVESTING || ai.state === STATE.PICKUP_TOOL) return;
+    if (ai.state === STATE.FARMING || ai.state === STATE.TENDING || ai.state === STATE.WALKING || ai.state === STATE.HARVESTING || ai.state === STATE.PICKUP_TOOL || ai.state === STATE.SOCIAL) return;
 
     // Map event type to farm action
     if (eventType === 'tool_use' || eventType === 'text' || eventType === 'bash_progress') {
@@ -61,12 +80,15 @@ const BuddyAI = (() => {
 
     if (buddyState === 'idle' || buddyState === 'sleeping') {
       // If currently doing action, let it finish; otherwise walk home
-      if (ai.state === STATE.FARMING || ai.state === STATE.TENDING || ai.state === STATE.HARVESTING || ai.state === STATE.PICKUP_TOOL) return;
+      if (ai.state === STATE.FARMING || ai.state === STATE.TENDING || ai.state === STATE.HARVESTING || ai.state === STATE.PICKUP_TOOL || ai.state === STATE.SOCIAL) return;
       assignHomeTarget(ai, sessionId);
     }
   }
 
   function update(tick) {
+    // Check for social interactions between walking buddies
+    checkSocialProximity(tick);
+
     for (const [sessionId, ai] of buddyAI) {
       const ent = getBuddyEntity(sessionId);
       if (!ent) continue;
@@ -86,6 +108,9 @@ const BuddyAI = (() => {
           break;
         case STATE.HARVESTING:
           updateHarvesting(ai, ent, tick);
+          break;
+        case STATE.SOCIAL:
+          updateSocial(ai, ent, tick);
           break;
         case STATE.IDLE:
           updateIdle(ai, ent, tick);
@@ -118,6 +143,11 @@ const BuddyAI = (() => {
       pendingAction: null,
       pendingTargetCol: 0,
       pendingTargetRow: 0,
+      // Social: stored action to resume after chat
+      socialPartner: null,
+      socialEmoji: null,
+      preSocialState: null,
+      preSocialAction: null,
     };
   }
 
@@ -490,6 +520,109 @@ const BuddyAI = (() => {
       const clampedCol = Math.max(1, Math.min(wanderCol, (typeof IsoFarm !== 'undefined' ? IsoFarm.MAP_W : 20) - 2));
       const clampedRow = Math.max(1, Math.min(wanderRow, (typeof IsoFarm !== 'undefined' ? IsoFarm.MAP_H : 18) - 2));
       setWalkTarget(ai, clampedCol, clampedRow, null);
+    }
+  }
+
+  // ===== Social interactions =====
+
+  function checkSocialProximity(tick) {
+    const entries = [...buddyAI.entries()];
+    for (let i = 0; i < entries.length; i++) {
+      const [idA, aiA] = entries[i];
+      if (aiA.state !== STATE.WALKING && aiA.state !== STATE.IDLE) continue;
+      const entA = getBuddyEntity(idA);
+      if (!entA) continue;
+
+      for (let j = i + 1; j < entries.length; j++) {
+        const [idB, aiB] = entries[j];
+        if (aiB.state !== STATE.WALKING && aiB.state !== STATE.IDLE) continue;
+        const entB = getBuddyEntity(idB);
+        if (!entB) continue;
+
+        // Check distance
+        const dx = entA.gridX - entB.gridX;
+        const dy = entA.gridY - entB.gridY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist >= SOCIAL_DISTANCE) continue;
+
+        // Check cooldown
+        const pairKey = idA < idB ? `${idA}|${idB}` : `${idB}|${idA}`;
+        const lastChat = socialCooldowns.get(pairKey) || 0;
+        if (tick - lastChat < SOCIAL_COOLDOWN) continue;
+
+        // Trigger social interaction!
+        socialCooldowns.set(pairKey, tick);
+        const emojis = CHAT_EMOJIS[Math.floor(Math.random() * CHAT_EMOJIS.length)];
+
+        // Save current state so we can resume after chat
+        aiA.preSocialState = aiA.state;
+        aiA.preSocialAction = aiA.action;
+        aiB.preSocialState = aiB.state;
+        aiB.preSocialAction = aiB.action;
+
+        aiA.state = STATE.SOCIAL;
+        aiA.actionTimer = SOCIAL_DURATION;
+        aiA.socialPartner = idB;
+        aiA.socialEmoji = emojis[0];
+
+        aiB.state = STATE.SOCIAL;
+        aiB.actionTimer = SOCIAL_DURATION;
+        aiB.socialPartner = idA;
+        aiB.socialEmoji = emojis[1];
+
+        // Face each other
+        entA.direction = dx > 0 ? 'left' : 'right';
+        entB.direction = dx > 0 ? 'right' : 'left';
+
+        // Initial greeting sparkle
+        if (typeof IsoEngine !== 'undefined') {
+          const midX = (entA.gridX + entB.gridX) / 2;
+          const midY = (entA.gridY + entB.gridY) / 2;
+          IsoEngine.spawnHarvestParticles(midX, midY, '#FFD700', 4);
+        }
+        break; // one social event per tick is enough
+      }
+    }
+  }
+
+  function updateSocial(ai, ent, tick) {
+    ai.actionTimer--;
+
+    // Gentle bob while chatting
+    ent.z = Math.sin(tick * 0.2 + ai.bobPhase) * 0.5;
+    ent.frame = 0;
+
+    // Show emoji bubble at start and midpoint
+    if ((ai.actionTimer === SOCIAL_DURATION - 1 || ai.actionTimer === Math.floor(SOCIAL_DURATION / 2))
+        && typeof IsoEffects !== 'undefined' && ai.socialEmoji) {
+      IsoEffects.spawnText(ent.gridX, ent.gridY - 0.8, ai.socialEmoji,
+        { color: '#FFF', life: 45, rise: 0.6 });
+    }
+
+    // Small heart at end
+    if (ai.actionTimer === 5 && typeof IsoEffects !== 'undefined') {
+      IsoEffects.spawnText(ent.gridX, ent.gridY - 0.6, '\u{2764}\u{FE0F}',
+        { color: '#E91E63', life: 30, rise: 0.4 });
+    }
+
+    if (ai.actionTimer <= 0) {
+      ent.z = 0;
+      // Log the social event (only from one side to avoid double logging)
+      if (ai.socialPartner && ai.socialPartner > '') {
+        const partnerEnt = getBuddyEntity(ai.socialPartner);
+        if (partnerEnt && typeof Farm !== 'undefined' && Farm.logEvent) {
+          // Only log from the buddy whose entity name comes first alphabetically
+          if (!partnerEnt.name || ent.name <= partnerEnt.name) {
+            Farm.logEvent('\u{1F4AC}', `Buddies had a chat`);
+          }
+        }
+      }
+
+      // Resume previous activity — go back to idle (will pick up next task naturally)
+      ai.socialPartner = null;
+      ai.socialEmoji = null;
+      ai.state = STATE.IDLE;
+      ai.idleTimer = 30; // short pause before next action
     }
   }
 

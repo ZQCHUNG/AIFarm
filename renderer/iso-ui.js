@@ -38,6 +38,11 @@ const IsoUI = (() => {
       return true; // consume click
     }
 
+    // Check golden bird click first (higher priority — rare event)
+    if (typeof IsoFarm !== 'undefined' && IsoFarm.handleFarmClick) {
+      if (IsoFarm.handleFarmClick(col, row)) return true;
+    }
+
     // Check if clicking on bulletin board entity
     if (typeof IsoTooltip !== 'undefined') {
       const entity = IsoTooltip.findEntityAt(col, row);

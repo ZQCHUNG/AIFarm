@@ -649,6 +649,7 @@ const IsoFarm = (() => {
     syncCrops(state);
     syncAnimals(state);
     syncBuildings(state);
+    syncMonument(state);
   }
 
   function syncCrops(state) {
@@ -1030,9 +1031,262 @@ const IsoFarm = (() => {
     }
   }
 
+  // ===== Golden Bird (hidden visitor random event) =====
+
+  let goldenBirdEntity = null;
+  let goldenBirdCol = -1;
+  let goldenBirdRow = -1;
+  let lastBirdCheck = 0;
+  const BIRD_CHECK_INTERVAL = 36000; // ~10 minutes at 60fps
+  const BIRD_SPAWN_CHANCE = 0.05;    // 5%
+  const BIRD_LIFETIME = 1800;        // ~30 seconds before flying away
+  let birdLifeTimer = 0;
+
+  // Possible fence positions for the bird to land on
+  function getBirdFenceSpots() {
+    // Top fence of field area (row 2, cols 3-11)
+    const spots = [];
+    for (let c = 3; c <= 11; c += 2) spots.push([c, 2]);
+    // Pasture fence posts
+    for (let c = 1; c <= 18; c += 3) spots.push([c, 11]);
+    return spots;
+  }
+
+  function updateGoldenBird(tick) {
+    // Check for bird despawn (timeout)
+    if (goldenBirdEntity) {
+      birdLifeTimer--;
+      if (birdLifeTimer <= 0) {
+        despawnBird(false);
+      }
+      return;
+    }
+
+    // Check for bird spawn
+    if (tick - lastBirdCheck < BIRD_CHECK_INTERVAL) return;
+    lastBirdCheck = tick;
+
+    if (Math.random() >= BIRD_SPAWN_CHANCE) return;
+
+    // Spawn golden bird on a random fence spot
+    const spots = getBirdFenceSpots();
+    const spot = spots[Math.floor(Math.random() * spots.length)];
+    goldenBirdCol = spot[0];
+    goldenBirdRow = spot[1];
+    birdLifeTimer = BIRD_LIFETIME;
+
+    goldenBirdEntity = IsoEntityManager.add(IsoEntityManager.createStatic(
+      goldenBirdCol, goldenBirdRow,
+      (ctx, sx, sy, tick) => drawGoldenBird(ctx, sx, sy, tick),
+      { signType: 'goldenbird' }
+    ));
+
+    // Log appearance
+    if (typeof Farm !== 'undefined' && Farm.logEvent) {
+      Farm.logEvent('\u{1F426}', 'A golden bird appeared!');
+    }
+  }
+
+  function drawGoldenBird(ctx, sx, sy, tick) {
+    const bob = Math.sin(tick * 0.1) * 1.5;
+    const wingFlap = Math.sin(tick * 0.3) > 0 ? 1 : 0;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy + 2, 5, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body (golden)
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy - 6 + bob, 4, 3.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wing
+    ctx.fillStyle = '#FFC000';
+    if (wingFlap) {
+      ctx.fillRect(sx + 3, sy - 9 + bob, 3, 2);
+    } else {
+      ctx.fillRect(sx + 3, sy - 7 + bob, 3, 2);
+    }
+
+    // Head
+    ctx.fillStyle = '#FFE066';
+    ctx.beginPath();
+    ctx.arc(sx - 3, sy - 9 + bob, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Eye
+    ctx.fillStyle = '#333';
+    ctx.fillRect(sx - 4, sy - 10 + bob, 1, 1);
+
+    // Beak
+    ctx.fillStyle = '#FF8C00';
+    ctx.fillRect(sx - 6, sy - 9 + bob, 2, 1);
+
+    // Tail feathers
+    ctx.fillStyle = '#FFAA00';
+    ctx.fillRect(sx + 4, sy - 7 + bob, 2, 1);
+    ctx.fillRect(sx + 5, sy - 6 + bob, 2, 1);
+
+    // Golden sparkle aura
+    const sparkle = ((tick / 10) | 0) % 4;
+    ctx.fillStyle = '#FFF8DC';
+    const sparkPos = [[-6, -13], [5, -11], [-4, -3], [6, -4]];
+    if (sparkle < sparkPos.length) {
+      ctx.fillRect(sx + sparkPos[sparkle][0], sy + sparkPos[sparkle][1] + bob, 2, 2);
+    }
+  }
+
+  function handleFarmClick(col, row) {
+    if (!goldenBirdEntity) return false;
+
+    // Check if click is near the golden bird (1.5 tile radius)
+    const dx = col - goldenBirdCol;
+    const dy = row - goldenBirdRow;
+    if (Math.sqrt(dx * dx + dy * dy) > 1.5) return false;
+
+    despawnBird(true);
+    return true;
+  }
+
+  function despawnBird(clicked) {
+    if (!goldenBirdEntity) return;
+
+    if (clicked) {
+      // Big sparkle celebration
+      if (typeof IsoEngine !== 'undefined') {
+        IsoEngine.spawnHarvestParticles(goldenBirdCol, goldenBirdRow, '#FFD700', 16);
+        IsoEngine.spawnHarvestParticles(goldenBirdCol, goldenBirdRow, '#FFF8DC', 8);
+        IsoEngine.spawnHarvestParticles(goldenBirdCol, goldenBirdRow, '#FF8C00', 6);
+      }
+      if (typeof IsoEffects !== 'undefined') {
+        IsoEffects.spawnText(goldenBirdCol, goldenBirdRow - 0.5, '\u{2728}',
+          { color: '#FFD700', life: 60, rise: 1.0 });
+        IsoEffects.spawnText(goldenBirdCol + 0.3, goldenBirdRow - 0.8, '\u{1F426}',
+          { color: '#FFD700', life: 50, rise: 1.2 });
+      }
+      if (typeof Farm !== 'undefined' && Farm.logEvent) {
+        Farm.logEvent('\u{2728}', 'Caught the golden bird!');
+      }
+    } else {
+      // Bird flew away — small particle puff
+      if (typeof IsoEngine !== 'undefined') {
+        IsoEngine.spawnHarvestParticles(goldenBirdCol, goldenBirdRow, '#FFD700', 4);
+      }
+      if (typeof Farm !== 'undefined' && Farm.logEvent) {
+        Farm.logEvent('\u{1F426}', 'The golden bird flew away...');
+      }
+    }
+
+    IsoEntityManager.remove(goldenBirdEntity);
+    goldenBirdEntity = null;
+    goldenBirdCol = -1;
+    goldenBirdRow = -1;
+  }
+
+  // ===== Monument (upper-right, unlocked at 10k energy) =====
+
+  let monumentEntity = null;
+
+  function syncMonument(state) {
+    const energy = state.totalEnergy || 0;
+    if (energy < 10000) {
+      if (monumentEntity) {
+        IsoEntityManager.remove(monumentEntity);
+        monumentEntity = null;
+      }
+      return;
+    }
+    if (monumentEntity) return; // already placed
+
+    monumentEntity = IsoEntityManager.add(IsoEntityManager.createStatic(17, 2,
+      (ctx, sx, sy, tick) => {
+        drawMonument(ctx, sx, sy, tick, state);
+      },
+      { spriteId: null }
+    ));
+  }
+
+  function drawMonument(ctx, sx, sy, tick, state) {
+    const usage = (typeof Farm !== 'undefined') ? Farm.getUsage() : null;
+
+    // Stone pedestal
+    ctx.fillStyle = '#888';
+    ctx.fillRect(sx - 14, sy - 6, 28, 10);
+    ctx.fillStyle = '#A0A0A0';
+    ctx.fillRect(sx - 12, sy - 8, 24, 8);
+    ctx.fillStyle = '#B8B8B0';
+    ctx.fillRect(sx - 10, sy - 10, 20, 4);
+
+    // Crystal body (glowing pixel crystal)
+    const pulse = Math.sin(tick * 0.05) * 0.15 + 0.85;
+    const glowR = 8 + Math.sin(tick * 0.03) * 2;
+
+    // Crystal glow aura
+    ctx.save();
+    ctx.globalAlpha = 0.3 * pulse;
+    const grad = ctx.createRadialGradient(sx, sy - 22, 2, sx, sy - 22, glowR * 2);
+    grad.addColorStop(0, '#DA70D6');
+    grad.addColorStop(0.5, '#9B59B6');
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.fillRect(sx - glowR * 2, sy - 22 - glowR * 2, glowR * 4, glowR * 4);
+    ctx.restore();
+
+    // Crystal shape (diamond/gem)
+    ctx.fillStyle = `rgba(180, 100, 220, ${(0.7 + pulse * 0.3).toFixed(2)})`;
+    // Bottom half (wider)
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - 12);
+    ctx.lineTo(sx - 6, sy - 20);
+    ctx.lineTo(sx, sy - 28);
+    ctx.lineTo(sx + 6, sy - 20);
+    ctx.closePath();
+    ctx.fill();
+
+    // Crystal highlight
+    ctx.fillStyle = `rgba(220, 180, 255, ${(0.4 + pulse * 0.2).toFixed(2)})`;
+    ctx.beginPath();
+    ctx.moveTo(sx - 1, sy - 14);
+    ctx.lineTo(sx - 4, sy - 20);
+    ctx.lineTo(sx - 1, sy - 26);
+    ctx.lineTo(sx + 1, sy - 20);
+    ctx.closePath();
+    ctx.fill();
+
+    // Sparkle particles
+    const sparkPhase = ((tick / 6) | 0) % 5;
+    const sparkOffsets = [[-5, -24], [4, -18], [-3, -14], [6, -22], [0, -28]];
+    if (sparkPhase < sparkOffsets.length) {
+      ctx.fillStyle = '#FFF';
+      ctx.fillRect(sx + sparkOffsets[sparkPhase][0], sy + sparkOffsets[sparkPhase][1], 2, 2);
+    }
+
+    // Stats text below pedestal
+    ctx.font = '7px monospace';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#DA70D6';
+
+    if (usage && usage.totalOutput) {
+      const totalMB = (usage.totalOutput / 1000000).toFixed(1);
+      ctx.fillText(`${totalMB}M tok`, sx, sy + 6);
+    }
+
+    // "LEGEND" title above crystal
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 7px monospace';
+    ctx.fillText('LEGEND', sx, sy - 33);
+  }
+
   // ===== HUD — Harvest Moon style =====
 
   function drawHUD(ctx, canvasW, canvasH, tick) {
+    // Update golden bird random event
+    updateGoldenBird(tick);
+
     const state = (typeof Farm !== 'undefined') ? Farm.getState() : null;
     if (!state) return;
 
@@ -1204,7 +1458,7 @@ const IsoFarm = (() => {
     MAP_W, MAP_H,
     FIELD, PASTURE_ZONE,
     PLOT_POSITIONS, BUILDING_POSITIONS, ANIMAL_HOMES,
-    init, syncState, syncBuddy, removeBuddy, drawHUD,
+    init, syncState, syncBuddy, removeBuddy, drawHUD, handleFarmClick,
     getBuddyEntity, getCropStage, updateStartupAnimation,
   };
 })();
