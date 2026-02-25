@@ -164,6 +164,13 @@ const IsoFarm = (() => {
       decorEntities.push(ent);
     }
 
+    // Bulletin board (usage data sign, right of crop fields)
+    const boardEnt = IsoEntityManager.add(IsoEntityManager.createStatic(12, 5,
+      (ctx, sx, sy, tick) => drawBulletinBoard(ctx, sx, sy, tick),
+      { signType: 'bulletin' }
+    ));
+    decorEntities.push(boardEnt);
+
     // Center camera on the crop area (tightly zoomed)
     IsoEngine.setZoom(1.8);
     IsoEngine.centerOnTile(7, 5, 660, 500);
@@ -187,6 +194,33 @@ const IsoFarm = (() => {
       const fy = sy - 3 + Math.sin(seed * 1.7 + i * 1.9) * 3;
       ctx.fillStyle = colors[(seed + i) % colors.length];
       ctx.fillRect(Math.round(fx) - 1, Math.round(fy) - 1, 3, 3);
+    }
+  }
+
+  // Bulletin board — wooden sign showing usage data
+  function drawBulletinBoard(ctx, sx, sy, tick) {
+    // Wooden post
+    ctx.fillStyle = '#6B4226';
+    ctx.fillRect(sx - 2, sy - 28, 4, 28);
+
+    // Board frame (wooden)
+    ctx.fillStyle = '#8B5A2B';
+    ctx.fillRect(sx - 14, sy - 38, 28, 14);
+    // Board face
+    ctx.fillStyle = '#D4A460';
+    ctx.fillRect(sx - 12, sy - 36, 24, 10);
+
+    // Text on board (tiny "INFO")
+    ctx.fillStyle = '#4A2800';
+    ctx.font = 'bold 6px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('INFO', sx, sy - 31);
+
+    // Small blinking indicator
+    if (((tick / 40) | 0) % 2 === 0) {
+      ctx.fillStyle = '#FFD700';
+      ctx.fillRect(sx + 10, sy - 37, 3, 3);
     }
   }
 

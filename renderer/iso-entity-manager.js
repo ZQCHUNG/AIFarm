@@ -136,6 +136,7 @@ const IsoEntityManager = (() => {
       frame: 0,
       draw: drawFn,
       spriteId: o.spriteId || null,
+      signType: o.signType || null,
     };
   }
 

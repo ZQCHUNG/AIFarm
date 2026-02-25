@@ -166,9 +166,10 @@ const IsoTooltip = (() => {
   }
 
   function buildStaticTooltip(entity) {
-    // Try to identify what this static entity is from context
-    // Buildings and crops are created in iso-farm.js with draw functions
-    // We can infer type from grid position
+    // Check for bulletin board (usage data sign)
+    if (entity.signType === 'bulletin') {
+      return buildBulletinTooltip();
+    }
 
     const farmState = (typeof Farm !== 'undefined') ? Farm.getState() : null;
     if (!farmState) return null;
@@ -186,6 +187,23 @@ const IsoTooltip = (() => {
     }
 
     return null; // trees and other decorations — no tooltip
+  }
+
+  function buildBulletinTooltip() {
+    const usage = (typeof Farm !== 'undefined') ? Farm.getUsage() : null;
+    const lines = [];
+    lines.push({ text: '\u{1F4CB} Station Board', color: '#FFD700', bold: true });
+
+    if (usage) {
+      const fmtK = (n) => n >= 1000000 ? (n / 1000000).toFixed(1) + 'M' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+      lines.push({ text: `Today: ${fmtK(usage.todayTokens || 0)} tok`, color: ACCENT_COLOR });
+      lines.push({ text: `Msgs:  ${usage.todayMessages || 0}`, color: '#AADDAA' });
+      lines.push({ text: `Live:  ${fmtK(usage.liveOutput || 0)} out`, color: '#FFB080' });
+    } else {
+      lines.push({ text: 'No data yet', color: LABEL_COLOR });
+    }
+
+    return { lines, icon: '\u{1F4CB}' };
   }
 
   function getCropAtPosition(col, row, farmState) {
