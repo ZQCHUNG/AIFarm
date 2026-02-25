@@ -207,6 +207,9 @@
         BuddyAI.update(farmTick);
       }
 
+      // Sync farm state (picks up energy/milestone changes for progressive expansion)
+      IsoFarm.syncState();
+
       // Update entities
       IsoEntityManager.update(farmTick);
       IsoEntityManager.syncToEngine();

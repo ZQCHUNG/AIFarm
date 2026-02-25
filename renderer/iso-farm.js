@@ -83,19 +83,7 @@ const IsoFarm = (() => {
     [12, 12], [18, 14],
   ];
 
-  // Fence posts (field boundary + pasture boundary)
-  const FENCE_POSITIONS = [
-    // Field top border
-    ...Array.from({length: 9}, (_, i) => [3 + i, 2, 'h']),
-    // Field bottom border
-    ...Array.from({length: 9}, (_, i) => [3 + i, 9, 'h']),
-    // Field left border
-    ...Array.from({length: 8}, (_, i) => [3, 2 + i, 'v']),
-    // Field right border
-    ...Array.from({length: 8}, (_, i) => [11, 2 + i, 'v']),
-    // Pasture bottom fence
-    ...Array.from({length: 18}, (_, i) => [1 + i, 14, 'h']),
-  ];
+  // NOTE: Fences are now created dynamically in rebuildFieldTerrain/rebuildPastureTerrain
 
   const HOODIE_COLOR_NAMES = ['blue', 'red', 'green', 'purple', 'orange', 'teal', 'pink', 'yellow'];
 
@@ -114,6 +102,10 @@ const IsoFarm = (() => {
   let buildingEntities = [];
   let buddyEntities = new Map();
   let decorEntities = [];
+  let fieldFenceEntities = [];
+  let pastureFenceEntities = [];
+  let lastFieldPhase = -1;
+  let lastPasturePhase = -1;
 
   // ===== Initialization =====
 
@@ -124,26 +116,8 @@ const IsoFarm = (() => {
     IsoEngine.initMap(MAP_W, MAP_H, 'grass');
 
     // -- Paint terrain --
-
-    // Crop field: two soil sections with center path
-    for (let r = 3; r <= 8; r++) {
-      // Left section
-      for (let c = 4; c <= 6; c++) IsoEngine.setTile(c, r, 'soil');
-      // Center walking path
-      IsoEngine.setTile(7, r, 'path');
-      // Right section
-      for (let c = 8; c <= 10; c++) IsoEngine.setTile(c, r, 'soil');
-    }
-
-    // Dirt border around field
-    for (let c = FIELD.minCol; c <= FIELD.maxCol; c++) {
-      IsoEngine.setTile(c, FIELD.minRow, 'dirt');
-      IsoEngine.setTile(c, FIELD.maxRow, 'dirt');
-    }
-    for (let r = FIELD.minRow; r <= FIELD.maxRow; r++) {
-      IsoEngine.setTile(FIELD.minCol, r, 'dirt');
-      IsoEngine.setTile(FIELD.maxCol, r, 'dirt');
-    }
+    // NOTE: Crop field soil/dirt/fences are painted dynamically in syncTerrain()
+    // based on energy milestones (progressive field expansion)
 
     // Path running horizontally below field
     for (let c = 0; c < MAP_W; c++) {
@@ -199,13 +173,7 @@ const IsoFarm = (() => {
       decorEntities.push(ent);
     }
 
-    // Fences
-    for (const [c, r, orientation] of FENCE_POSITIONS) {
-      const ent = IsoEntityManager.add(IsoEntityManager.createStatic(c, r,
-        (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, orientation)
-      ));
-      decorEntities.push(ent);
-    }
+    // NOTE: Field fences + pasture fences are created dynamically in syncTerrain()
 
     // Dirt path connecting main road to town
     for (let r = 11; r <= 14; r++) {
@@ -338,11 +306,159 @@ const IsoFarm = (() => {
     }
   }
 
+  // ===== Progressive expansion helpers =====
+
+  function getFieldPhase(energy) {
+    if (energy >= 5000) return 4;  // full field (rows 3-8)
+    if (energy >= 1800) return 3;  // rows 3-7
+    if (energy >= 500) return 2;   // rows 3-5
+    if (energy >= 50) return 1;    // rows 3-4
+    return 0;                       // no field
+  }
+
+  function getPasturePhase(animalCount) {
+    if (animalCount >= 5) return 4;
+    if (animalCount >= 3) return 3;
+    if (animalCount >= 1) return 2;
+    return 0;
+  }
+
+  function syncTerrain(state) {
+    const energy = state.totalEnergy || 0;
+
+    // -- Field terrain expansion --
+    const fieldPhase = getFieldPhase(energy);
+    if (fieldPhase !== lastFieldPhase) {
+      lastFieldPhase = fieldPhase;
+      rebuildFieldTerrain(fieldPhase);
+    }
+
+    // -- Pasture expansion --
+    const animalCount = state.animals
+      ? Object.values(state.animals).filter(a => a && a.unlocked).length : 0;
+    const pasturePhase = getPasturePhase(animalCount);
+    if (pasturePhase !== lastPasturePhase) {
+      lastPasturePhase = pasturePhase;
+      rebuildPastureTerrain(pasturePhase);
+    }
+  }
+
+  function rebuildFieldTerrain(phase) {
+    // Reset entire potential field area to grass
+    for (let r = 2; r <= 9; r++) {
+      for (let c = 3; c <= 11; c++) {
+        IsoEngine.setTile(c, r, 'grass');
+      }
+    }
+
+    // Remove old field fences
+    for (const ent of fieldFenceEntities) IsoEntityManager.remove(ent);
+    fieldFenceEntities = [];
+
+    if (phase === 0) return; // No field yet
+
+    // Determine active row range
+    const rowMin = 3;
+    const rowMax = phase === 1 ? 4 : phase === 2 ? 5 : phase === 3 ? 7 : 8;
+
+    // Paint soil for active crop rows
+    for (let r = rowMin; r <= rowMax; r++) {
+      for (let c = 4; c <= 6; c++) IsoEngine.setTile(c, r, 'soil');
+      IsoEngine.setTile(7, r, 'path');
+      for (let c = 8; c <= 10; c++) IsoEngine.setTile(c, r, 'soil');
+    }
+
+    // Dirt border around active field
+    const borderTop = rowMin - 1;
+    const borderBot = rowMax + 1;
+    for (let c = 3; c <= 11; c++) {
+      IsoEngine.setTile(c, borderTop, 'dirt');
+      IsoEngine.setTile(c, borderBot, 'dirt');
+    }
+    for (let r = borderTop; r <= borderBot; r++) {
+      IsoEngine.setTile(3, r, 'dirt');
+      IsoEngine.setTile(11, r, 'dirt');
+    }
+
+    // Build fences around the active field area
+    for (let c = 3; c <= 11; c++) {
+      fieldFenceEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(c, borderTop,
+        (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'h'))));
+      fieldFenceEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(c, borderBot,
+        (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'h'))));
+    }
+    for (let r = borderTop; r <= borderBot; r++) {
+      fieldFenceEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(3, r,
+        (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'v'))));
+      fieldFenceEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(11, r,
+        (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'v'))));
+    }
+
+    // Expansion particles at new edges
+    if (typeof IsoEngine !== 'undefined') {
+      for (let c = 4; c <= 10; c++) {
+        IsoEngine.spawnHarvestParticles(c, rowMax, '#8BC34A', 2);
+      }
+    }
+  }
+
+  function rebuildPastureTerrain(phase) {
+    // Remove old pasture fences
+    for (const ent of pastureFenceEntities) IsoEntityManager.remove(ent);
+    pastureFenceEntities = [];
+
+    if (phase === 0) return; // No pasture yet
+
+    // Determine pasture bounds based on animal count
+    let zone;
+    if (phase >= 4) {
+      zone = { minCol: 1, maxCol: 18, minRow: 11, maxRow: 14 };
+    } else if (phase >= 3) {
+      zone = { minCol: 2, maxCol: 16, minRow: 11, maxRow: 14 };
+    } else {
+      zone = { minCol: 4, maxCol: 12, minRow: 12, maxRow: 13 };
+    }
+
+    // Update the shared PASTURE_ZONE (referenced by buddy-ai and animal wander)
+    PASTURE_ZONE.minCol = zone.minCol;
+    PASTURE_ZONE.maxCol = zone.maxCol;
+    PASTURE_ZONE.minRow = zone.minRow;
+    PASTURE_ZONE.maxRow = zone.maxRow;
+
+    // Bottom + side fences for pasture
+    for (let c = zone.minCol; c <= zone.maxCol; c++) {
+      pastureFenceEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(c, zone.maxRow,
+        (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'h'))));
+    }
+    // Left/right fences (shorter)
+    for (let r = zone.minRow; r <= zone.maxRow; r++) {
+      pastureFenceEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(zone.minCol, r,
+        (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'v'))));
+      pastureFenceEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(zone.maxCol, r,
+        (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'v'))));
+    }
+
+    // Expansion particles
+    if (typeof IsoEngine !== 'undefined') {
+      const cx = (zone.minCol + zone.maxCol) / 2;
+      IsoEngine.spawnHarvestParticles(cx, zone.maxRow, '#A8D5A2', 4);
+    }
+  }
+
+  function getCropStage(plotIndex) {
+    const state = (typeof Farm !== 'undefined') ? Farm.getState() : null;
+    if (!state || !state.plots || plotIndex >= state.plots.length) return 0;
+    return state.plots[plotIndex].stage || 0;
+  }
+
   // ===== Sync farm state to world =====
 
   function syncState() {
     const state = (typeof Farm !== 'undefined') ? Farm.getState() : null;
     if (!state) return;
+
+    // Always check terrain expansion (phase-based, fast early-out)
+    syncTerrain(state);
 
     const hash = `${state.totalEnergy}-${state.milestoneReached}-${(state.plots || []).map(p => `${p.crop}${p.stage}`).join(',')}`;
     if (hash === lastStateHash) return;
@@ -907,6 +1023,6 @@ const IsoFarm = (() => {
     FIELD, PASTURE_ZONE,
     PLOT_POSITIONS, BUILDING_POSITIONS, ANIMAL_HOMES,
     init, syncState, syncBuddy, removeBuddy, drawHUD,
-    getBuddyEntity,
+    getBuddyEntity, getCropStage,
   };
 })();
