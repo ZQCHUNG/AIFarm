@@ -145,24 +145,88 @@ const IsoTooltip = (() => {
       chicken: '\u{1F414}', cow: '\u{1F404}', pig: '\u{1F437}',
       sheep: '\u{1F411}', cat: '\u{1F431}', dog: '\u{1F436}',
     };
-    const stateLabels = {
-      wander: 'Wandering', rest: 'Resting', react: 'Playing',
-    };
 
     const name = typeNames[entity.type] || entity.type;
     const emoji = typeEmoji[entity.type] || '\u{1F43E}';
-    const state = stateLabels[entity.state] || entity.state;
 
     const lines = [];
     lines.push({ text: `${emoji} ${name}`, color: '#FFF', bold: true });
-    lines.push({ text: state, color: ACCENT_COLOR });
 
-    // Show mood indicator
-    if (entity.state === 'react' && entity.reactBehavior) {
-      lines.push({ text: `Mood: ${entity.reactBehavior}`, color: LABEL_COLOR });
+    // Mood from AnimalAI state + species personality
+    const mood = getAnimalMood(entity);
+    lines.push({ text: `${mood.emoji} ${mood.label}`, color: ACCENT_COLOR });
+    if (mood.flavor) {
+      lines.push({ text: mood.flavor, color: LABEL_COLOR });
+    }
+
+    // Global vibe influence on animals
+    const vibe = (typeof Farm !== 'undefined') ? Farm.getVibe() : null;
+    if (vibe && vibe.atmosphere && vibe.atmosphere.animalMood && vibe.atmosphere.animalMood !== 'calm') {
+      const vibeIcons = { happy: '\u{2600}\u{FE0F}', cautious: '\u{1F327}\u{FE0F}', huddled: '\u{2744}\u{FE0F}' };
+      const vibeLabels = { happy: 'Sunny mood', cautious: 'Wary', huddled: 'Cold' };
+      const m = vibe.atmosphere.animalMood;
+      const icon = vibeIcons[m] || '';
+      const label = vibeLabels[m] || m;
+      if (icon) lines.push({ text: `${icon} ${label}`, color: m === 'happy' ? '#FFD700' : '#AAA' });
     }
 
     return { lines, icon: emoji };
+  }
+
+  /**
+   * Derive mood emoji + label from animal entity's AnimalAI state.
+   * Maps behavior state × species → personality-flavored mood text.
+   */
+  function getAnimalMood(entity) {
+    // Jumping is a momentary, highly visible state
+    if (entity.isJumping) {
+      return { emoji: '\u{2B50}', label: 'Jumping!', flavor: null };
+    }
+
+    switch (entity.state) {
+      case 'rest': {
+        const flavors = {
+          chicken: 'Roosting quietly',
+          cow: 'Chewing cud',
+          pig: 'Napping in mud',
+          sheep: 'Resting in wool',
+          cat: 'Loafing...',
+          dog: 'Lying down',
+        };
+        return { emoji: '\u{1F4A4}', label: 'Resting', flavor: flavors[entity.type] || null };
+      }
+      case 'react': {
+        if (entity.reactBehavior === 'play') {
+          const flavors = {
+            chicken: 'Fluttering excitedly!',
+            cow: 'Trotting happily',
+            pig: 'Rolling around!',
+            sheep: 'Frolicking!',
+            cat: 'Pouncing around',
+            dog: 'Zoomies!',
+          };
+          return { emoji: '\u{1F389}', label: 'Playing!', flavor: flavors[entity.type] || null };
+        }
+        if (entity.reactBehavior === 'shelter') {
+          return { emoji: '\u{1F3E0}', label: 'Seeking shelter', flavor: null };
+        }
+        if (entity.reactBehavior === 'huddle') {
+          return { emoji: '\u{1F9CA}', label: 'Huddling', flavor: 'Staying close' };
+        }
+        return { emoji: '\u{2757}', label: 'Reacting', flavor: null };
+      }
+      default: { // wander
+        const flavors = {
+          chicken: 'Pecking around',
+          cow: 'Grazing slowly',
+          pig: 'Snuffling about',
+          sheep: 'Following the flock',
+          cat: 'Prowling...',
+          dog: 'Bounding around',
+        };
+        return { emoji: '\u{1F43E}', label: 'Exploring', flavor: flavors[entity.type] || null };
+      }
+    }
   }
 
   function buildStaticTooltip(entity) {
