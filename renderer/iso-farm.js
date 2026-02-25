@@ -104,8 +104,13 @@ const IsoFarm = (() => {
   let decorEntities = [];
   let fieldFenceEntities = [];
   let pastureFenceEntities = [];
+  let pastureDecorEntities = [];
   let lastFieldPhase = -1;
   let lastPasturePhase = -1;
+
+  // ===== Startup camera animation =====
+  let startupAnim = null; // { startCamX, startCamY, endCamX, endCamY, tick, duration }
+  const STARTUP_DURATION = 120; // ~2 seconds at 60fps
 
   // ===== Initialization =====
 
@@ -188,12 +193,30 @@ const IsoFarm = (() => {
     ));
     decorEntities.push(boardEnt);
 
-    // Center camera with balanced view of crops, path, and pasture
+    // Startup camera animation: start at train station, pan to farm center
     IsoEngine.setZoom(1.8);
     const c = document.getElementById('canvas') || document.getElementById('isoCanvas') || document.getElementById('farm-canvas');
     const cw = c ? c.width : 660;
     const ch = c ? c.height : 500;
+
+    // Start camera at train station
+    IsoEngine.centerOnTile(14, 7, cw, ch);
+    const startCamState = IsoEngine.getCameraState();
+
+    // Calculate end position (farm center)
     IsoEngine.centerOnTile(9, 7, cw, ch);
+    const endCamState = IsoEngine.getCameraState();
+
+    // Reset to start position and begin animation
+    IsoEngine.setCamera(startCamState.x, startCamState.y);
+    startupAnim = {
+      startX: startCamState.x,
+      startY: startCamState.y,
+      endX: endCamState.x,
+      endY: endCamState.y,
+      tick: 0,
+      duration: STARTUP_DURATION,
+    };
   }
 
   // Draw a small rock
@@ -403,9 +426,11 @@ const IsoFarm = (() => {
   }
 
   function rebuildPastureTerrain(phase) {
-    // Remove old pasture fences
+    // Remove old pasture fences + decorations
     for (const ent of pastureFenceEntities) IsoEntityManager.remove(ent);
     pastureFenceEntities = [];
+    for (const ent of pastureDecorEntities) IsoEntityManager.remove(ent);
+    pastureDecorEntities = [];
 
     if (phase === 0) return; // No pasture yet
 
@@ -438,11 +463,106 @@ const IsoFarm = (() => {
         (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'v'))));
     }
 
+    // Pasture decorations (phase 2+): water trough + hay bale
+    if (phase >= 2) {
+      const troughCol = zone.minCol + 2;
+      const troughRow = zone.minRow + 1;
+      pastureDecorEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(troughCol, troughRow,
+        (ctx, sx, sy, tick) => drawWaterTrough(ctx, sx, sy, tick))));
+
+      const baleCol = zone.maxCol - 2;
+      const baleRow = zone.maxRow - 1;
+      pastureDecorEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(baleCol, baleRow,
+        (ctx, sx, sy, tick) => drawHayBale(ctx, sx, sy, tick))));
+    }
+    // Extra hay bale for bigger pastures
+    if (phase >= 3) {
+      const bale2Col = Math.floor((zone.minCol + zone.maxCol) / 2);
+      const bale2Row = zone.maxRow - 1;
+      pastureDecorEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(bale2Col, bale2Row,
+        (ctx, sx, sy, tick) => drawHayBale(ctx, sx, sy, tick))));
+    }
+
     // Expansion particles
     if (typeof IsoEngine !== 'undefined') {
       const cx = (zone.minCol + zone.maxCol) / 2;
       IsoEngine.spawnHarvestParticles(cx, zone.maxRow, '#A8D5A2', 4);
     }
+  }
+
+  // ===== Startup camera animation update =====
+
+  function updateStartupAnimation() {
+    if (!startupAnim) return;
+
+    startupAnim.tick++;
+    const t = Math.min(1, startupAnim.tick / startupAnim.duration);
+
+    // Ease-in-out cubic
+    const ease = t < 0.5
+      ? 4 * t * t * t
+      : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    const cx = startupAnim.startX + (startupAnim.endX - startupAnim.startX) * ease;
+    const cy = startupAnim.startY + (startupAnim.endY - startupAnim.startY) * ease;
+    IsoEngine.setCamera(cx, cy);
+
+    if (t >= 1) {
+      startupAnim = null; // Animation complete
+    }
+  }
+
+  // ===== Pasture decorations =====
+
+  function drawWaterTrough(ctx, sx, sy, tick) {
+    // Wooden trough body
+    ctx.fillStyle = '#6B4226';
+    ctx.fillRect(sx - 10, sy - 4, 20, 8);
+    ctx.fillStyle = '#8B5A2B';
+    ctx.fillRect(sx - 9, sy - 3, 18, 6);
+    // Water inside
+    ctx.fillStyle = '#5BA0D9';
+    ctx.fillRect(sx - 7, sy - 2, 14, 4);
+    // Water shimmer
+    const shimmer = Math.sin(tick * 0.08) * 0.3;
+    ctx.fillStyle = `rgba(136, 208, 240, ${0.4 + shimmer})`;
+    ctx.fillRect(sx - 5, sy - 1, 4, 2);
+    // Legs
+    ctx.fillStyle = '#5A3418';
+    ctx.fillRect(sx - 9, sy + 3, 3, 3);
+    ctx.fillRect(sx + 6, sy + 3, 3, 3);
+  }
+
+  function drawHayBale(ctx, sx, sy, tick) {
+    // Round hay bale shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy + 3, 9, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Bale body (cylinder from top-down)
+    ctx.fillStyle = '#D4A843';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy - 2, 8, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Straw texture lines
+    ctx.strokeStyle = '#C49633';
+    ctx.lineWidth = 0.5;
+    for (let i = -3; i <= 3; i += 2) {
+      ctx.beginPath();
+      ctx.moveTo(sx - 6, sy - 2 + i);
+      ctx.lineTo(sx + 6, sy - 2 + i);
+      ctx.stroke();
+    }
+    // Top highlight
+    ctx.fillStyle = '#E0B850';
+    ctx.beginPath();
+    ctx.ellipse(sx - 1, sy - 4, 4, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Stray straw pieces
+    const sway = Math.sin(tick * 0.04 + sx * 0.1) * 0.8;
+    ctx.fillStyle = '#D4A843';
+    ctx.fillRect(sx + 7 + sway, sy - 4, 3, 1);
+    ctx.fillRect(sx - 9 + sway, sy - 1, 3, 1);
   }
 
   function getCropStage(plotIndex) {
@@ -1023,6 +1143,6 @@ const IsoFarm = (() => {
     FIELD, PASTURE_ZONE,
     PLOT_POSITIONS, BUILDING_POSITIONS, ANIMAL_HOMES,
     init, syncState, syncBuddy, removeBuddy, drawHUD,
-    getBuddyEntity, getCropStage,
+    getBuddyEntity, getCropStage, updateStartupAnimation,
   };
 })();

@@ -422,6 +422,7 @@ const IsoEngine = (() => {
 
   function getZoom() { return camZoom; }
   function setZoom(z) { camZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)); }
+  function getCameraState() { return { x: camX, y: camY, zoom: camZoom }; }
 
   // Viewport state persistence (survives view mode toggles)
   let savedViewport = null;
@@ -1085,7 +1086,7 @@ const IsoEngine = (() => {
     drawTile, drawTileTransitions, drawTileHighlight,
     drawMap,
     setCamera, moveCamera, centerOnTile, clampCamera,
-    zoom, getZoom, setZoom,
+    zoom, getZoom, setZoom, getCameraState,
     saveViewportState, restoreViewportState, hasSavedViewport,
     adjustBrightness,
     drawIsoTree, drawIsoCharacter, drawIsoCrop,

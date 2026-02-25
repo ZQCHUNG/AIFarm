@@ -288,6 +288,9 @@
       }
     }
 
+    // Startup camera animation (train station → farm center pan)
+    IsoFarm.updateStartupAnimation();
+
     // Camera panning (arrow keys) — paused when modal is open
     const modalLock = typeof IsoUI !== 'undefined' && IsoUI.isOpen();
     const PAN_SPEED = 4;
