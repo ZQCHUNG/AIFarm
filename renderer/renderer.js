@@ -56,6 +56,10 @@
       for (const [, buddy] of buddyMap) {
         buddy.sm.celebrate();
       }
+      // GOAT: trigger golden train on next arrival
+      if (notif.id === 'goat' && typeof IsoTrain !== 'undefined') {
+        IsoTrain.setNextTrainGolden(true);
+      }
     });
     window.buddy.onSpritesReload((data) => {
       console.log(`[Sprites] Hot-reload triggered by: ${data.trigger}`);

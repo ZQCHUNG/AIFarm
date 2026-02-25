@@ -84,6 +84,9 @@ class AchievementManager {
     // Track time-of-day (Early Bird / Night Owl)
     this._trackTimeOfDay(now);
 
+    // Track GOAT (1M tokens or 8h session)
+    this._trackGOAT(sessionId);
+
     // Track farm-derived achievements
     if (farmState) {
       this._trackFromFarmState(farmState);
@@ -155,6 +158,15 @@ class AchievementManager {
     }
   }
 
+  _trackGOAT(sessionId) {
+    const tokens = this._sessionTokens[sessionId] || 0;
+    const startTime = this._sessionStartTime[sessionId];
+    const hours = startTime ? (Date.now() - startTime) / (1000 * 60 * 60) : 0;
+    if (tokens >= 1000000 || hours >= 8) {
+      this._updateAchievement('goat', 1, 'flag');
+    }
+  }
+
   _trackFromFarmState(farmState) {
     // Town Builder: count unlocked buildings
     const buildingCount = Object.values(farmState.buildings || {}).filter(Boolean).length;
@@ -213,6 +225,12 @@ class AchievementManager {
     if (!currentTier) return tiers[0] || null;
     const idx = tiers.findIndex(t => t.tier === currentTier);
     return idx < tiers.length - 1 ? tiers[idx + 1] : null;
+  }
+
+  // Check if GOAT achievement has been unlocked
+  isGOAT() {
+    const prog = this.progress.goat;
+    return prog && prog.tier === 'diamond';
   }
 
   // Clean up session tracking when a session is removed

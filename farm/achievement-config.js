@@ -120,6 +120,16 @@ const ACHIEVEMENTS = [
       { tier: 'diamond', threshold: 8, description: '8 buddies at once' },
     ],
   },
+  {
+    id: 'goat',
+    title: 'G.O.A.T.',
+    description: 'Greatest of All Time — legendary session',
+    icon: '\u{1F3C6}', // trophy
+    tracker: 'flag',
+    tiers: [
+      { tier: 'diamond', threshold: 1, description: '1M tokens or 8h session' },
+    ],
+  },
 ];
 
 module.exports = { TIERS, ACHIEVEMENTS };

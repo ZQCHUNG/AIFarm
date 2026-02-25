@@ -23,6 +23,11 @@ const Farm = (() => {
   function getUsage() { return usageState; }
   function setVibe(v) { vibeState = v; }
   function getVibe() { return vibeState; }
+  function isGOAT() {
+    if (!farmState || !farmState.achievements) return false;
+    const goat = farmState.achievements.find(a => a.id === 'goat');
+    return goat && goat.currentTier === 'diamond';
+  }
 
   function px(ctx, x, y, c) { ctx.fillStyle = c; ctx.fillRect(x * PX, y * PX, PX, PX); }
   function rect(ctx, x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(x * PX, y * PX, w * PX, h * PX); }
@@ -1251,5 +1256,5 @@ const Farm = (() => {
     updateAndDrawParticles(ctx);
   };
 
-  return { drawFarm, setState, getState, setUsage, getUsage, setVibe, getVibe, showAchievementNotification, showPrestigeNotification };
+  return { drawFarm, setState, getState, setUsage, getUsage, setVibe, getVibe, isGOAT, showAchievementNotification, showPrestigeNotification };
 })();

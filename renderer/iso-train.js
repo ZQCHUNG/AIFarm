@@ -36,11 +36,19 @@ const IsoTrain = (() => {
     stationBuilt = built;
   }
 
+  // Next train should be golden (set true after GOAT triggers)
+  let nextTrainGolden = false;
+
+  function setNextTrainGolden(golden) { nextTrainGolden = golden; }
+
   function queueArrival(buddyName, colorIndex) {
     if (!stationBuilt) return;
+    const golden = nextTrainGolden;
+    if (nextTrainGolden) nextTrainGolden = false; // consume
     arrivals.push({
       buddyName,
       colorIndex: colorIndex || 0,
+      golden,
       phase: PHASE.APPROACHING,
       // Train head position (grid coords, float)
       trainCol: STATION_COL + 8, // start off-screen
@@ -130,7 +138,7 @@ const IsoTrain = (() => {
     // Draw active arrivals
     for (const a of arrivals) {
       if (a.phase !== PHASE.DONE) {
-        drawTrain(ctx, a.trainCol, a.trainRow, a.colorIndex, tick);
+        drawTrain(ctx, a.trainCol, a.trainRow, a.colorIndex, tick, a.golden);
 
         if (a.phase === PHASE.DISEMBARKING) {
           drawMiniBuddy(ctx, a.buddyCol, a.buddyRow, a.colorIndex, tick);
@@ -205,9 +213,9 @@ const IsoTrain = (() => {
 
   // ===== Train sprite =====
 
-  function drawTrain(ctx, trainCol, trainRow, colorIndex, tick) {
+  function drawTrain(ctx, trainCol, trainRow, colorIndex, tick, golden) {
     const hoodieColors = ['#5B8DD9','#E8734A','#6AB04C','#9B59B6','#F39C12','#1ABC9C','#E84393','#F1C40F'];
-    const color = hoodieColors[colorIndex % hoodieColors.length];
+    const color = golden ? '#FFD700' : hoodieColors[colorIndex % hoodieColors.length];
 
     // Draw 3 cars: loco at trainCol, cars at trainCol+1, trainCol+2
     for (let i = 0; i < TRAIN_LENGTH; i++) {
@@ -216,10 +224,10 @@ const IsoTrain = (() => {
 
       if (i === 0) {
         // Locomotive
-        drawLocomotive(ctx, x, y, color, tick);
+        drawLocomotive(ctx, x, y, color, tick, golden);
       } else {
         // Passenger car
-        drawCar(ctx, x, y, color, tick);
+        drawCar(ctx, x, y, color, tick, golden);
       }
 
       // Coupler between cars
@@ -235,18 +243,18 @@ const IsoTrain = (() => {
     const puff = ((tick / 6) | 0) % 4;
     ctx.save();
     ctx.globalAlpha = 0.6 - puff * 0.15;
-    ctx.fillStyle = '#DDD';
+    ctx.fillStyle = golden ? '#FFE4B5' : '#DDD';
     ctx.beginPath();
     ctx.arc(locoX - 2 - puff * 3, locoY - 16 - puff * 2, 2 + puff, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
 
-  function drawLocomotive(ctx, x, y, color, tick) {
-    // Body (dark metal)
-    ctx.fillStyle = '#444';
+  function drawLocomotive(ctx, x, y, color, tick, golden) {
+    // Body (golden metal or dark metal)
+    ctx.fillStyle = golden ? '#B8860B' : '#444';
     ctx.fillRect(x - 8, y - 10, 16, 8);
-    ctx.fillStyle = '#555';
+    ctx.fillStyle = golden ? '#DAA520' : '#555';
     ctx.fillRect(x - 6, y - 8, 12, 5);
 
     // Cabin (hoodie color)
@@ -282,7 +290,7 @@ const IsoTrain = (() => {
     ctx.fillRect(x - 10, y - 4, 3, 3);
   }
 
-  function drawCar(ctx, x, y, color, tick) {
+  function drawCar(ctx, x, y, color, tick, golden) {
     // Car body
     ctx.fillStyle = color;
     ctx.fillRect(x - 7, y - 10, 14, 8);
@@ -358,6 +366,7 @@ const IsoTrain = (() => {
 
   return {
     setStationBuilt,
+    setNextTrainGolden,
     queueArrival,
     isAnimating,
     update,

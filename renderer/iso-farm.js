@@ -201,29 +201,50 @@ const IsoFarm = (() => {
   }
 
   // Bulletin board — wooden sign showing usage data
+  // Goes golden when GOAT achievement is unlocked.
   function drawBulletinBoard(ctx, sx, sy, tick) {
+    const goat = (typeof Farm !== 'undefined') && Farm.isGOAT();
+
+    // Golden glow aura (GOAT only)
+    if (goat) {
+      ctx.save();
+      ctx.globalAlpha = 0.3 + Math.sin(tick * 0.06) * 0.15;
+      const glow = ctx.createRadialGradient(sx, sy - 28, 2, sx, sy - 28, 24);
+      glow.addColorStop(0, '#FFD700');
+      glow.addColorStop(1, 'transparent');
+      ctx.fillStyle = glow;
+      ctx.fillRect(sx - 24, sy - 48, 48, 40);
+      ctx.restore();
+    }
+
     // Wooden post
-    ctx.fillStyle = '#6B4226';
+    ctx.fillStyle = goat ? '#B8860B' : '#6B4226';
     ctx.fillRect(sx - 2, sy - 28, 4, 28);
 
-    // Board frame (wooden)
-    ctx.fillStyle = '#8B5A2B';
+    // Board frame
+    ctx.fillStyle = goat ? '#FFD700' : '#8B5A2B';
     ctx.fillRect(sx - 14, sy - 38, 28, 14);
     // Board face
-    ctx.fillStyle = '#D4A460';
+    ctx.fillStyle = goat ? '#FFF8DC' : '#D4A460';
     ctx.fillRect(sx - 12, sy - 36, 24, 10);
 
-    // Text on board (tiny "INFO")
-    ctx.fillStyle = '#4A2800';
+    // Text on board
+    ctx.fillStyle = goat ? '#B8860B' : '#4A2800';
     ctx.font = 'bold 6px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('INFO', sx, sy - 31);
+    ctx.fillText(goat ? 'GOAT' : 'INFO', sx, sy - 31);
 
-    // Small blinking indicator
-    if (((tick / 40) | 0) % 2 === 0) {
+    // Blinking indicator (gold pulsing for GOAT)
+    if (goat || ((tick / 40) | 0) % 2 === 0) {
       ctx.fillStyle = '#FFD700';
       ctx.fillRect(sx + 10, sy - 37, 3, 3);
+    }
+
+    // Trophy badge (GOAT only)
+    if (goat) {
+      ctx.font = '8px monospace';
+      ctx.fillText('\u{1F3C6}', sx, sy - 42);
     }
   }
 
