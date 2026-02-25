@@ -55,6 +55,22 @@ const ShopUI = (() => {
       description: 'Unlock +2 crop plots',
       type: 'permit',
     },
+    {
+      id: 'mill_permit',
+      name: 'Mill Permit',
+      icon: '\u{1F33E}', // 🌾
+      price: 80,
+      description: 'Corn \u2192 Flour (1.8x)',
+      type: 'permit',
+    },
+    {
+      id: 'workshop_permit',
+      name: 'Workshop',
+      icon: '\u{1FA93}', // 🪓
+      price: 120,
+      description: 'Wood \u2192 Plank (1.3x)',
+      type: 'permit',
+    },
   ];
 
   // ===== Proximity check =====

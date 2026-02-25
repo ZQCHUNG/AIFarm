@@ -23,6 +23,8 @@ const IsoLighting = (() => {
     barn:     { col: 5,  row: 15, radius: 40, color: [255, 200, 100] },  // warm barn
     windmill: { col: 8,  row: 15, radius: 45, color: [255, 220, 130] },  // windmill lantern
     market:   { col: 11, row: 15, radius: 50, color: [255, 180, 80] },   // market torches
+    mill:     { col: 14, row: 4,  radius: 30, color: [255, 230, 150] },  // mill warm glow
+    workshop: { col: 17, row: 4,  radius: 30, color: [255, 180, 100] },  // workshop forge glow
     clock:    { col: 14, row: 15, radius: 40, color: [200, 220, 255] },  // clock face glow
     townhall: { col: 4,  row: 17, radius: 55, color: [255, 210, 120] },  // town hall windows
     statue:   { col: 15, row: 17, radius: 35, color: [255, 215, 0] },    // golden statue

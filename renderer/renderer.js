@@ -55,6 +55,15 @@
     IsoEffects.setupResourceListeners();
   }
 
+  // Handle shop permit purchases → unlock processing buildings
+  if (typeof EventBus !== 'undefined' && typeof Processing !== 'undefined') {
+    EventBus.on('SHOP_PURCHASE', (data) => {
+      if (data.item === 'mill_permit' || data.item === 'workshop_permit') {
+        Processing.handlePermit(data.item);
+      }
+    });
+  }
+
   if (window.buddy) {
     window.buddy.onFarmUpdate((state) => {
       Farm.setState(state);
@@ -390,6 +399,11 @@
       // Player is moving — don't auto-pan
     } else if (IsoFarm.updateAutoPan) {
       IsoFarm.updateAutoPan();
+    }
+
+    // Update processing buildings (mill, workshop)
+    if (typeof Processing !== 'undefined') {
+      Processing.update();
     }
 
     // Update buddy AI (farming/tending behavior)

@@ -12,4 +12,5 @@ contextBridge.exposeInMainWorld('buddy', {
   onVibeUpdate: (cb) => ipcRenderer.on('vibe-update', (_e, data) => cb(data)),
   onSpritesReload: (cb) => ipcRenderer.on('sprites-reload', (_e, data) => cb(data)),
   setIgnoreMouseEvents: (ignore, opts) => ipcRenderer.send('set-ignore-mouse', ignore, opts),
+  unlockBuilding: (id) => ipcRenderer.send('unlock-building', id),
 });

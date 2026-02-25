@@ -52,11 +52,13 @@ const IsoFarm = (() => {
     dog:     { col: 13, row: 14 },
   };
 
-  // Building positions (town row)
+  // Building positions (town row + processing zone)
   const BUILDING_POSITIONS = {
     well:     { col: 2,  row: 15 },
     barn:     { col: 5,  row: 15 },
+    mill:     { col: 14, row: 4 },
     windmill: { col: 8,  row: 15 },
+    workshop: { col: 17, row: 4 },
     market:   { col: 11, row: 15 },
     clock:    { col: 14, row: 15 },
     townhall: { col: 4,  row: 17 },
@@ -410,7 +412,7 @@ const IsoFarm = (() => {
   function sellAllCrops(tick) {
     if (!shippingBinNearby) return 0; // Must be near the bin
     if (typeof ResourceInventory === 'undefined') return 0;
-    const sellable = ['carrot', 'sunflower', 'watermelon', 'tomato', 'corn', 'pumpkin', 'wood', 'stone'];
+    const sellable = ['carrot', 'sunflower', 'watermelon', 'tomato', 'corn', 'pumpkin', 'wood', 'stone', 'flour', 'plank'];
     let totalGold = 0;
     for (const res of sellable) {
       const amount = ResourceInventory.get(res);
@@ -435,7 +437,7 @@ const IsoFarm = (() => {
     if (typeof ShopUI !== 'undefined' && ShopUI.isNearShop()) return;
     // Check if there's anything to sell
     if (typeof ResourceInventory === 'undefined') return;
-    const sellable = ['carrot', 'sunflower', 'watermelon', 'tomato', 'corn', 'pumpkin', 'wood', 'stone'];
+    const sellable = ['carrot', 'sunflower', 'watermelon', 'tomato', 'corn', 'pumpkin', 'wood', 'stone', 'flour', 'plank'];
     let hasItems = false;
     for (const res of sellable) {
       if (ResourceInventory.get(res) > 0) { hasItems = true; break; }
@@ -1047,7 +1049,7 @@ const IsoFarm = (() => {
     for (const ent of buildingEntities) IsoEntityManager.remove(ent);
     buildingEntities = [];
 
-    const buildingTypes = ['well', 'barn', 'windmill', 'market', 'clock', 'townhall', 'statue'];
+    const buildingTypes = ['well', 'barn', 'mill', 'windmill', 'workshop', 'market', 'clock', 'townhall', 'statue'];
     for (const bld of buildingTypes) {
       if (!state.buildings[bld]) continue;
       const pos = BUILDING_POSITIONS[bld];
@@ -1095,7 +1097,9 @@ const IsoFarm = (() => {
   const BUILDING_SHADOWS = {
     well:     { w: 64,  h: 20 },
     barn:     { w: 140, h: 32 },
+    mill:     { w: 80,  h: 24 },
     windmill: { w: 100, h: 28 },
+    workshop: { w: 80,  h: 22 },
     market:   { w: 140, h: 24 },
     clock:    { w: 56,  h: 18 },
     townhall: { w: 140, h: 32 },
@@ -1127,7 +1131,9 @@ const IsoFarm = (() => {
     switch (type) {
       case 'well': drawWell(ctx, sx, sy, tick); break;
       case 'barn': drawBarn(ctx, sx, sy, tick); break;
+      case 'mill': drawMill(ctx, sx, sy, tick); break;
       case 'windmill': drawWindmill(ctx, sx, sy, tick); break;
+      case 'workshop': drawWorkshop(ctx, sx, sy, tick); break;
       case 'market': drawMarket(ctx, sx, sy, tick); break;
       case 'clock': drawClock(ctx, sx, sy, tick); break;
       case 'townhall': drawTownhall(ctx, sx, sy, tick); break;
@@ -1181,6 +1187,208 @@ const IsoFarm = (() => {
     ctx.moveTo(sx - 3, sy - 1); ctx.lineTo(sx + 3, sy + 5);
     ctx.moveTo(sx + 3, sy - 1); ctx.lineTo(sx - 3, sy + 5);
     ctx.stroke();
+  }
+
+  function drawMill(ctx, sx, sy, tick) {
+    // Stone mill building — converts corn → flour
+    // Base shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy + 5, 16, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Stone circular base
+    ctx.fillStyle = '#B0A090';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy - 2, 14, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#A09080';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy - 2, 12, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Stone texture lines
+    ctx.strokeStyle = '#908070';
+    ctx.lineWidth = 0.5;
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.moveTo(sx - 10, sy - 2 + i * 4);
+      ctx.lineTo(sx + 10, sy - 2 + i * 4);
+      ctx.stroke();
+    }
+
+    // Conical roof
+    ctx.fillStyle = '#8B5A2B';
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - 22);
+    ctx.lineTo(sx - 15, sy - 8);
+    ctx.lineTo(sx + 15, sy - 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#7A4A1B';
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - 22);
+    ctx.lineTo(sx - 8, sy - 8);
+    ctx.lineTo(sx + 8, sy - 8);
+    ctx.closePath();
+    ctx.fill();
+
+    // Door
+    ctx.fillStyle = '#5A3818';
+    ctx.fillRect(sx - 4, sy - 2, 8, 8);
+    ctx.fillStyle = '#4A2808';
+    ctx.fillRect(sx - 3, sy - 1, 6, 6);
+
+    // Millstone wheel (rotating)
+    const angle = (tick * 0.04) % (Math.PI * 2);
+    ctx.save();
+    ctx.translate(sx + 12, sy - 10);
+    ctx.rotate(angle);
+    ctx.fillStyle = '#888';
+    ctx.beginPath();
+    ctx.arc(0, 0, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#666';
+    ctx.fillRect(-1, -5, 2, 10);
+    ctx.fillRect(-5, -1, 10, 2);
+    ctx.restore();
+
+    // Grain sack at entrance
+    ctx.fillStyle = '#D4B896';
+    ctx.fillRect(sx + 6, sy + 1, 5, 4);
+    ctx.fillStyle = '#C4A886';
+    ctx.fillRect(sx + 7, sy, 3, 1);
+
+    // Label
+    ctx.fillStyle = '#FFF';
+    ctx.font = 'bold 6px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('MILL', sx, sy + 10);
+
+    // Processing progress bar
+    drawProcessingBar(ctx, sx, sy - 26, 'mill', tick);
+  }
+
+  function drawWorkshop(ctx, sx, sy, tick) {
+    // Wooden workshop/sawmill — converts wood → plank
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy + 5, 15, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Main structure (wooden)
+    ctx.fillStyle = '#8B6B3E';
+    ctx.fillRect(sx - 12, sy - 14, 24, 18);
+    ctx.fillStyle = '#A07840';
+    ctx.fillRect(sx - 10, sy - 12, 20, 14);
+
+    // Wood plank lines on walls
+    ctx.strokeStyle = '#6B4226';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(sx - 10, sy - 10 + i * 4);
+      ctx.lineTo(sx + 10, sy - 10 + i * 4);
+      ctx.stroke();
+    }
+
+    // Roof (dark wood, sloped)
+    ctx.fillStyle = '#5A3418';
+    ctx.fillRect(sx - 14, sy - 18, 28, 5);
+    ctx.fillStyle = '#6B4226';
+    ctx.fillRect(sx - 13, sy - 19, 26, 2);
+
+    // Open front (work area)
+    ctx.fillStyle = '#3A2010';
+    ctx.fillRect(sx - 6, sy - 6, 12, 10);
+
+    // Saw blade (animated)
+    const sawAngle = (tick * 0.08) % (Math.PI * 2);
+    ctx.save();
+    ctx.translate(sx, sy - 2);
+    ctx.rotate(sawAngle);
+    ctx.fillStyle = '#C0C0C0';
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+    // Teeth
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * 3, Math.sin(a) * 3);
+      ctx.lineTo(Math.cos(a) * 5, Math.sin(a) * 5);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Wood logs stacked on the side
+    for (let i = 0; i < 3; i++) {
+      ctx.fillStyle = i % 2 === 0 ? '#8B6B3E' : '#7A5A2E';
+      ctx.fillRect(sx - 14, sy + i * 2 - 2, 3, 2);
+    }
+
+    // Planks leaning on wall
+    ctx.fillStyle = '#C8A060';
+    ctx.fillRect(sx + 11, sy - 8, 2, 10);
+    ctx.fillRect(sx + 13, sy - 6, 2, 8);
+
+    // Label
+    ctx.fillStyle = '#FFF';
+    ctx.font = 'bold 5px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('WORKSHOP', sx, sy + 10);
+
+    // Processing progress bar
+    drawProcessingBar(ctx, sx, sy - 24, 'workshop', tick);
+  }
+
+  /** Draw processing progress bar above a building. */
+  function drawProcessingBar(ctx, sx, sy, buildingId, tick) {
+    if (typeof Processing === 'undefined') return;
+    if (!Processing.isUnlocked(buildingId)) return;
+
+    const recipe = Processing.getRecipe(buildingId);
+    if (!recipe) return;
+
+    const progress = Processing.getProgress(buildingId);
+    const isActive = Processing.isProcessing(buildingId);
+    const barW = 24;
+    const barH = 4;
+    const bx = sx - barW / 2;
+    const by = sy;
+
+    if (isActive) {
+      // Background
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      roundRect(ctx, bx - 1, by - 1, barW + 2, barH + 2, 2);
+      ctx.fill();
+
+      // Progress fill
+      ctx.fillStyle = buildingId === 'mill' ? '#F0E68C' : '#C8A060';
+      ctx.fillRect(bx, by, Math.floor(barW * progress), barH);
+
+      // Shimmer on progress bar
+      const shimmerX = bx + (tick * 0.5 % barW);
+      if (shimmerX < bx + barW * progress) {
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillRect(shimmerX, by, 2, barH);
+      }
+    } else {
+      // Idle indicator — small icon
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.font = '6px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const pulse = Math.sin(tick * 0.05) * 0.2 + 0.8;
+      ctx.globalAlpha = pulse;
+      ctx.fillText('\u{1F4A4}', sx, by + 2); // 💤 idle
+      ctx.globalAlpha = 1;
+    }
   }
 
   function drawWindmill(ctx, sx, sy, tick) {
@@ -1631,6 +1839,8 @@ const IsoFarm = (() => {
     tomato: '\u{1F345}',      // 🍅
     corn: '\u{1F33D}',        // 🌽
     pumpkin: '\u{1F383}',     // 🎃
+    flour: '\u{1F35E}',       // 🍞
+    plank: '\u{1FA9C}',       // 🪜 (close enough)
   };
 
   // Bounce animations for resource changes

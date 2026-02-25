@@ -262,6 +262,17 @@ ipcMain.on('set-ignore-mouse', (e, ignore, opts) => {
   if (w) w.setIgnoreMouseEvents(ignore, opts || {});
 });
 
+ipcMain.on('unlock-building', (e, id) => {
+  if (!farm.state.buildings[id]) {
+    farm.state.buildings[id] = true;
+    farm._dirty = true;
+    console.log(`[Farm] Building unlocked via permit: ${id}`);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('farm-update', farm.getRendererState());
+    }
+  }
+});
+
 // ---------- App lifecycle ----------
 
 app.whenReady().then(() => {

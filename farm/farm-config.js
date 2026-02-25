@@ -50,7 +50,9 @@ const ANIMALS = [
 const BUILDINGS = [
   { id: 'well',     unlock: 1200, w: 6,  h: 7 },
   { id: 'barn',     unlock: 1800, w: 14, h: 10 },
+  { id: 'mill',     unlock: 2000, w: 10, h: 10 },
   { id: 'windmill', unlock: 2500, w: 10, h: 12 },
+  { id: 'workshop', unlock: 3000, w: 10, h: 8 },
   { id: 'market',   unlock: 3500, w: 12, h: 7 },
   { id: 'clock',    unlock: 5000, w: 8,  h: 14 },
   { id: 'townhall', unlock: 7500, w: 16, h: 11 },
