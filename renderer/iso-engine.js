@@ -380,7 +380,7 @@ const IsoEngine = (() => {
   // Last known canvas size for boundary clamping
   let lastCanvasW = 660;
   let lastCanvasH = 500;
-  const CAM_MARGIN = 64; // allow panning this far past the map edge (pixels)
+  const CAM_MARGIN = 128; // allow panning past the map edge for tall buildings
 
   function setCamera(x, y) { camX = x; camY = y; clampCamera(); }
 

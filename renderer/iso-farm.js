@@ -416,7 +416,32 @@ const IsoFarm = (() => {
 
   // ===== Building drawing (top-down Harvest Moon style) =====
 
+  // Shadow sizes (width, height) for each building type — proportional to sprite footprint
+  const BUILDING_SHADOWS = {
+    well:     { w: 64,  h: 20 },
+    barn:     { w: 140, h: 32 },
+    windmill: { w: 100, h: 28 },
+    market:   { w: 140, h: 24 },
+    clock:    { w: 56,  h: 18 },
+    townhall: { w: 140, h: 32 },
+    statue:   { w: 56,  h: 18 },
+  };
+
+  function drawBuildingShadow(ctx, sx, sy, type) {
+    const shadow = BUILDING_SHADOWS[type];
+    if (!shadow) return;
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy + 2, shadow.w / 2, shadow.h / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
   function drawBuilding(ctx, sx, sy, type, tick) {
+    // Draw ground shadow first
+    drawBuildingShadow(ctx, sx, sy, type);
+
     const spriteId = `building_${type}`;
     if (typeof SpriteManager !== 'undefined' && SpriteManager.has(spriteId)) {
       SpriteManager.drawStatic(ctx, spriteId, sx, sy);
