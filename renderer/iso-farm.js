@@ -611,18 +611,22 @@ const IsoFarm = (() => {
     // Top-right: Status panel (date/milestone/currency)
     drawStatusPanel(ctx, canvasW - 158, 8, energy, state, tick);
 
-    // Bottom-left: Animal/crop count
+    // Bottom-left: Season + Animal/crop count
     const animalCount = animalEntities.size;
     const cropCount = cropEntities.length;
-    if (animalCount > 0 || cropCount > 0) {
+    const seasonEmoji = { spring: '\u{1F338}', summer: '\u{2600}\u{FE0F}', autumn: '\u{1F341}', winter: '\u{2744}\u{FE0F}' };
+    const season = (typeof IsoWeather !== 'undefined') ? IsoWeather.getSeason() : null;
+    const seasonBadge = season ? (seasonEmoji[season] || '') + season.charAt(0).toUpperCase() + season.slice(1) : '';
+    {
+      const label = seasonBadge + (animalCount > 0 || cropCount > 0 ? `  \u{1F43E}${animalCount}  \u{1F33E}${cropCount}` : '');
       ctx.fillStyle = 'rgba(20, 20, 40, 0.7)';
-      roundRect(ctx, 8, canvasH - 26, 130, 20, 4);
+      roundRect(ctx, 8, canvasH - 26, 140, 20, 4);
       ctx.fill();
       ctx.fillStyle = '#FFF';
       ctx.font = '9px monospace';
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'left';
-      ctx.fillText(`\u{1F43E}${animalCount}  \u{1F33E}${cropCount}`, 14, canvasH - 16);
+      ctx.fillText(label, 14, canvasH - 16);
     }
 
     // Vibe indicator (bottom-right)

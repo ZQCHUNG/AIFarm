@@ -282,12 +282,13 @@
     IsoEntityManager.update(tick);
     IsoEntityManager.syncToEngine();
 
-    // Clear canvas with warm sky gradient (Harvest Moon feel)
+    // Clear canvas with seasonal sky gradient
+    const sky = (typeof IsoWeather !== 'undefined') ? IsoWeather.getSkyGradient() : {};
     const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    skyGrad.addColorStop(0, '#87CEEB');
-    skyGrad.addColorStop(0.3, '#B8E0F0');
-    skyGrad.addColorStop(0.5, '#6EBF4E');
-    skyGrad.addColorStop(1, '#4E9E38');
+    skyGrad.addColorStop(0, sky.skyTop || '#87CEEB');
+    skyGrad.addColorStop(0.3, sky.skyMid || '#B8E0F0');
+    skyGrad.addColorStop(0.5, sky.grassTop || '#6EBF4E');
+    skyGrad.addColorStop(1, sky.grassBot || '#4E9E38');
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -303,6 +304,11 @@
 
     // Render tile map + entities
     IsoEngine.drawMap(ctx, canvas.width, canvas.height, tick);
+
+    // Seasonal ground tint overlay (after tiles, before particles)
+    if (typeof IsoWeather !== 'undefined') {
+      IsoWeather.drawGroundTint(ctx, canvas.width, canvas.height);
+    }
 
     // Draw particles + floating effects (in zoomed space)
     ctx.save();

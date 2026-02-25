@@ -195,12 +195,13 @@
       IsoEntityManager.update(farmTick);
       IsoEntityManager.syncToEngine();
 
-      // Clear with sky gradient
+      // Clear with seasonal sky gradient
+      const sky = (typeof IsoWeather !== 'undefined') ? IsoWeather.getSkyGradient() : {};
       const skyGrad = fCtx.createLinearGradient(0, 0, 0, baseH);
-      skyGrad.addColorStop(0, '#87CEEB');
-      skyGrad.addColorStop(0.25, '#B8E0F0');
-      skyGrad.addColorStop(0.4, '#6EBF4E');
-      skyGrad.addColorStop(1, '#4E9E38');
+      skyGrad.addColorStop(0, sky.skyTop || '#87CEEB');
+      skyGrad.addColorStop(0.25, sky.skyMid || '#B8E0F0');
+      skyGrad.addColorStop(0.4, sky.grassTop || '#6EBF4E');
+      skyGrad.addColorStop(1, sky.grassBot || '#4E9E38');
       fCtx.fillStyle = skyGrad;
       fCtx.fillRect(0, 0, baseW, baseH);
 
@@ -216,6 +217,11 @@
 
       // Render map + entities
       IsoEngine.drawMap(fCtx, baseW, baseH, farmTick);
+
+      // Seasonal ground tint overlay (after tiles, before particles)
+      if (typeof IsoWeather !== 'undefined') {
+        IsoWeather.drawGroundTint(fCtx, baseW, baseH);
+      }
 
       // Draw particles + floating effects (in zoomed space)
       fCtx.save();

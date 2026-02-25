@@ -1,14 +1,20 @@
-// Iso Weather — vibe-driven particle effects for the isometric view.
+// Iso Weather — vibe-driven particle effects + seasonal cycle for the isometric view.
 // Maps coding vibe moods to atmospheric particles:
 //   productive → sunflower glow particles
 //   debugging  → rain clouds with droplets
 //   focused    → soft sparkle trail behind buddy
 //   exploring  → leaf/wind particles
 //   idle       → firefly particles (night mode)
+// Seasonal cycle based on system date modifies sky gradient and adds particles.
 const IsoWeather = (() => {
   // Particle pool (reused for performance)
-  const MAX_PARTICLES = 60;
+  const MAX_PARTICLES = 80;
   const particles = [];
+
+  // Helper: check if particle is seasonal (skip in mood updaters)
+  function isSeasonal(p) {
+    return p.type === 'petal' || p.type === 'snow' || (p.type === 'leaf' && p.seasonal);
+  }
 
   // Rain droplets (separate pool for density)
   const MAX_RAIN = 80;
@@ -21,6 +27,56 @@ const IsoWeather = (() => {
   // Cloud positions (for debugging rain)
   const clouds = [];
   const MAX_CLOUDS = 3;
+
+  // ===== Seasonal cycle =====
+  // Determined by system month. Can be overridden for testing.
+  const SEASONS = {
+    spring: {
+      skyTop: '#87CEEB', skyMid: '#C8E6C9', grassTop: '#6EBF4E', grassBot: '#4E9E38',
+      particle: 'petal', particleColors: ['#FFB7C5', '#FF9EB5', '#FFC1CC', '#FFF0F5'],
+      spawnRate: 0.08, groundTint: null,
+    },
+    summer: {
+      skyTop: '#5DADE2', skyMid: '#AED6F1', grassTop: '#5AAE45', grassBot: '#3D8B2F',
+      particle: null, particleColors: [],
+      spawnRate: 0, groundTint: null,
+    },
+    autumn: {
+      skyTop: '#F0C27F', skyMid: '#DEB887', grassTop: '#C8A060', grassBot: '#A0784A',
+      particle: 'leaf', particleColors: ['#D35400', '#E67E22', '#F39C12', '#C0392B', '#8B4513'],
+      spawnRate: 0.08, groundTint: 'rgba(180, 120, 60, 0.12)',
+    },
+    winter: {
+      skyTop: '#B0C4DE', skyMid: '#D6E4F0', grassTop: '#A8B8A0', grassBot: '#8FA888',
+      particle: 'snow', particleColors: ['#FFF', '#E8E8E8', '#F0F8FF'],
+      spawnRate: 0.10, groundTint: 'rgba(220, 230, 240, 0.15)',
+    },
+  };
+
+  let currentSeason = detectSeason();
+
+  function detectSeason() {
+    const month = new Date().getMonth(); // 0-11
+    if (month >= 2 && month <= 4) return 'spring';
+    if (month >= 5 && month <= 7) return 'summer';
+    if (month >= 8 && month <= 10) return 'autumn';
+    return 'winter';
+  }
+
+  function getSeason() { return currentSeason; }
+  function setSeason(s) { if (SEASONS[s]) currentSeason = s; }
+
+  /** Get sky gradient colors for the current season. */
+  function getSkyGradient() {
+    const s = SEASONS[currentSeason] || SEASONS.summer;
+    return { skyTop: s.skyTop, skyMid: s.skyMid, grassTop: s.grassTop, grassBot: s.grassBot };
+  }
+
+  /** Get optional ground tint overlay color. */
+  function getGroundTint() {
+    const s = SEASONS[currentSeason] || SEASONS.summer;
+    return s.groundTint;
+  }
 
   // ===== Mood sync =====
 
@@ -40,6 +96,9 @@ const IsoWeather = (() => {
       default:           updateIdle(tick, canvasW, canvasH); break;
     }
 
+    // Seasonal particles (on top of mood particles)
+    updateSeasonalParticles(tick, canvasW, canvasH);
+
     // Age and remove dead particles
     for (let i = particles.length - 1; i >= 0; i--) {
       particles[i].life--;
@@ -48,6 +107,79 @@ const IsoWeather = (() => {
     for (let i = rainDrops.length - 1; i >= 0; i--) {
       rainDrops[i].life--;
       if (rainDrops[i].life <= 0) rainDrops.splice(i, 1);
+    }
+  }
+
+  // ===== Seasonal particle spawning =====
+
+  function updateSeasonalParticles(tick, canvasW, canvasH) {
+    const season = SEASONS[currentSeason];
+    if (!season || !season.particle || season.spawnRate <= 0) return;
+    if (particles.length >= MAX_PARTICLES) return;
+
+    if (Math.random() < season.spawnRate) {
+      const color = season.particleColors[Math.floor(Math.random() * season.particleColors.length)];
+
+      if (season.particle === 'petal') {
+        // Cherry blossom petals — drift diagonally
+        particles.push({
+          x: Math.random() * canvasW,
+          y: -5,
+          vx: 0.3 + Math.random() * 0.5,
+          vy: 0.5 + Math.random() * 0.8,
+          size: 3 + Math.random() * 3,
+          color,
+          alpha: 0.7 + Math.random() * 0.3,
+          life: 180 + Math.floor(Math.random() * 80),
+          type: 'petal',
+          rot: Math.random() * Math.PI * 2,
+          rotSpeed: (Math.random() - 0.5) * 0.08,
+          swayPhase: Math.random() * Math.PI * 2,
+        });
+      } else if (season.particle === 'leaf') {
+        // Autumn leaves — wind-blown
+        particles.push({
+          x: -10 + Math.random() * (canvasW + 20),
+          y: -5,
+          vx: 0.5 + Math.random() * 1.0,
+          vy: 0.4 + Math.random() * 0.6,
+          size: 3 + Math.random() * 4,
+          color,
+          alpha: 0.7 + Math.random() * 0.3,
+          life: 140 + Math.floor(Math.random() * 60),
+          type: 'leaf',
+          seasonal: true,
+          rot: Math.random() * Math.PI * 2,
+          rotSpeed: (Math.random() - 0.5) * 0.12,
+        });
+      } else if (season.particle === 'snow') {
+        // Snowflakes — gentle drift
+        particles.push({
+          x: Math.random() * canvasW,
+          y: -3,
+          vx: (Math.random() - 0.5) * 0.4,
+          vy: 0.3 + Math.random() * 0.5,
+          size: 2 + Math.random() * 3,
+          color,
+          alpha: 0.7 + Math.random() * 0.3,
+          life: 200 + Math.floor(Math.random() * 80),
+          type: 'snow',
+          swayPhase: Math.random() * Math.PI * 2,
+        });
+      }
+    }
+
+    // Update seasonal particle physics
+    for (const p of particles) {
+      if (p.type === 'petal') {
+        p.x += p.vx + Math.sin(p.life * 0.04 + p.swayPhase) * 0.4;
+        p.y += p.vy;
+        p.rot += p.rotSpeed;
+      } else if (p.type === 'snow') {
+        p.x += p.vx + Math.sin(p.life * 0.03 + p.swayPhase) * 0.3;
+        p.y += p.vy;
+      }
+      // leaf physics already handled by updateExploring
     }
   }
 
@@ -67,12 +199,13 @@ const IsoWeather = (() => {
         type: 'glow',
       });
     }
-    // Update positions
+    // Update positions (skip seasonal particles)
     for (const p of particles) {
+      if (isSeasonal(p)) continue;
       p.x += p.vx;
       p.y += p.vy;
       p.alpha *= 0.99;
-      p.vx += (Math.random() - 0.5) * 0.05; // slight drift
+      p.vx += (Math.random() - 0.5) * 0.05;
     }
   }
 
@@ -93,6 +226,7 @@ const IsoWeather = (() => {
       });
     }
     for (const p of particles) {
+      if (isSeasonal(p)) continue;
       p.alpha *= 0.95;
     }
   }
@@ -150,6 +284,7 @@ const IsoWeather = (() => {
       });
     }
     for (const p of particles) {
+      if (isSeasonal(p)) continue;
       p.x += p.vx;
       p.y += p.vy + Math.sin(p.life * 0.1) * 0.3;
       if (p.rot !== undefined) p.rot += p.rotSpeed;
@@ -174,6 +309,7 @@ const IsoWeather = (() => {
       });
     }
     for (const p of particles) {
+      if (isSeasonal(p)) continue;
       p.x += p.vx + Math.sin(p.life * 0.05 + p.phase) * 0.2;
       p.y += p.vy + Math.cos(p.life * 0.07) * 0.1;
       // Pulse alpha
@@ -245,6 +381,28 @@ const IsoWeather = (() => {
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
         ctx.fill();
+      } else if (p.type === 'petal') {
+        // Cherry blossom petal — rotated oval
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot || 0);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.size, p.size * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Center dot (pistil)
+        ctx.fillStyle = '#FFE0E8';
+        ctx.fillRect(-0.5, -0.5, 1, 1);
+      } else if (p.type === 'snow') {
+        // Snowflake — simple circle with soft glow
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        // Soft glow
+        ctx.globalAlpha = p.alpha * 0.2;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 2, 0, Math.PI * 2);
+        ctx.fill();
       }
 
       ctx.restore();
@@ -269,9 +427,24 @@ const IsoWeather = (() => {
     ctx.restore();
   }
 
+  /** Draw a seasonal ground tint overlay. Call AFTER tile map but BEFORE particles. */
+  function drawGroundTint(ctx, canvasW, canvasH) {
+    const tint = getGroundTint();
+    if (!tint) return;
+    ctx.save();
+    ctx.fillStyle = tint;
+    ctx.fillRect(0, 0, canvasW, canvasH);
+    ctx.restore();
+  }
+
   return {
     setMood,
     update,
     draw,
+    drawGroundTint,
+    getSeason,
+    setSeason,
+    getSkyGradient,
+    getGroundTint,
   };
 })();
