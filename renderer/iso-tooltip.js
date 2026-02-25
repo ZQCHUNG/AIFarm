@@ -100,18 +100,37 @@ const IsoTooltip = (() => {
 
     if (buddyState) {
       const stateEmoji = {
-        idle: '\u{1F4A4}', thinking: '\u{1F914}', writing: '\u{270D}',
+        idle: '\u{1F4A4}', thinking: '\u{1F914}', writing: '\u{270D}\u{FE0F}',
         reading: '\u{1F4D6}', bash: '\u{1F4BB}', browsing: '\u{1F310}',
-        tasking: '\u{2699}', sleeping: '\u{1F634}', celebrating: '\u{1F389}',
+        tasking: '\u{2699}\u{FE0F}', sleeping: '\u{1F634}', celebrating: '\u{1F389}',
       };
-      const emoji = stateEmoji[buddyState.state] || '\u{2699}';
-      lines.push({ text: `${emoji} ${buddyState.state}`, color: ACCENT_COLOR });
+      const stateLabels = {
+        idle: 'Idle', thinking: 'Analyzing...', writing: 'Writing code',
+        reading: 'Reading files', bash: 'Running shell', browsing: 'Browsing web',
+        tasking: 'Delegating task', sleeping: 'Sleeping', celebrating: 'Celebrating!',
+      };
+      const emoji = stateEmoji[buddyState.state] || '\u{2699}\u{FE0F}';
+      const label = stateLabels[buddyState.state] || buddyState.state;
+      lines.push({ text: `${emoji} ${label}`, color: ACCENT_COLOR });
+
       if (buddyState.detail) {
-        const detail = buddyState.detail.length > 18
-          ? buddyState.detail.slice(0, 17) + '\u2026'
+        const detail = buddyState.detail.length > 22
+          ? buddyState.detail.slice(0, 21) + '\u2026'
           : buddyState.detail;
         lines.push({ text: detail, color: LABEL_COLOR });
       }
+    }
+
+    // Vibe-driven mood indicator
+    const vibe = (typeof Farm !== 'undefined') ? Farm.getVibe() : null;
+    if (vibe && vibe.mood) {
+      const moodEmoji = {
+        productive: '\u{1F525}', focused: '\u{1F3AF}', creative: '\u{2728}',
+        frustrated: '\u{1F4A2}', calm: '\u{1F343}', idle: '\u{1F4A4}',
+      };
+      const moodIcon = moodEmoji[vibe.mood] || '\u{2699}\u{FE0F}';
+      const score = Math.round((vibe.vibeScore || 0) * 100);
+      lines.push({ text: `${moodIcon} Vibe ${score}%`, color: score >= 75 ? '#FFD700' : score >= 40 ? '#88DDFF' : '#AAA' });
     }
 
     return { lines, icon: '\u{1F464}' };
@@ -321,13 +340,17 @@ const IsoTooltip = (() => {
     ctx.strokeStyle = BORDER_COLOR;
     ctx.stroke();
 
-    // Text lines
+    // Text lines (with shadow for readability at high zoom)
     let textY = ty + PADDING + 6;
     for (const line of data.lines) {
-      ctx.fillStyle = line.color || TEXT_COLOR;
       ctx.font = line.bold ? 'bold 9px monospace' : '8px monospace';
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'left';
+      // Text shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillText(line.text, tx + PADDING + 3, textY + 1);
+      // Text
+      ctx.fillStyle = line.color || TEXT_COLOR;
       ctx.fillText(line.text, tx + PADDING + 2, textY);
       textY += LINE_H;
     }
