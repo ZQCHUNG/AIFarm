@@ -1721,6 +1721,7 @@ const IsoFarm = (() => {
     PLOT_POSITIONS, BUILDING_POSITIONS, ANIMAL_HOMES,
     init, syncState, syncBuddy, removeBuddy, drawHUD, handleFarmClick, handleSnapshotClick,
     getBuddyEntity, getCropStage, updateStartupAnimation,
+    isStartupAnimating: () => !!startupAnim,
     updateAutoPan, interruptAutoPan, resetAutoPan,
   };
 })();

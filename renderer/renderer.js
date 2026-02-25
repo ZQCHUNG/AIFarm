@@ -14,6 +14,9 @@
   // View mode: 'iso' (top-down, default) or 'classic' (2D side-view)
   let viewMode = 'iso';
 
+  // Player initialization flag
+  let playerInited = false;
+
   // Load sprites (async, graceful fallback to procedural rendering)
   let spritesLoaded = false;
   if (typeof SpriteManager !== 'undefined') {
@@ -289,20 +292,57 @@
     // Startup camera animation (train station → farm center pan)
     IsoFarm.updateStartupAnimation();
 
-    // Camera panning (arrow keys) — paused when modal is open
+    // Player control + camera follow (replaces manual arrow-key panning)
     const modalLock = typeof IsoUI !== 'undefined' && IsoUI.isOpen();
-    const PAN_SPEED = 4;
-    if (!modalLock) {
-      const anyArrow = keys['ArrowLeft'] || keys['ArrowRight'] || keys['ArrowUp'] || keys['ArrowDown'];
-      if (anyArrow && IsoFarm.interruptAutoPan) IsoFarm.interruptAutoPan();
-      if (keys['ArrowLeft']) IsoEngine.moveCamera(PAN_SPEED, 0);
-      if (keys['ArrowRight']) IsoEngine.moveCamera(-PAN_SPEED, 0);
-      if (keys['ArrowUp']) IsoEngine.moveCamera(0, PAN_SPEED);
-      if (keys['ArrowDown']) IsoEngine.moveCamera(0, -PAN_SPEED);
+    if (typeof Player !== 'undefined') {
+      // Initialize player once at farm center (col 9, row 7)
+      if (!playerInited) {
+        Player.init(9, 7, {
+          spriteKey: 'char_blue',
+          collisionFn: (wx, wy) => {
+            const col = Math.floor(wx / IsoEngine.TILE_W);
+            const row = Math.floor(wy / IsoEngine.TILE_H);
+            const tile = IsoEngine.getTile(col, row);
+            return Player.SOLID_TILES.has(tile);
+          },
+        });
+        playerInited = true;
+      }
+      if (!modalLock) {
+        const anyMove = keys['ArrowLeft'] || keys['ArrowRight'] || keys['ArrowUp'] || keys['ArrowDown']
+          || keys['a'] || keys['A'] || keys['d'] || keys['D']
+          || keys['w'] || keys['W'] || keys['s'] || keys['S'];
+        if (anyMove && IsoFarm.interruptAutoPan) IsoFarm.interruptAutoPan();
+        Player.update(keys);
+      }
+      // Camera smoothly follows player (after startup animation finishes)
+      if (!IsoFarm.isStartupAnimating()) {
+        const pp = Player.getPosition();
+        IsoEngine.smoothFollow(pp.x, pp.y, 0.08);
+      }
+
+      // Add player entity to rendering
+      const pe = Player.getEntity();
+      IsoEngine.addEntity(pe);
+    } else {
+      // Fallback: manual camera panning if Player module not loaded
+      const PAN_SPEED = 4;
+      if (!modalLock) {
+        const anyArrow = keys['ArrowLeft'] || keys['ArrowRight'] || keys['ArrowUp'] || keys['ArrowDown'];
+        if (anyArrow && IsoFarm.interruptAutoPan) IsoFarm.interruptAutoPan();
+        if (keys['ArrowLeft']) IsoEngine.moveCamera(PAN_SPEED, 0);
+        if (keys['ArrowRight']) IsoEngine.moveCamera(-PAN_SPEED, 0);
+        if (keys['ArrowUp']) IsoEngine.moveCamera(0, PAN_SPEED);
+        if (keys['ArrowDown']) IsoEngine.moveCamera(0, -PAN_SPEED);
+      }
     }
 
-    // Auto-pan idle camera tour
-    if (IsoFarm.updateAutoPan) IsoFarm.updateAutoPan();
+    // Auto-pan idle camera tour (only when player is not moving)
+    if (typeof Player !== 'undefined' && Player.isMoving()) {
+      // Player is moving — don't auto-pan
+    } else if (IsoFarm.updateAutoPan) {
+      IsoFarm.updateAutoPan();
+    }
 
     // Update buddy AI (farming/tending behavior)
     if (typeof BuddyAI !== 'undefined') {

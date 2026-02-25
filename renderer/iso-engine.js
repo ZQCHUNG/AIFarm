@@ -287,6 +287,7 @@ const IsoEngine = (() => {
   /** Return shadow radius based on entity type. 0 = no shadow. */
   function entityShadowRadius(ent) {
     if (!ent) return 0;
+    if (ent.type === 'player') return 8;
     switch (ent.entityType) {
       case 'character': return 8;
       case 'animal': {
@@ -423,6 +424,25 @@ const IsoEngine = (() => {
   function getZoom() { return camZoom; }
   function setZoom(z) { camZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)); }
   function getCameraState() { return { x: camX, y: camY, zoom: camZoom }; }
+
+  /**
+   * Smoothly move camera to center on a world-pixel position.
+   * @param {number} worldX — target X in world pixels
+   * @param {number} worldY — target Y in world pixels
+   * @param {number} lerp — interpolation factor (0..1, higher = snappier). Default 0.08.
+   */
+  function smoothFollow(worldX, worldY, lerp) {
+    const t = lerp || 0.08;
+    const vw = lastCanvasW / camZoom;
+    const vh = lastCanvasH / camZoom;
+    const targetX = vw / 2 - worldX;
+    const targetY = vh / 2 - worldY;
+    camX += (targetX - camX) * t;
+    camY += (targetY - camY) * t;
+    clampCamera();
+  }
+
+  function getMapSize() { return { w: mapWidth, h: mapHeight }; }
 
   // Viewport state persistence (survives view mode toggles)
   let savedViewport = null;
@@ -1087,6 +1107,7 @@ const IsoEngine = (() => {
     drawMap,
     setCamera, moveCamera, centerOnTile, clampCamera,
     zoom, getZoom, setZoom, getCameraState,
+    smoothFollow, getMapSize,
     saveViewportState, restoreViewportState, hasSavedViewport,
     adjustBrightness,
     drawIsoTree, drawIsoCharacter, drawIsoCrop,

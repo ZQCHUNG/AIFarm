@@ -17,9 +17,18 @@ const exporter = new DataExporter();
 
 // Per-buddy slot width: must equal scene.js SLOT_W (40) * PX (3)
 const SLOT_W_PX = 40 * 3; // 120 screen pixels
-const WIN_H = 351;
 const MIN_W = 330;
 const MAX_W = 1200;
+
+// Dynamic window height based on screen size
+const WIN_H_RATIO = 0.45;  // 佔螢幕高度 45%
+const WIN_H_MIN = 351;     // 最小高度（向下相容）
+const WIN_H_MAX = 800;     // 最大高度上限
+
+function getWindowHeight() {
+  const { height: screenH } = screen.getPrimaryDisplay().workAreaSize;
+  return Math.min(WIN_H_MAX, Math.max(WIN_H_MIN, Math.floor(screenH * WIN_H_RATIO)));
+}
 
 // Active buddies: Map<sessionPath, { tailer, project }>
 const buddies = new Map();
@@ -53,12 +62,13 @@ function ensureWindow() {
   if (win && !win.isDestroyed()) return;
 
   const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workAreaSize;
+  const winH = getWindowHeight();
 
   win = new BrowserWindow({
     width: MIN_W,
-    height: WIN_H,
+    height: winH,
     x: Math.floor(screenW / 2 - MIN_W / 2),
-    y: screenH - WIN_H,
+    y: screenH - winH,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -80,16 +90,16 @@ function resizeWindow(numBuddies) {
   if (!win || win.isDestroyed()) return;
   const count = Math.max(1, numBuddies);
   const newW = Math.min(MAX_W, Math.max(MIN_W, count * SLOT_W_PX + 90));
+  const winH = getWindowHeight();
 
   const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workAreaSize;
-  const [, curY] = win.getPosition();
   const x = Math.max(0, Math.floor(screenW / 2 - newW / 2));
 
-  win.setSize(newW, WIN_H);
-  win.setPosition(x, screenH - WIN_H);
+  win.setSize(newW, winH);
+  win.setPosition(x, screenH - winH);
 
   // Tell renderer about new canvas size
-  win.webContents.send('resize-canvas', newW, WIN_H);
+  win.webContents.send('resize-canvas', newW, winH);
 }
 
 // ---------- Session management ----------
@@ -240,6 +250,11 @@ ipcMain.on('set-ignore-mouse', (e, ignore, opts) => {
 app.whenReady().then(() => {
   ensureWindow();
   createTray();
+
+  // Re-adapt window when display changes (plug/unplug external monitor)
+  screen.on('display-metrics-changed', () => {
+    resizeWindow(buddies.size);
+  });
 
   // Wait for renderer to finish loading before starting watchers,
   // otherwise IPC messages are dropped silently.
