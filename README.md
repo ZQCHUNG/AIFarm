@@ -125,14 +125,12 @@ Claude Buddy 透過 JSONL 日誌檔案監控你的 Claude Code 工作階段。�
 | 14 | 財富之種 | 資源庫存 + Event Bus、資源 HUD、出貨箱 |
 | 15 | 智慧成長 | 歷史工作階段 NPC、雜貨店/商店、資源飛出動畫 |
 | 16 | 無限地平線 | Chunk 無限地圖、動態光照 2.0、衝刺與體力系統 |
+| 17 | 工業革命 | 加工建築（磨坊/工坊）、動態天氣系統、圓形小地圖 |
 
 ### 待辦（路線圖）
 
 | 階段 | Sprint | 優先級 | 功能 | 說明 |
 |------|--------|--------|------|------|
-| 4 | 17 | P0 | 加工建築 | 磨坊（小麥→麵粉）、鋸木廠（木材→建材） |
-| 4 | 17 | P1 | 動態氣候系統 | 雨天加速作物、霧天稀有 NPC、雨絲粒子 |
-| 4 | 17 | P2 | 小地圖 | HUD 右上角圓形小地圖、顯示玩家與已解鎖區域 |
 | 4 | 18+ | P1 | 科技樹升級 | 工具效率、自動澆水、自動收穫機器人 |
 | 4 | 18+ | P2 | 釣魚系統 | 河流/湖泊生成、釣魚小遊戲 |
 | 5 | TBD | P2 | 房屋自訂 | 玩家房屋內部裝潢系統 |
@@ -163,7 +161,8 @@ claude-buddy/
     iso-engine.js      # 瓷磚式渲染引擎、鏡頭、粒子
     iso-farm.js        # 農場佈局、實體、HUD、截圖、自動巡遊
     iso-entity-manager.js  # 實體生命週期（角色、動物、靜態物）
-    iso-weather.js     # 季節、天氣粒子、日夜循環
+    iso-weather.js     # 季節、天氣粒子、日夜循環、動態天氣
+    iso-lighting.js    # 動態光照系統（夜間燈光、光暈）
     iso-train.js       # 火車進出站動畫
     iso-effects.js     # 浮動文字、收穫獎勵、資源飛出動畫
     iso-tooltip.js     # 實體懸停提示
@@ -171,6 +170,9 @@ claude-buddy/
     shop-ui.js         # 雜貨店商店模態
     event-bus.js       # 發布/訂閱事件系統
     resource-inventory.js  # 多資源庫存（WOOD、STONE、GOLD、作物）
+    processing.js      # 加工建築系統（磨坊、工坊）
+    minimap.js         # 圓形小地圖 HUD
+    chunk-manager.js   # 無限地圖 Chunk 系統
     npc-manager.js     # 歷史工作階段 NPC 系統與進化等級
     player.js          # 玩家控制角色與物理
     buddy-ai.js        # 自主夥伴行為（農作、社交）
