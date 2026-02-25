@@ -4,41 +4,61 @@
  * The player exists in world-pixel coordinates and moves with
  * velocity + friction for a smooth "Stardew Valley" feel.
  * Tile-based sliding collision prevents walking through solid tiles.
+ *
+ * Sprint 16: State machine — IDLE / WALK / SPRINT / EXHAUSTED
+ * Hold Shift to sprint. Stamina depletes while sprinting; when empty,
+ * player enters EXHAUSTED (half speed). Recovery starts after a delay.
  */
 
 const Player = (() => {
   // Movement tuning
-  const ACCEL = 0.6;       // pixels/frame² acceleration
-  const FRICTION = 0.78;   // velocity multiplier each frame (< 1 = decelerate)
-  const MAX_SPEED = 3.2;   // pixels/frame cap
-  const HITBOX_W = 12;     // collision box width (centered on sprite)
-  const HITBOX_H = 8;      // collision box height (at feet)
+  const ACCEL = 0.6;           // pixels/frame² acceleration
+  const FRICTION = 0.78;       // velocity multiplier each frame
+  const WALK_SPEED = 3.2;      // pixels/frame cap (walk)
+  const SPRINT_SPEED = 5.5;    // pixels/frame cap (sprint)
+  const EXHAUSTED_SPEED = 1.6; // pixels/frame cap (exhausted)
+  const HITBOX_W = 12;
+  const HITBOX_H = 8;
 
-  // World position (pixels — top-left of the 32x32 tile the player occupies)
+  // Stamina tuning
+  const STAMINA_MAX = 100;
+  const STAMINA_DRAIN = 0.8;     // per frame while sprinting
+  const STAMINA_RECOVER = 0.4;   // per frame while recovering
+  const RECOVERY_DELAY = 60;     // frames after sprint stops before recovery begins
+
+  // State machine
+  const STATE = { IDLE: 0, WALK: 1, SPRINT: 2, EXHAUSTED: 3 };
+  let state = STATE.IDLE;
+  let stamina = STAMINA_MAX;
+  let recoveryTimer = 0; // frames since sprint stopped
+
+  // World position (pixels)
   let wx = 0;
   let wy = 0;
   let vx = 0;
   let vy = 0;
 
-  // Direction: 0=down, 1=left, 2=right, 3=up (matches sprite sheet row order)
+  // Direction: 0=down, 1=left, 2=right, 3=up
   let dir = 0;
   let animFrame = 0;
   let animTimer = 0;
-  const ANIM_SPEED = 8; // frames between walk-cycle steps
+  const ANIM_SPEED_WALK = 8;
+  const ANIM_SPEED_SPRINT = 5;   // faster animation while sprinting
   let moving = false;
+  let sprinting = false;
 
-  // Sprite key (SpriteManager name) — defaults to char_blue
-  let spriteKey = 'char_blue';
+  // Dirt particle callback (set by renderer to call IsoEffects)
+  let dirtParticleFn = null;
+  let dirtTimer = 0;
 
-  // Reference to collision checker (set via init)
+  // Reference to collision checker
   let collisionFn = null;
 
-  // Solid tile types the player cannot walk through
+  // Solid tile types
   const SOLID_TILES = new Set(['water', 'fence', 'empty', null]);
 
   // ===== Public API =====
 
-  /** Initialize player at a grid tile position. */
   function init(col, row, opts) {
     const TILE_W = 32;
     const TILE_H = 32;
@@ -47,18 +67,19 @@ const Player = (() => {
     vx = 0;
     vy = 0;
     dir = 0;
-    if (opts && opts.spriteKey) spriteKey = opts.spriteKey;
+    state = STATE.IDLE;
+    stamina = STAMINA_MAX;
+    recoveryTimer = 0;
     if (opts && opts.collisionFn) collisionFn = opts.collisionFn;
+    if (opts && opts.dirtParticleFn) dirtParticleFn = opts.dirtParticleFn;
   }
 
-  /** Set the collision checker: fn(worldX, worldY) → boolean (true = blocked). */
-  function setCollisionFn(fn) {
-    collisionFn = fn;
-  }
+  function setCollisionFn(fn) { collisionFn = fn; }
+  function setDirtParticleFn(fn) { dirtParticleFn = fn; }
 
   /**
    * Update player position based on input keys.
-   * @param {Object} keys — map of key names to booleans (e.g. { ArrowUp: true })
+   * @param {Object} keys — map of key names to booleans
    */
   function update(keys) {
     // Gather input direction
@@ -69,12 +90,51 @@ const Player = (() => {
     if (keys['ArrowUp']    || keys['w'] || keys['W']) iy -= 1;
     if (keys['ArrowDown']  || keys['s'] || keys['S']) iy += 1;
 
-    // Normalize diagonal so it doesn't go faster
+    // Normalize diagonal
     if (ix !== 0 && iy !== 0) {
       const inv = 1 / Math.SQRT2;
       ix *= inv;
       iy *= inv;
     }
+
+    const wantsSprint = !!(keys['Shift'] || keys['ShiftLeft'] || keys['ShiftRight']);
+    const hasInput = ix !== 0 || iy !== 0;
+
+    // ===== State machine transitions =====
+    if (state === STATE.EXHAUSTED) {
+      // Stay exhausted until stamina recovers past 30%
+      if (stamina >= STAMINA_MAX * 0.3) {
+        state = hasInput ? STATE.WALK : STATE.IDLE;
+      }
+    } else if (hasInput && wantsSprint && stamina > 0) {
+      state = STATE.SPRINT;
+    } else if (hasInput) {
+      state = STATE.WALK;
+    } else {
+      state = STATE.IDLE;
+    }
+
+    // ===== Stamina management =====
+    sprinting = state === STATE.SPRINT;
+    if (sprinting) {
+      stamina = Math.max(0, stamina - STAMINA_DRAIN);
+      recoveryTimer = 0;
+      if (stamina <= 0) {
+        state = STATE.EXHAUSTED;
+        sprinting = false;
+      }
+    } else {
+      recoveryTimer++;
+      if (recoveryTimer >= RECOVERY_DELAY && stamina < STAMINA_MAX) {
+        stamina = Math.min(STAMINA_MAX, stamina + STAMINA_RECOVER);
+      }
+    }
+
+    // ===== Speed cap based on state =====
+    let maxSpeed;
+    if (state === STATE.SPRINT) maxSpeed = SPRINT_SPEED;
+    else if (state === STATE.EXHAUSTED) maxSpeed = EXHAUSTED_SPEED;
+    else maxSpeed = WALK_SPEED;
 
     // Apply acceleration
     vx += ix * ACCEL;
@@ -82,9 +142,9 @@ const Player = (() => {
 
     // Clamp speed
     const speed = Math.sqrt(vx * vx + vy * vy);
-    if (speed > MAX_SPEED) {
-      vx = (vx / speed) * MAX_SPEED;
-      vy = (vy / speed) * MAX_SPEED;
+    if (speed > maxSpeed) {
+      vx = (vx / speed) * maxSpeed;
+      vy = (vy / speed) * maxSpeed;
     }
 
     // Apply friction
@@ -97,7 +157,7 @@ const Player = (() => {
 
     moving = Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1;
 
-    // Sliding collision: try X and Y axes independently
+    // Sliding collision
     const nextX = wx + vx;
     const nextY = wy + vy;
 
@@ -115,16 +175,17 @@ const Player = (() => {
     // Update facing direction
     if (moving) {
       if (Math.abs(vx) > Math.abs(vy)) {
-        dir = vx < 0 ? 1 : 2; // left : right
+        dir = vx < 0 ? 1 : 2;
       } else {
-        dir = vy < 0 ? 3 : 0; // up : down
+        dir = vy < 0 ? 3 : 0;
       }
     }
 
-    // Animate walk cycle
+    // Animate walk cycle (faster when sprinting)
+    const animSpeed = sprinting ? ANIM_SPEED_SPRINT : ANIM_SPEED_WALK;
     if (moving) {
       animTimer++;
-      if (animTimer >= ANIM_SPEED) {
+      if (animTimer >= animSpeed) {
         animTimer = 0;
         animFrame = (animFrame + 1) % 3;
       }
@@ -132,14 +193,26 @@ const Player = (() => {
       animFrame = 0;
       animTimer = 0;
     }
+
+    // Dirt particles while sprinting
+    if (sprinting && moving && dirtParticleFn) {
+      dirtTimer++;
+      if (dirtTimer >= 3) { // every 3 frames
+        dirtTimer = 0;
+        const col = wx / 32;
+        const row = wy / 32;
+        const currentSpeed = Math.sqrt(vx * vx + vy * vy);
+        dirtParticleFn(col, row, currentSpeed);
+      }
+    } else {
+      dirtTimer = 0;
+    }
   }
 
-  /** Check if position is blocked (using hitbox corners). */
   function isBlocked(px, py) {
     if (!collisionFn) return false;
     const hw = HITBOX_W / 2;
     const hh = HITBOX_H / 2;
-    // Check 4 corners of hitbox (feet area)
     return (
       collisionFn(px - hw, py - hh) ||
       collisionFn(px + hw, py - hh) ||
@@ -154,31 +227,37 @@ const Player = (() => {
   // Player hoodie color (gold = "lord" character, distinct from buddies)
   const PLAYER_COLOR = '#DAA520';
 
-  /** Get player as an entity compatible with IsoEngine.addEntity(). */
   function getEntity() {
     const TILE_W = 32;
     const TILE_H = 32;
     const col = wx / TILE_W;
     const row = wy / TILE_H;
     const direction = DIR_NAMES[dir] || 'down';
+    const currentState = state;
+    const currentStamina = stamina;
+    const isSprinting = sprinting;
+
     return {
       col,
       row,
       z: 0,
-      // No spriteId — always use procedural gold draw so player is visually distinct
       spriteId: null,
       direction,
       frame: animFrame,
       type: 'player',
       draw: (ctx, sx, sy, tick) => {
-        // Gold hoodie character — distinct from buddy NPCs
         if (typeof IsoEngine !== 'undefined' && IsoEngine.drawIsoCharacter) {
           IsoEngine.drawIsoCharacter(ctx, sx, sy, direction, animFrame, PLAYER_COLOR, tick);
-          // Draw player indicator arrow above head
+
+          // Player indicator arrow above head
           ctx.save();
-          ctx.fillStyle = '#FFD700';
+          const arrowColor = isSprinting ? '#FF6600' : '#FFD700';
+          ctx.fillStyle = arrowColor;
+          // More aggressive bounce when sprinting
+          const bounceAmp = isSprinting ? 4 : 2;
+          const bounceFreq = isSprinting ? 0.2 : 0.08;
           ctx.globalAlpha = 0.7 + Math.sin(tick * 0.1) * 0.3;
-          const arrowY = sy - 22 + Math.sin(tick * 0.08) * 2;
+          const arrowY = sy - 22 + Math.sin(tick * bounceFreq) * bounceAmp;
           ctx.beginPath();
           ctx.moveTo(sx, arrowY + 5);
           ctx.lineTo(sx - 4, arrowY);
@@ -186,37 +265,64 @@ const Player = (() => {
           ctx.closePath();
           ctx.fill();
           ctx.restore();
+
+          // Stamina bar (only show when not full)
+          if (currentStamina < STAMINA_MAX) {
+            drawStaminaBar(ctx, sx, sy, currentStamina, currentState);
+          }
         }
       },
     };
   }
 
-  /** Get world pixel position. */
-  function getPosition() {
-    return { x: wx, y: wy };
+  function drawStaminaBar(ctx, sx, sy, stam, st) {
+    const BAR_W = 18;
+    const BAR_H = 3;
+    const bx = sx - BAR_W / 2;
+    const by = sy - 28; // above the arrow
+
+    ctx.save();
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(bx - 1, by - 1, BAR_W + 2, BAR_H + 2);
+
+    // Fill
+    const ratio = stam / STAMINA_MAX;
+    let color;
+    if (st === STATE.EXHAUSTED) color = '#FF4444';
+    else if (ratio < 0.3) color = '#FF8800';
+    else color = '#44DD44';
+    ctx.fillStyle = color;
+    ctx.fillRect(bx, by, BAR_W * ratio, BAR_H);
+    ctx.restore();
   }
 
-  /** Get grid tile position. */
+  function getPosition() { return { x: wx, y: wy }; }
   function getTile() {
-    return {
-      col: Math.floor(wx / 32),
-      row: Math.floor(wy / 32),
-    };
+    return { col: Math.floor(wx / 32), row: Math.floor(wy / 32) };
   }
-
   function getDirection() { return dir; }
   function isMoving() { return moving; }
+  function isSprinting() { return sprinting; }
+  function getStamina() { return stamina; }
+  function getState() { return state; }
 
   return {
     init,
     setCollisionFn,
+    setDirtParticleFn,
     update,
     getEntity,
     getPosition,
     getTile,
     getDirection,
     isMoving,
+    isSprinting,
+    getStamina,
+    getState,
     SOLID_TILES,
+    STATE,
+    STAMINA_MAX,
   };
 })();
 

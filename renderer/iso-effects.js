@@ -314,9 +314,73 @@ const IsoEffects = (() => {
     });
   }
 
+  // ===== Dirt particles (sprint dust) =====
+  const dirtParticles = [];
+  const MAX_DIRT = 40;
+
+  /**
+   * Spawn dirt/dust particles at player's feet while sprinting.
+   * @param {number} col - Grid column (fractional)
+   * @param {number} row - Grid row (fractional)
+   * @param {number} speed - Current player speed (affects spread)
+   */
+  function spawnDirtParticles(col, row, speed) {
+    if (dirtParticles.length >= MAX_DIRT) return;
+    const screenPos = (typeof IsoEngine !== 'undefined')
+      ? IsoEngine.gridToScreen(col, row)
+      : { x: col * 32, y: row * 32 };
+
+    // Speed-based tuning: faster = wider spread, longer life
+    const speedRatio = Math.min(speed / 5.5, 1);
+    const count = 2 + Math.floor(speedRatio * 2);
+
+    for (let i = 0; i < count; i++) {
+      const angle = Math.PI * 0.5 + (Math.random() - 0.5) * (1.2 + speedRatio * 0.8);
+      const vel = 0.5 + Math.random() * (0.8 + speedRatio * 0.6);
+      dirtParticles.push({
+        x: screenPos.x + 16 + (Math.random() - 0.5) * 6,
+        y: screenPos.y + 8,
+        vx: Math.cos(angle) * vel,
+        vy: -Math.sin(angle) * vel * 0.5,
+        life: 15 + Math.floor(speedRatio * 12),
+        age: 0,
+        size: 1.5 + Math.random() * 1.5,
+        color: Math.random() > 0.5 ? '#C4A06A' : '#A08050',
+      });
+    }
+  }
+
+  function updateDirtParticles() {
+    for (let i = dirtParticles.length - 1; i >= 0; i--) {
+      const p = dirtParticles[i];
+      p.age++;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.02; // gravity
+      if (p.age >= p.life) {
+        dirtParticles.splice(i, 1);
+      }
+    }
+  }
+
+  function drawDirtParticles(ctx) {
+    if (dirtParticles.length === 0) return;
+    ctx.save();
+    for (const p of dirtParticles) {
+      const alpha = 1 - p.age / p.life;
+      ctx.globalAlpha = alpha * 0.7;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * (1 - p.age / p.life * 0.5), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function clear() {
     floatingTexts.length = 0;
     resourcePopups.length = 0;
+    dirtParticles.length = 0;
   }
 
   return {
@@ -324,11 +388,13 @@ const IsoEffects = (() => {
     spawnHarvestReward,
     spawnMilestone,
     spawnResourcePopup,
+    spawnDirtParticles,
     setupResourceListeners,
-    update: () => { update(); updateResourcePopups(); },
+    update: () => { update(); updateResourcePopups(); updateDirtParticles(); },
     draw: (ctx, canvasW, canvasH) => {
       draw(ctx, canvasW, canvasH);
       drawResourcePopups(ctx, canvasW, canvasH);
+      drawDirtParticles(ctx);
     },
     clear,
   };

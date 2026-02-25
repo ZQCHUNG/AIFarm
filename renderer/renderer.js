@@ -338,6 +338,11 @@
             const tile = IsoEngine.getTile(col, row);
             return Player.SOLID_TILES.has(tile);
           },
+          dirtParticleFn: (col, row, speed) => {
+            if (typeof IsoEffects !== 'undefined') {
+              IsoEffects.spawnDirtParticles(col, row, speed);
+            }
+          },
         });
         playerInited = true;
       }
