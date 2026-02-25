@@ -44,6 +44,12 @@
     IsoFarm.syncState();
   }
 
+  // Initialize resource inventory + event bus listeners
+  if (typeof ResourceInventory !== 'undefined') {
+    ResourceInventory.init();
+    ResourceInventory.setupListeners();
+  }
+
   if (window.buddy) {
     window.buddy.onFarmUpdate((state) => {
       Farm.setState(state);
@@ -175,6 +181,12 @@
   const keys = {};
   document.addEventListener('keydown', (e) => {
     keys[e.key] = true;
+    // Shipping bin sell action (E key)
+    if ((e.key === 'e' || e.key === 'E') && !e.ctrlKey && !e.shiftKey) {
+      if (typeof IsoFarm !== 'undefined' && IsoFarm.sellAllCrops) {
+        IsoFarm.sellAllCrops(tick);
+      }
+    }
     if (e.ctrlKey && e.shiftKey && e.key === 'D') {
       const active = Viewport.toggleDebugPan();
       console.log('[Viewport] Debug pan:', active ? 'ON' : 'OFF');
@@ -321,9 +333,8 @@
         IsoEngine.smoothFollow(pp.x, pp.y, 0.08);
       }
 
-      // Add player entity to rendering
-      const pe = Player.getEntity();
-      IsoEngine.addEntity(pe);
+      // Update persistent player entity for rendering
+      IsoEngine.setPlayer(Player.getEntity());
     } else {
       // Fallback: manual camera panning if Player module not loaded
       const PAN_SPEED = 4;

@@ -132,6 +132,13 @@ const IsoEngine = (() => {
 
   // ===== Entity management =====
 
+  // Persistent player entity (set once, updated in-place each frame)
+  let playerEntity = null;
+
+  function setPlayer(entity) {
+    playerEntity = entity;
+  }
+
   function addEntity(entity) {
     entities.push(entity);
   }
@@ -336,13 +343,24 @@ const IsoEngine = (() => {
     for (const ent of entities) {
       const ez = ent.z || 0;
       const { x, y } = gridToScreen(ent.col, ent.row, ez);
-      // Store screen position on entity for tooltip system
       ent.screenX = x + TILE_W / 2;
       ent.screenY = y;
       renderList.push({
         depth: depthKey(ent.col, ent.row, ez) + 0.5,
         type: 'entity',
         entity: ent, x, y,
+      });
+    }
+    // Player entity (persistent reference, not re-pushed each frame)
+    if (playerEntity) {
+      const ez = playerEntity.z || 0;
+      const { x, y } = gridToScreen(playerEntity.col, playerEntity.row, ez);
+      playerEntity.screenX = x + TILE_W / 2;
+      playerEntity.screenY = y;
+      renderList.push({
+        depth: depthKey(playerEntity.col, playerEntity.row, ez) + 0.5,
+        type: 'entity',
+        entity: playerEntity, x, y,
       });
     }
 
@@ -1102,7 +1120,7 @@ const IsoEngine = (() => {
     depthKey,
     getTileBitmask,
     initMap, setTile, getTile,
-    addEntity, clearEntities,
+    setPlayer, addEntity, clearEntities,
     drawTile, drawTileTransitions, drawTileHighlight,
     drawMap,
     setCamera, moveCamera, centerOnTile, clampCamera,

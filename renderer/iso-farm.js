@@ -38,6 +38,10 @@ const IsoFarm = (() => {
   // Extension zone — reserved for future features (fishing pond, village expansion, etc.)
   const EXTENSION_ZONE = { minCol: 12, maxCol: 19, minRow: 0, maxRow: 9 };
 
+  // Shipping bin position
+  const SHIPPING_BIN_COL = 1;
+  const SHIPPING_BIN_ROW = 10;
+
   // Animal home positions
   const ANIMAL_HOMES = {
     chicken: { col: 3,  row: 12 },
@@ -133,6 +137,9 @@ const IsoFarm = (() => {
       IsoEngine.setTile(c, 11, 'path');
     }
 
+    // Shipping bin tile (solid — player can't walk through)
+    IsoEngine.setTile(SHIPPING_BIN_COL, SHIPPING_BIN_ROW, 'fence');
+
     // Small pond in pasture
     IsoEngine.setTile(16, 12, 'water');
     IsoEngine.setTile(17, 12, 'water');
@@ -210,6 +217,13 @@ const IsoFarm = (() => {
       ));
       decorEntities.push(ent);
     }
+
+    // Shipping bin (resource → GOLD, at path edge near farm)
+    const shippingBinEnt = IsoEntityManager.add(IsoEntityManager.createStatic(1, 10,
+      (ctx, sx, sy, tick) => drawShippingBin(ctx, sx, sy, tick),
+      { z: 0 }
+    ));
+    decorEntities.push(shippingBinEnt);
 
     // Startup camera animation: start at train station, pan to farm center
     IsoEngine.setZoom(1.8);
@@ -297,6 +311,148 @@ const IsoFarm = (() => {
       ctx.fillStyle = colors[(seed + i) % colors.length];
       ctx.fillRect(Math.round(fx) - 1, Math.round(fy) - 1, 3, 3);
     }
+  }
+
+  // Shipping bin — wooden crate for selling resources → GOLD
+  // Stardew Valley style: drop items in, get gold
+  let shippingBinBounce = 0; // bounce animation timer
+  let shippingBinGoldFloat = null; // { amount, startTick }
+
+  function drawShippingBin(ctx, sx, sy, tick) {
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy + 4, 12, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bounce animation
+    let bounceY = 0;
+    if (shippingBinBounce > 0) {
+      bounceY = -Math.sin(shippingBinBounce / 15 * Math.PI) * 4;
+      shippingBinBounce--;
+    }
+
+    // Crate body (wooden box)
+    const bx = sx - 10;
+    const by = sy - 14 + bounceY;
+    ctx.fillStyle = '#8B6B3E';
+    ctx.fillRect(bx, by, 20, 14);
+
+    // Wood grain stripes
+    ctx.fillStyle = '#7A5A2E';
+    ctx.fillRect(bx, by + 3, 20, 2);
+    ctx.fillRect(bx, by + 8, 20, 2);
+
+    // Side panels (darker edges)
+    ctx.fillStyle = '#6B4A1E';
+    ctx.fillRect(bx, by, 2, 14);
+    ctx.fillRect(bx + 18, by, 2, 14);
+
+    // Lid (slightly wider, angled)
+    ctx.fillStyle = '#A07840';
+    ctx.fillRect(bx - 2, by - 4, 24, 5);
+    ctx.fillStyle = '#8B6830';
+    ctx.fillRect(bx - 2, by - 4, 24, 1);
+
+    // Metal clasp/handle
+    ctx.fillStyle = '#C0C0C0';
+    ctx.fillRect(sx - 3, by - 3, 6, 3);
+    ctx.fillStyle = '#888';
+    ctx.fillRect(sx - 2, by - 2, 4, 1);
+
+    // Gold star emblem on front
+    ctx.fillStyle = '#FFD700';
+    ctx.font = '7px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('\u2605', sx, by + 7); // ★
+
+    // Label "SELL"
+    ctx.fillStyle = '#FFE0A0';
+    ctx.font = 'bold 5px monospace';
+    ctx.fillText('SELL', sx, sy + 8 + bounceY);
+
+    // Floating gold earned animation
+    if (shippingBinGoldFloat) {
+      const elapsed = tick - shippingBinGoldFloat.startTick;
+      if (elapsed < 60) {
+        const floatY = -elapsed * 0.5;
+        const alpha = 1 - elapsed / 60;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('+' + shippingBinGoldFloat.amount + 'g', sx, by - 8 + floatY);
+        ctx.restore();
+      } else {
+        shippingBinGoldFloat = null;
+      }
+    }
+  }
+
+  // Check if player is near shipping bin and draw sell prompt
+  function updateShippingBin(tick) {
+    if (typeof Player === 'undefined' || typeof ResourceInventory === 'undefined') return;
+    const pt = Player.getTile();
+    const dx = Math.abs(pt.col - SHIPPING_BIN_COL);
+    const dy = Math.abs(pt.row - SHIPPING_BIN_ROW);
+    // Player is adjacent (within 1.5 tiles)
+    if (dx <= 1 && dy <= 1) {
+      shippingBinNearby = true;
+    } else {
+      shippingBinNearby = false;
+    }
+  }
+
+  let shippingBinNearby = false;
+
+  function sellAllCrops(tick) {
+    if (!shippingBinNearby) return 0; // Must be near the bin
+    if (typeof ResourceInventory === 'undefined') return 0;
+    const sellable = ['carrot', 'sunflower', 'watermelon', 'tomato', 'corn', 'pumpkin', 'wood', 'stone'];
+    let totalGold = 0;
+    for (const res of sellable) {
+      const amount = ResourceInventory.get(res);
+      if (amount > 0) {
+        const price = ResourceInventory.SELL_PRICES[res] || 0;
+        if (price > 0 && ResourceInventory.sell(res, amount)) {
+          totalGold += price * amount;
+        }
+      }
+    }
+    if (totalGold > 0) {
+      shippingBinBounce = 15;
+      shippingBinGoldFloat = { amount: totalGold, startTick: tick };
+    }
+    return totalGold;
+  }
+
+  // Draw sell prompt when player is near shipping bin (called from drawHUD)
+  function drawSellPrompt(ctx, canvasW, canvasH) {
+    if (!shippingBinNearby) return;
+    // Check if there's anything to sell
+    if (typeof ResourceInventory === 'undefined') return;
+    const sellable = ['carrot', 'sunflower', 'watermelon', 'tomato', 'corn', 'pumpkin', 'wood', 'stone'];
+    let hasItems = false;
+    for (const res of sellable) {
+      if (ResourceInventory.get(res) > 0) { hasItems = true; break; }
+    }
+    if (!hasItems) return;
+
+    // Draw "Press E to sell" prompt at bottom center
+    const text = 'Press [E] to sell';
+    ctx.font = 'bold 9px monospace';
+    const tw = ctx.measureText(text).width;
+    const px = (canvasW - tw) / 2 - 8;
+    const py = canvasH - 42;
+    ctx.fillStyle = 'rgba(20, 20, 40, 0.8)';
+    roundRect(ctx, px, py, tw + 16, 18, 4);
+    ctx.fill();
+    ctx.fillStyle = '#FFD700';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, canvasW / 2, py + 9);
   }
 
   // Bulletin board — wooden sign showing usage data
@@ -797,8 +953,11 @@ const IsoFarm = (() => {
         // Spawn particles at each tile of the plot row
         for (let tc = 0; tc < plotWidth; tc++) {
           IsoEngine.spawnHarvestParticles(pos.col + tc, pos.row, harvestColor, 8);
-          // Also spawn golden sparkles
           IsoEngine.spawnHarvestParticles(pos.col + tc, pos.row, '#FFD700', 4);
+        }
+        // Emit harvest event for resource system
+        if (typeof EventBus !== 'undefined') {
+          EventBus.emit('CROP_HARVESTED', { crop: prev.crop, amount: 1, plotIndex: i });
         }
       }
 
@@ -1457,7 +1616,90 @@ const IsoFarm = (() => {
 
   // ===== HUD — Harvest Moon style =====
 
+  // ===== Resource HUD bar =====
+
+  // Resource icon emoji map
+  const RESOURCE_ICONS = {
+    gold: '\u{1FA99}',        // 🪙
+    wood: '\u{1FAB5}',        // 🪵
+    stone: '\u{1FAA8}',       // 🪨
+    carrot: '\u{1F955}',      // 🥕
+    sunflower: '\u{1F33B}',   // 🌻
+    watermelon: '\u{1F349}',  // 🍉
+    tomato: '\u{1F345}',      // 🍅
+    corn: '\u{1F33D}',        // 🌽
+    pumpkin: '\u{1F383}',     // 🎃
+  };
+
+  // Bounce animations for resource changes
+  let resourceBounces = {}; // { resourceId: { startTick, delta } }
+
+  function drawResourceBar(ctx, x, y, tick) {
+    const summary = ResourceInventory.getSummary();
+    if (summary.length === 0) return;
+
+    // Process pending change animations
+    const changes = ResourceInventory.popChanges();
+    for (const ch of changes) {
+      resourceBounces[ch.resource] = { startTick: tick, delta: ch.delta };
+    }
+
+    // Background panel
+    const itemW = 44;
+    const barW = Math.min(summary.length * itemW + 12, 230);
+    const barH = 18;
+    ctx.fillStyle = 'rgba(20, 20, 40, 0.7)';
+    roundRect(ctx, x, y, barW, barH, 4);
+    ctx.fill();
+
+    // Draw each resource
+    ctx.font = '8px monospace';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+
+    let dx = x + 6;
+    for (const item of summary) {
+      if (dx > x + barW - 10) break; // overflow guard
+
+      const icon = RESOURCE_ICONS[item.id] || '\u{1F4E6}'; // 📦 fallback
+      const bounce = resourceBounces[item.id];
+      let offsetY = 0;
+      let scale = 1;
+
+      // Bounce animation (30 frames)
+      if (bounce) {
+        const elapsed = tick - bounce.startTick;
+        if (elapsed < 30) {
+          offsetY = -Math.sin(elapsed / 30 * Math.PI) * 3;
+          scale = 1 + Math.sin(elapsed / 30 * Math.PI) * 0.15;
+        } else {
+          delete resourceBounces[item.id];
+        }
+      }
+
+      // Icon
+      ctx.save();
+      if (scale !== 1) {
+        ctx.translate(dx + 4, y + barH / 2 + offsetY);
+        ctx.scale(scale, scale);
+        ctx.translate(-(dx + 4), -(y + barH / 2 + offsetY));
+      }
+      ctx.fillStyle = '#FFF';
+      ctx.fillText(icon, dx, y + barH / 2 + offsetY);
+      ctx.restore();
+
+      // Count
+      ctx.fillStyle = bounce && (tick - bounce.startTick) < 15 ? '#FFD700' : '#FFF';
+      ctx.fillText(String(item.amount), dx + 12, y + barH / 2 + offsetY);
+
+      dx += itemW;
+    }
+  }
+
   function drawHUD(ctx, canvasW, canvasH, tick) {
+    // Update shipping bin proximity
+    updateShippingBin(tick);
+
     // Update golden bird random event
     updateGoldenBird(tick);
 
@@ -1469,6 +1711,11 @@ const IsoFarm = (() => {
 
     // Top-left: Energy (like stamina)
     drawEnergyBar(ctx, 8, 8, energy);
+
+    // Top-left (below energy): Resource inventory bar
+    if (typeof ResourceInventory !== 'undefined') {
+      drawResourceBar(ctx, 8, 32, tick);
+    }
 
     // Top-right: Status panel (date/milestone/currency)
     drawStatusPanel(ctx, canvasW - 158, 8, energy, state, tick);
@@ -1498,6 +1745,9 @@ const IsoFarm = (() => {
 
     // Snapshot camera button (bottom-right, above vibe)
     drawSnapshotButton(ctx, canvasW - 32, canvasH - 52, tick, canvasW, canvasH);
+
+    // Shipping bin sell prompt (when player is nearby)
+    drawSellPrompt(ctx, canvasW, canvasH);
   }
 
   // ===== Snapshot button =====
@@ -1723,5 +1973,6 @@ const IsoFarm = (() => {
     getBuddyEntity, getCropStage, updateStartupAnimation,
     isStartupAnimating: () => !!startupAnim,
     updateAutoPan, interruptAutoPan, resetAutoPan,
+    sellAllCrops,
   };
 })();
