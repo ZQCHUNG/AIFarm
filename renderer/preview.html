@@ -2,11 +2,12 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Claude Buddy Village Preview</title>
+  <title>Claude Buddy Farm Preview — Harvest Moon Style</title>
   <style>
     body { background: #1a1a2e; padding: 20px; font-family: monospace; color: #ccc; }
     h2 { margin: 12px 0 6px; font-size: 14px; }
     canvas { display: block; border-radius: 8px; border: 1px solid #333; image-rendering: pixelated; margin-bottom: 16px; }
+    .info { font-size: 11px; color: #888; margin-bottom: 12px; }
   </style>
 </head>
 <body>
@@ -21,11 +22,12 @@
   <script src="iso-farm.js"></script>
   <script src="iso-train.js"></script>
   <script src="iso-weather.js"></script>
+  <script src="iso-tooltip.js"></script>
   <script src="character.js"></script>
   <script src="train.js"></script>
   <script src="state-machine.js"></script>
   <script>
-    // Mock farm state for preview
+    // ===== Mock farm state =====
     const mockFarmState = {
       totalEnergy: 2800,
       milestoneReached: 2500,
@@ -58,151 +60,197 @@
       },
       unlockedCrops: ['carrot', 'sunflower', 'watermelon', 'tomato', 'corn', 'pumpkin'],
       totalHarvests: 23,
-      achievements: [
-        { id: 'refiner', title: 'The Refiner', icon: '\u{1F52C}', currentTier: 'gold', currentTierColor: '#FFD700', value: 62, nextTier: 'diamond', nextThreshold: 200 },
-        { id: 'architect', title: 'The Architect', icon: '\u{1F3D7}', currentTier: 'silver', currentTierColor: '#C0C0C0', value: 8, nextTier: 'gold', nextThreshold: 15 },
-        { id: 'burner', title: 'The Burner', icon: '\u{1F525}', currentTier: 'diamond', currentTierColor: '#B9F2FF', value: 520000, nextTier: null, nextThreshold: null },
-        { id: 'nightOwl', title: 'Night Owl', icon: '\u{1F989}', currentTier: 'silver', currentTierColor: '#C0C0C0', value: 5, nextTier: 'gold', nextThreshold: 10 },
-        { id: 'marathon', title: 'Marathon Runner', icon: '\u{1F3C3}', currentTier: 'gold', currentTierColor: '#FFD700', value: 6.2, nextTier: 'diamond', nextThreshold: 10 },
-        { id: 'harvestMaster', title: 'Harvest Master', icon: '\u{1F33E}', currentTier: null, currentTierColor: null, value: 23, nextTier: 'silver', nextThreshold: 25 },
-        { id: 'townBuilder', title: 'Town Builder', icon: '\u{1F3D8}', currentTier: 'silver', currentTierColor: '#C0C0C0', value: 4, nextTier: 'gold', nextThreshold: 5 },
-        { id: 'collaborator', title: 'Team Player', icon: '\u{1F91D}', currentTier: null, currentTierColor: null, value: 2, nextTier: 'silver', nextThreshold: 3 },
-        { id: 'earlyBird', title: 'Early Bird', icon: '\u{1F305}', currentTier: null, currentTierColor: null, value: 1, nextTier: 'silver', nextThreshold: 3 },
-      ],
+      achievements: [],
     };
     Farm.setState(mockFarmState);
 
-    // Trigger a demo achievement notification after 3 seconds
-    setTimeout(() => {
-      Farm.showAchievementNotification({
-        id: 'marathon',
-        title: 'Marathon Runner',
-        icon: '\u{1F3C3}',
-        tier: 'gold',
-        tierLabel: 'Gold',
-        tierColor: '#FFD700',
-      });
-    }, 3000);
-
-    // Trigger a demo prestige notification after 7 seconds
-    setTimeout(() => {
-      Farm.showPrestigeNotification({
-        fromGen: 1,
-        toGen: 2,
-        label: 'Expansion',
-        worldWidth: 400,
-      });
-    }, 7000);
-
-    // Mock vibe state for preview
     Farm.setVibe({
       timestamp: new Date().toISOString(),
       vibeScore: 0.78,
       mood: 'productive',
-      metrics: {
-        eventsPerMinute: 8.5,
-        errorRate: 0.05,
-        toolDiversity: 6,
-        totalEvents: 42,
-        dominantActivity: 'writing',
-      },
-      atmosphere: {
-        skyTint: 'warm',
-        animalMood: 'happy',
-        lampLit: false,
-        groundTint: null,
-      },
+      metrics: { eventsPerMinute: 8.5, errorRate: 0.05, toolDiversity: 6, totalEvents: 42, dominantActivity: 'writing' },
+      atmosphere: { skyTint: 'warm', animalMood: 'happy', lampLit: false, groundTint: null },
     });
 
-    // Activate train station and trigger demo arrival after 2 seconds
-    Train.setStationBuilt(true);
-    setTimeout(() => {
-      Train.queueArrival('newcomer', 3);
-    }, 2000);
-    // Second train at 10 seconds
-    setTimeout(() => {
-      Train.queueArrival('latecomer', 5);
-    }, 10000);
-
-    // Mock usage state for preview
     Farm.setUsage({
-      liveOutput: 12450,
-      liveInput: 3200,
-      liveCacheRead: 850000,
-      liveMessages: 42,
-      todayTokens: 245000,
-      todayMessages: 186,
-      totalOutput: 3169853,
-      totalInput: 277993,
-      totalCacheRead: 2280936596,
-      totalSessions: 121,
-      totalMessages: 98320,
+      liveOutput: 12450, liveInput: 3200, liveCacheRead: 850000, liveMessages: 42,
+      todayTokens: 245000, todayMessages: 186,
+      totalOutput: 3169853, totalInput: 277993, totalCacheRead: 2280936596,
+      totalSessions: 121, totalMessages: 98320,
     });
 
-    const SCALE = 2;
+    // ===== Top-Down Farm Demo (Harvest Moon style) =====
+    const h1 = document.createElement('h2');
+    h1.textContent = 'Top-Down Farm — Harvest Moon Style';
+    document.body.appendChild(h1);
 
-    function demo(title, buddies) {
-      const h = document.createElement('h2');
-      h.textContent = title;
-      document.body.appendChild(h);
+    const info = document.createElement('div');
+    info.className = 'info';
+    info.textContent = 'Arrow keys: pan camera | Mouse wheel: zoom | Hover tiles for highlight';
+    document.body.appendChild(info);
 
-      const slotW = 40;
-      const margin = 15;
-      const baseW = Math.max(330, buddies.length * slotW * Scene.PX + margin * 2 * Scene.PX + 90);
-      const baseH = 351;
+    const baseW = 660;
+    const baseH = 500;
+    const c1 = document.createElement('canvas');
+    c1.width = baseW;
+    c1.height = baseH;
+    c1.style.width = baseW + 'px';
+    c1.style.height = baseH + 'px';
+    c1.id = 'farm-canvas';
+    document.body.appendChild(c1);
+    const fCtx = c1.getContext('2d');
 
-      const c = document.createElement('canvas');
-      // Canvas at 2x resolution for sharp rendering
-      c.width = baseW * SCALE;
-      c.height = baseH * SCALE;
-      // Display at 2x size via CSS
-      c.style.width = (baseW * SCALE) + 'px';
-      c.style.height = (baseH * SCALE) + 'px';
-      document.body.appendChild(c);
-      const ctx = c.getContext('2d');
+    // Initialize top-down engine + farm
+    IsoFarm.init();
+    IsoFarm.syncState();
 
-      let t = 0;
-      function anim() {
-        t++;
-        ctx.save();
-        ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
-        ctx.clearRect(0, 0, baseW, baseH);
-        Scene.drawBackground(ctx, baseW, t);
-        Farm.drawFarm(ctx, baseW, t);
-        Train.update(t);
-        Train.draw(ctx, Math.ceil(baseW / Scene.PX), t);
-
-        const logW = Math.ceil(baseW / Scene.PX);
-        const usable = logW - margin * 2;
-        const sw = Math.min(40, Math.floor(usable / buddies.length));
-
-        buddies.forEach((b, i) => {
-          const sx = margin + i * sw;
-          const frame = ((t / 14) | 0) % 4;
-          Scene.drawStation(ctx, sx, b.state, t + i * 50);
-          Character.draw(ctx, sx, b.state, frame, t + i * 30, i);
-          const hc = Character.HOODIE_COLORS[i % Character.HOODIE_COLORS.length];
-          Scene.drawNameplate(ctx, (sx + sw / 2) * Scene.PX, b.name, hc.o);
-          if (b.detail) {
-            SpeechBubble.draw(ctx, b.detail, (sx + 10) * Scene.PX, (Scene.GROUND_Y - 15) * Scene.PX);
-          }
-        });
-        ctx.restore();
-        requestAnimationFrame(anim);
-      }
-      requestAnimationFrame(anim);
+    // Add demo buddies
+    const demoBuddies = [
+      { id: 'b1', project: 'AIFarm', colorIndex: 0 },
+      { id: 'b2', project: 'Stock', colorIndex: 1 },
+      { id: 'b3', project: 'kisame', colorIndex: 3 },
+    ];
+    for (const b of demoBuddies) {
+      IsoFarm.syncBuddy(b.id, b.project, b.colorIndex, 'working');
     }
 
-    demo('8 Buddies — Full village + Farm', [
+    // Camera state for mouse interaction
+    let hoverCol = -1, hoverRow = -1;
+
+    c1.addEventListener('mousemove', (e) => {
+      const rect = c1.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const grid = IsoEngine.mouseToGrid(mx, my);
+      IsoEngine.setHoverTile(grid.col, grid.row);
+      if (typeof IsoTooltip !== 'undefined') {
+        IsoTooltip.updateHover(grid.col, grid.row, new Map(), []);
+      }
+    });
+    c1.addEventListener('mouseleave', () => {
+      IsoEngine.setHoverTile(-1, -1);
+    });
+    c1.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = c1.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const delta = e.deltaY < 0 ? 1 : -1;
+      IsoEngine.zoom(delta, mx / IsoEngine.getZoom(), my / IsoEngine.getZoom());
+    }, { passive: false });
+
+    // Arrow key panning
+    const farmKeys = {};
+    document.addEventListener('keydown', (e) => { farmKeys[e.key] = true; });
+    document.addEventListener('keyup', (e) => { farmKeys[e.key] = false; });
+
+    let farmTick = 0;
+    function farmLoop() {
+      farmTick++;
+
+      // Camera pan
+      const PAN_SPEED = 4;
+      if (farmKeys['ArrowLeft']) IsoEngine.moveCamera(PAN_SPEED, 0);
+      if (farmKeys['ArrowRight']) IsoEngine.moveCamera(-PAN_SPEED, 0);
+      if (farmKeys['ArrowUp']) IsoEngine.moveCamera(0, PAN_SPEED);
+      if (farmKeys['ArrowDown']) IsoEngine.moveCamera(0, -PAN_SPEED);
+
+      // Update entities
+      IsoEntityManager.update(farmTick);
+      IsoEntityManager.syncToEngine();
+
+      // Clear with sky gradient
+      const skyGrad = fCtx.createLinearGradient(0, 0, 0, baseH);
+      skyGrad.addColorStop(0, '#87CEEB');
+      skyGrad.addColorStop(0.25, '#B8E0F0');
+      skyGrad.addColorStop(0.4, '#6EBF4E');
+      skyGrad.addColorStop(1, '#4E9E38');
+      fCtx.fillStyle = skyGrad;
+      fCtx.fillRect(0, 0, baseW, baseH);
+
+      // Weather
+      if (typeof IsoWeather !== 'undefined') {
+        const vibe = Farm.getVibe();
+        if (vibe) IsoWeather.setMood(vibe.mood, vibe.vibeScore || 0);
+        IsoWeather.update(farmTick, baseW, baseH);
+      }
+
+      // Render map + entities
+      IsoEngine.drawMap(fCtx, baseW, baseH, farmTick);
+
+      // Weather overlay
+      if (typeof IsoWeather !== 'undefined') {
+        IsoWeather.draw(fCtx, baseW, baseH, farmTick);
+      }
+
+      // Tooltips
+      if (typeof IsoTooltip !== 'undefined') {
+        IsoTooltip.draw(fCtx, baseW, baseH, farmTick);
+      }
+
+      // HUD
+      IsoFarm.drawHUD(fCtx, baseW, baseH, farmTick);
+
+      requestAnimationFrame(farmLoop);
+    }
+    requestAnimationFrame(farmLoop);
+
+    // ===== Classic Side-View Demo (for comparison) =====
+    const h2el = document.createElement('h2');
+    h2el.textContent = 'Classic Side-View (Ctrl+Shift+I to toggle in app)';
+    document.body.appendChild(h2el);
+
+    const SCALE = 2;
+    const margin = 15;
+    const buddies = [
       { name: '~', state: 'bash', detail: '$ npm test' },
       { name: 'Stock', state: 'writing', detail: '' },
       { name: 'anya', state: 'reading', detail: '' },
       { name: 'kisame', state: 'thinking', detail: '' },
-      { name: 'churn', state: 'browsing', detail: '' },
-      { name: 'kaonashi', state: 'celebrating', detail: '' },
-      { name: 'steropes', state: 'tasking', detail: '' },
       { name: 'Dog', state: 'sleeping', detail: '' },
-    ]);
+    ];
+    const slotW = 40;
+    const classicW = Math.max(330, buddies.length * slotW * Scene.PX + margin * 2 * Scene.PX + 90);
+    const classicH = 351;
+
+    const c2 = document.createElement('canvas');
+    c2.width = classicW;
+    c2.height = classicH;
+    c2.style.width = classicW + 'px';
+    c2.style.height = classicH + 'px';
+    document.body.appendChild(c2);
+    const cCtx = c2.getContext('2d');
+
+    Train.setStationBuilt(true);
+    setTimeout(() => { Train.queueArrival('newcomer', 3); }, 2000);
+
+    let classicTick = 0;
+    function classicLoop() {
+      classicTick++;
+      cCtx.clearRect(0, 0, classicW, classicH);
+      Scene.drawBackground(cCtx, classicW, classicTick);
+      Farm.drawFarm(cCtx, classicW, classicTick);
+      Train.update(classicTick);
+      Train.draw(cCtx, Math.ceil(classicW / Scene.PX), classicTick);
+
+      const logW = Math.ceil(classicW / Scene.PX);
+      const usable = logW - margin * 2;
+      const sw = Math.min(40, Math.floor(usable / buddies.length));
+
+      buddies.forEach((b, i) => {
+        const sx = margin + i * sw;
+        const frame = ((classicTick / 14) | 0) % 4;
+        Scene.drawStation(cCtx, sx, b.state, classicTick + i * 50);
+        Character.draw(cCtx, sx, b.state, frame, classicTick + i * 30, i);
+        const hc = Character.HOODIE_COLORS[i % Character.HOODIE_COLORS.length];
+        Scene.drawNameplate(cCtx, (sx + sw / 2) * Scene.PX, b.name, hc.o);
+        if (b.detail) {
+          SpeechBubble.draw(cCtx, b.detail, (sx + 10) * Scene.PX, (Scene.GROUND_Y - 15) * Scene.PX);
+        }
+      });
+      requestAnimationFrame(classicLoop);
+    }
+    requestAnimationFrame(classicLoop);
   </script>
 </body>
 </html>

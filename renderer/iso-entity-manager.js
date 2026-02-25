@@ -224,7 +224,7 @@ const IsoEntityManager = (() => {
           },
         });
       } else if (ent.entityType === TYPE.ANIMAL) {
-        // Animals: sprite fallback to procedural
+        // Animals: sprite fallback to top-down procedural
         IsoEngine.addEntity({
           col: ent.gridX,
           row: ent.gridY,
@@ -233,7 +233,24 @@ const IsoEntityManager = (() => {
           direction: ent.direction,
           frame: ent.frame,
           draw: (ctx, sx, sy, tick) => {
-            drawIsoAnimal(ctx, sx, sy, ent, tick);
+            if (typeof IsoEngine !== 'undefined' && IsoEngine.drawAnimal) {
+              IsoEngine.drawAnimal(ctx, sx, sy, ent.type, ent.frame, tick);
+            } else {
+              drawIsoAnimal(ctx, sx, sy, ent, tick);
+            }
+            // State indicators (ZZZ for resting, sparkles for playing)
+            if (ent.state === STATE.REST) {
+              const zzz = ((tick / 20) | 0) % 3;
+              ctx.fillStyle = 'rgba(255,255,255,0.5)';
+              ctx.font = '6px monospace';
+              ctx.textAlign = 'center';
+              ctx.fillText('z', sx + 4 + zzz * 2, sy - 12 - zzz);
+            } else if (ent.state === STATE.REACT && ent.reactBehavior === 'play') {
+              const sparkX = sx + Math.sin(tick * 0.3) * 5;
+              const sparkY = sy - 14 + Math.cos(tick * 0.2) * 3;
+              ctx.fillStyle = '#FFD700';
+              ctx.fillRect(sparkX - 1, sparkY - 1, 2, 2);
+            }
           },
         });
       }

@@ -1,23 +1,22 @@
-// Isometric Engine — V2.0 prototype for tile-based 2.5D rendering.
-// This is the core isometric coordinate system, tile rendering, and depth sorting.
+// Top-Down Engine — 3/4 perspective tile-based rendering (Harvest Moon style).
+// Rectangular tiles viewed from above, depth sorted by row.
 const IsoEngine = (() => {
   // Tile dimensions (in screen pixels)
-  const TILE_W = 32;  // width of diamond top
-  const TILE_H = 16;  // height of diamond top (half of width for standard 2:1 iso)
-  const TILE_DEPTH = 8; // visual depth of a tile (side face height)
+  const TILE_W = 32;
+  const TILE_H = 32;
 
   // Map dimensions
-  let mapWidth = 10;
-  let mapHeight = 10;
-  let tileMap = null; // 2D array of tile types
+  let mapWidth = 20;
+  let mapHeight = 18;
+  let tileMap = null;
 
   // Camera offset (screen pixels)
   let camX = 0;
   let camY = 0;
-  let camZoom = 1.0;        // zoom level (0.5 to 3.0)
+  let camZoom = 1.0;
   const ZOOM_MIN = 0.5;
   const ZOOM_MAX = 3.0;
-  const ZOOM_SPEED = 0.1;
+  const ZOOM_SPEED = 0.15;
 
   // Hover state for mouse picking
   let hoverCol = -1;
@@ -26,53 +25,44 @@ const IsoEngine = (() => {
   // Entities to render (sorted by depth each frame)
   let entities = [];
 
-  // Tile type definitions
+  // Tile type definitions — warm Harvest Moon palette
   const TILE_TYPES = {
-    grass:    { top: '#5AAE45', side: '#4E9A3C', edge: '#6ABD55' },
-    dirt:     { top: '#C8A870', side: '#A08050', edge: '#D4B880' },
-    soil:     { top: '#8B6B3E', side: '#6B5030', edge: '#9A7A4E' },
-    water:    { top: '#4A90D9', side: '#3570B0', edge: '#6CB0E8', animated: true },
-    stone:    { top: '#A0A0A0', side: '#808080', edge: '#B0B0B0' },
-    sand:     { top: '#E8D8A0', side: '#C8B880', edge: '#F0E0B0' },
-    path:     { top: '#D4C4A8', side: '#B0A088', edge: '#E0D0B8' },
-    empty:    { top: null, side: null, edge: null },
+    grass:    { top: '#6EBF4E', border: '#5AAE3D', dark: '#5BA83E' },
+    darkgrass:{ top: '#4E9E38', border: '#3D8E2D', dark: '#408530' },
+    dirt:     { top: '#C9A66B', border: '#B89458', dark: '#B49060' },
+    soil:     { top: '#8B6D42', border: '#7A5C35', dark: '#6E5230' },
+    soilwet:  { top: '#6B5235', border: '#5A422A', dark: '#4E3A25' },
+    water:    { top: '#5BA0D9', border: '#4888C0', dark: '#4080B8', animated: true },
+    stone:    { top: '#B0B0A8', border: '#9898A0', dark: '#909090' },
+    sand:     { top: '#E8D89C', border: '#D0C488', dark: '#C8BC80' },
+    path:     { top: '#D8C8A0', border: '#C0B088', dark: '#B8A880' },
+    fence:    { top: '#C8A060', border: '#A88040', dark: '#906830' },
+    empty:    { top: null, border: null, dark: null },
   };
 
   // ===== Coordinate conversions =====
 
-  // Grid (col, row, z) → screen (px, py)
-  // z = height layer (0 = ground level, each +1 lifts by TILE_DEPTH)
+  // Grid (col, row) → screen (px, py) — simple rectangular projection
   function gridToScreen(col, row, z) {
-    const sx = (col - row) * (TILE_W / 2) + camX;
-    const sy = (col + row) * (TILE_H / 2) + camY - (z || 0) * TILE_DEPTH;
+    const sx = col * TILE_W + camX;
+    const sy = row * TILE_H + camY - (z || 0) * TILE_H;
     return { x: sx, y: sy };
   }
 
-  // Screen (px, py) → approximate grid (col, row)
+  // Screen (px, py) → grid (col, row)
   function screenToGrid(sx, sy) {
-    const rx = sx - camX;
-    const ry = sy - camY;
-    const col = (rx / (TILE_W / 2) + ry / (TILE_H / 2)) / 2;
-    const row = (ry / (TILE_H / 2) - rx / (TILE_W / 2)) / 2;
-    return { col: Math.round(col), row: Math.round(row) };
+    const col = Math.floor((sx - camX) / TILE_W);
+    const row = Math.floor((sy - camY) / TILE_H);
+    return { col, row };
   }
 
-  /**
-   * Convert screen-space mouse coordinates to grid, accounting for zoom.
-   * @param {number} mouseX - Mouse X relative to canvas
-   * @param {number} mouseY - Mouse Y relative to canvas
-   * @returns {{ col: number, row: number }}
-   */
+  // Mouse → grid (accounting for zoom)
   function mouseToGrid(mouseX, mouseY) {
-    // Undo zoom to get world-space coordinates
     const wx = mouseX / camZoom;
     const wy = mouseY / camZoom;
     return screenToGrid(wx, wy);
   }
 
-  /**
-   * Set the currently hovered tile (for highlight rendering).
-   */
   function setHoverTile(col, row) {
     if (col >= 0 && col < mapWidth && row >= 0 && row < mapHeight) {
       hoverCol = col;
@@ -83,14 +73,11 @@ const IsoEngine = (() => {
     }
   }
 
-  function getHoverTile() {
-    return { col: hoverCol, row: hoverRow };
-  }
+  function getHoverTile() { return { col: hoverCol, row: hoverRow }; }
 
-  // Depth key for sorting (higher row = drawn later = in front)
-  // Multiply grid sum by 10 so z increments (integer) can slot between grid layers
+  // Depth key: row-based (higher row = closer to camera)
   function depthKey(col, row, z) {
-    return (col + row) * 10 + (z || 0);
+    return row * 100 + (z || 0) * 10 + col * 0.01;
   }
 
   // ===== Map management =====
@@ -120,140 +107,32 @@ const IsoEngine = (() => {
     return null;
   }
 
-  // ===== Auto-tiling (4-bit bitmask for edge transitions) =====
-  // Groups define which tiles are "similar" for transition purposes
+  // Tile groups for transition detection
   const TILE_GROUPS = {
-    grass:  'land',
-    dirt:   'land',
-    soil:   'land',
-    sand:   'land',
-    path:   'land',
-    stone:  'land',
-    water:  'water',
-    empty:  'void',
+    grass: 'land', darkgrass: 'land', dirt: 'land', soil: 'farm',
+    soilwet: 'farm', sand: 'land', path: 'land', stone: 'land',
+    fence: 'land', water: 'water', empty: 'void',
   };
 
-  // Transition colors: blended edge when two different groups meet
-  const TRANSITION_COLORS = {
-    'land-water': { edge: '#7CB8A0', blend: 'rgba(74, 144, 217, 0.3)' },
-    'land-void':  { edge: '#6B5030', blend: 'rgba(0, 0, 0, 0.15)' },
-  };
-
-  /**
-   * Compute a 4-bit bitmask for a tile based on its cardinal neighbors.
-   * Bit layout: [North, East, South, West] — bit is 1 if neighbor is DIFFERENT group.
-   * @returns {number} 0-15 bitmask
-   */
   function getTileBitmask(col, row) {
     const center = getTile(col, row);
     if (!center) return 0;
     const cGroup = TILE_GROUPS[center] || 'land';
-
     let mask = 0;
-    // North (row - 1)
     const n = getTile(col, row - 1);
     if (n && (TILE_GROUPS[n] || 'land') !== cGroup) mask |= 1;
-    // East (col + 1)
     const e = getTile(col + 1, row);
     if (e && (TILE_GROUPS[e] || 'land') !== cGroup) mask |= 2;
-    // South (row + 1)
     const s = getTile(col, row + 1);
     if (s && (TILE_GROUPS[s] || 'land') !== cGroup) mask |= 4;
-    // West (col - 1)
     const w = getTile(col - 1, row);
     if (w && (TILE_GROUPS[w] || 'land') !== cGroup) mask |= 8;
-
     return mask;
-  }
-
-  /**
-   * Draw transition edges on a tile based on its bitmask.
-   * Called after the base tile is drawn.
-   */
-  function drawTileTransitions(ctx, sx, sy, col, row) {
-    const mask = getTileBitmask(col, row);
-    if (mask === 0) return; // no transitions needed
-
-    const center = getTile(col, row);
-    const cGroup = TILE_GROUPS[center] || 'land';
-
-    const hw = TILE_W / 2;
-    const hh = TILE_H / 2;
-
-    // Determine transition color based on what we're bordering
-    let transColor = 'rgba(100, 150, 200, 0.25)'; // default blue-ish
-    // Check north neighbor to determine transition type
-    const neighbors = [
-      getTile(col, row - 1), getTile(col + 1, row),
-      getTile(col, row + 1), getTile(col - 1, row),
-    ];
-    for (const nb of neighbors) {
-      if (nb) {
-        const nGroup = TILE_GROUPS[nb] || 'land';
-        if (nGroup !== cGroup) {
-          const key = [cGroup, nGroup].sort().join('-');
-          if (TRANSITION_COLORS[key]) {
-            transColor = TRANSITION_COLORS[key].blend;
-          }
-          break;
-        }
-      }
-    }
-
-    ctx.save();
-    ctx.globalAlpha = 0.5;
-
-    // North edge (top-right of diamond)
-    if (mask & 1) {
-      ctx.beginPath();
-      ctx.moveTo(sx, sy - hh);
-      ctx.lineTo(sx + hw, sy);
-      ctx.lineTo(sx + hw * 0.6, sy - hh * 0.2);
-      ctx.closePath();
-      ctx.fillStyle = transColor;
-      ctx.fill();
-    }
-
-    // East edge (bottom-right of diamond)
-    if (mask & 2) {
-      ctx.beginPath();
-      ctx.moveTo(sx + hw, sy);
-      ctx.lineTo(sx, sy + hh);
-      ctx.lineTo(sx + hw * 0.6, sy + hh * 0.2);
-      ctx.closePath();
-      ctx.fillStyle = transColor;
-      ctx.fill();
-    }
-
-    // South edge (bottom-left of diamond)
-    if (mask & 4) {
-      ctx.beginPath();
-      ctx.moveTo(sx, sy + hh);
-      ctx.lineTo(sx - hw, sy);
-      ctx.lineTo(sx - hw * 0.6, sy + hh * 0.2);
-      ctx.closePath();
-      ctx.fillStyle = transColor;
-      ctx.fill();
-    }
-
-    // West edge (top-left of diamond)
-    if (mask & 8) {
-      ctx.beginPath();
-      ctx.moveTo(sx - hw, sy);
-      ctx.lineTo(sx, sy - hh);
-      ctx.lineTo(sx - hw * 0.6, sy - hh * 0.2);
-      ctx.closePath();
-      ctx.fillStyle = transColor;
-      ctx.fill();
-    }
-
-    ctx.restore();
   }
 
   // ===== Entity management =====
 
   function addEntity(entity) {
-    // entity: { col, row, z?, spriteId?, direction?, frame?, draw?: (ctx, screenX, screenY, tick) => void }
     entities.push(entity);
   }
 
@@ -261,109 +140,154 @@ const IsoEngine = (() => {
     entities = [];
   }
 
-  // ===== Rendering =====
+  // ===== Tile rendering (top-down rectangles) =====
 
   function drawTile(ctx, sx, sy, type, tick) {
     const def = TILE_TYPES[type];
     if (!def || !def.top) return;
 
-    const hw = TILE_W / 2;
-    const hh = TILE_H / 2;
+    let topColor = def.top;
 
     // Water shimmer
-    let topColor = def.top;
     if (def.animated && tick) {
-      const shimmer = Math.sin(tick * 0.08 + sx * 0.01) * 15;
+      const shimmer = Math.sin(tick * 0.06 + sx * 0.03 + sy * 0.02) * 12;
       topColor = adjustBrightness(def.top, shimmer);
     }
 
-    // Top face (diamond)
-    ctx.beginPath();
-    ctx.moveTo(sx, sy - hh);       // top
-    ctx.lineTo(sx + hw, sy);        // right
-    ctx.lineTo(sx, sy + hh);        // bottom
-    ctx.lineTo(sx - hw, sy);        // left
-    ctx.closePath();
+    // Main tile face (flat rectangle)
     ctx.fillStyle = topColor;
-    ctx.fill();
+    ctx.fillRect(sx, sy, TILE_W, TILE_H);
 
-    // Edge highlight (top edge of diamond)
-    ctx.beginPath();
-    ctx.moveTo(sx, sy - hh);
-    ctx.lineTo(sx + hw, sy);
-    ctx.strokeStyle = def.edge;
+    // Subtle inner shadow on top edge (depth hint)
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fillRect(sx, sy, TILE_W, 1);
+
+    // Subtle shadow on bottom edge
+    ctx.fillStyle = 'rgba(0,0,0,0.06)';
+    ctx.fillRect(sx, sy + TILE_H - 1, TILE_W, 1);
+
+    // Grid border (subtle)
+    ctx.strokeStyle = def.border;
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(sx + 0.5, sy + 0.5, TILE_W - 1, TILE_H - 1);
+  }
+
+  // Draw soil tile with tilled row texture
+  function drawSoilDetail(ctx, sx, sy, type, tick) {
+    if (type !== 'soil' && type !== 'soilwet') return;
+    // Tilled furrow lines
+    ctx.strokeStyle = type === 'soilwet' ? '#5A422A' : '#7A5C35';
     ctx.lineWidth = 1;
-    ctx.stroke();
+    for (let i = 0; i < 4; i++) {
+      const fy = sy + 4 + i * 7;
+      ctx.beginPath();
+      ctx.moveTo(sx + 3, fy);
+      ctx.lineTo(sx + TILE_W - 3, fy);
+      ctx.stroke();
+    }
+  }
 
-    // Left side face
-    ctx.beginPath();
-    ctx.moveTo(sx - hw, sy);
-    ctx.lineTo(sx, sy + hh);
-    ctx.lineTo(sx, sy + hh + TILE_DEPTH);
-    ctx.lineTo(sx - hw, sy + TILE_DEPTH);
-    ctx.closePath();
-    ctx.fillStyle = def.side;
-    ctx.fill();
+  // Draw tile transition edges (soft blend between different terrain types)
+  function drawTileTransitions(ctx, sx, sy, col, row) {
+    const mask = getTileBitmask(col, row);
+    if (mask === 0) return;
 
-    // Right side face (slightly lighter)
-    ctx.beginPath();
-    ctx.moveTo(sx + hw, sy);
-    ctx.lineTo(sx, sy + hh);
-    ctx.lineTo(sx, sy + hh + TILE_DEPTH);
-    ctx.lineTo(sx + hw, sy + TILE_DEPTH);
-    ctx.closePath();
-    ctx.fillStyle = adjustBrightness(def.side, 15);
-    ctx.fill();
+    const center = getTile(col, row);
+    const cGroup = TILE_GROUPS[center] || 'land';
+
+    ctx.save();
+
+    // North edge
+    if (mask & 1) {
+      const nb = getTile(col, row - 1);
+      const nbDef = nb ? TILE_TYPES[nb] : null;
+      if (nbDef && nbDef.top) {
+        const grad = ctx.createLinearGradient(sx, sy, sx, sy + 4);
+        grad.addColorStop(0, nbDef.top + '66');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.fillRect(sx, sy, TILE_W, 4);
+      }
+    }
+
+    // South edge
+    if (mask & 4) {
+      const nb = getTile(col, row + 1);
+      const nbDef = nb ? TILE_TYPES[nb] : null;
+      if (nbDef && nbDef.top) {
+        const grad = ctx.createLinearGradient(sx, sy + TILE_H, sx, sy + TILE_H - 4);
+        grad.addColorStop(0, nbDef.top + '66');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.fillRect(sx, sy + TILE_H - 4, TILE_W, 4);
+      }
+    }
+
+    // West edge
+    if (mask & 8) {
+      const nb = getTile(col - 1, row);
+      const nbDef = nb ? TILE_TYPES[nb] : null;
+      if (nbDef && nbDef.top) {
+        const grad = ctx.createLinearGradient(sx, sy, sx + 4, sy);
+        grad.addColorStop(0, nbDef.top + '66');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.fillRect(sx, sy, 4, TILE_H);
+      }
+    }
+
+    // East edge
+    if (mask & 2) {
+      const nb = getTile(col + 1, row);
+      const nbDef = nb ? TILE_TYPES[nb] : null;
+      if (nbDef && nbDef.top) {
+        const grad = ctx.createLinearGradient(sx + TILE_W, sy, sx + TILE_W - 4, sy);
+        grad.addColorStop(0, nbDef.top + '66');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.fillRect(sx + TILE_W - 4, sy, 4, TILE_H);
+      }
+    }
+
+    ctx.restore();
   }
 
   function drawTileHighlight(ctx, sx, sy, tick) {
-    const hw = TILE_W / 2;
-    const hh = TILE_H / 2;
-    const pulse = 0.3 + Math.sin(tick * 0.1) * 0.15;
+    const pulse = 0.25 + Math.sin(tick * 0.1) * 0.1;
 
-    // Diamond outline
     ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(sx, sy - hh);
-    ctx.lineTo(sx + hw, sy);
-    ctx.lineTo(sx, sy + hh);
-    ctx.lineTo(sx - hw, sy);
-    ctx.closePath();
     ctx.fillStyle = `rgba(255, 255, 200, ${pulse})`;
-    ctx.fill();
+    ctx.fillRect(sx, sy, TILE_W, TILE_H);
     ctx.strokeStyle = '#FFD700';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.strokeRect(sx + 1, sy + 1, TILE_W - 2, TILE_H - 2);
     ctx.restore();
   }
+
+  // ===== Main rendering =====
 
   function drawMap(ctx, canvasW, canvasH, tick) {
     if (!tileMap) return;
 
-    // Apply zoom transform
     ctx.save();
     ctx.scale(camZoom, camZoom);
 
-    // Adjust culling bounds for zoom
     const cullW = canvasW / camZoom;
     const cullH = canvasH / camZoom;
 
-    // Collect all renderable items with depth
+    // Collect renderable items
     const renderList = [];
 
-    // Tiles
+    // Tiles (always drawn first, back to front)
     for (let r = 0; r < mapHeight; r++) {
       for (let c = 0; c < mapWidth; c++) {
         const { x, y } = gridToScreen(c, r);
-        // Frustum culling (zoom-adjusted)
-        if (x < -TILE_W || x > cullW + TILE_W || y < -TILE_H * 2 || y > cullH + TILE_H) continue;
+        // Frustum culling
+        if (x + TILE_W < 0 || x > cullW || y + TILE_H < 0 || y > cullH) continue;
         renderList.push({
           depth: depthKey(c, r),
           type: 'tile',
-          col: c,
-          row: r,
-          x,
-          y,
+          col: c, row: r, x, y,
         });
       }
     }
@@ -372,70 +296,55 @@ const IsoEngine = (() => {
     for (const ent of entities) {
       const ez = ent.z || 0;
       const { x, y } = gridToScreen(ent.col, ent.row, ez);
+      // Store screen position on entity for tooltip system
+      ent.screenX = x + TILE_W / 2;
+      ent.screenY = y;
       renderList.push({
-        depth: depthKey(ent.col, ent.row, ez) + 0.5, // entities render slightly after their tile
+        depth: depthKey(ent.col, ent.row, ez) + 0.5,
         type: 'entity',
-        entity: ent,
-        x,
-        y,
+        entity: ent, x, y,
       });
     }
 
-    // Sort by depth (painter's algorithm: back to front)
     renderList.sort((a, b) => a.depth - b.depth);
 
-    // Render
+    // Render pass
     for (const item of renderList) {
       if (item.type === 'tile') {
-        drawTile(ctx, item.x, item.y, tileMap[item.row][item.col], tick);
+        const tileType = tileMap[item.row][item.col];
+        drawTile(ctx, item.x, item.y, tileType, tick);
+        drawSoilDetail(ctx, item.x, item.y, tileType, tick);
         drawTileTransitions(ctx, item.x, item.y, item.col, item.row);
-        // Hover highlight
         if (item.col === hoverCol && item.row === hoverRow) {
           drawTileHighlight(ctx, item.x, item.y, tick);
         }
       } else if (item.type === 'entity') {
         const ent = item.entity;
-        // Try sprite-based rendering first
         if (ent.spriteId && typeof SpriteManager !== 'undefined' && SpriteManager.has(ent.spriteId)) {
-          SpriteManager.draw(ctx, ent.spriteId, item.x, item.y, ent.direction, ent.frame);
+          SpriteManager.draw(ctx, ent.spriteId, item.x + TILE_W / 2, item.y + TILE_H / 2, ent.direction, ent.frame);
         } else if (ent.draw) {
-          ent.draw(ctx, item.x, item.y, tick);
+          ent.draw(ctx, item.x + TILE_W / 2, item.y + TILE_H / 2, tick);
         }
       }
     }
 
-    ctx.restore(); // end zoom transform
+    ctx.restore();
   }
 
   // ===== Camera =====
 
-  function setCamera(x, y) {
-    camX = x;
-    camY = y;
-  }
+  function setCamera(x, y) { camX = x; camY = y; }
 
-  function moveCamera(dx, dy) {
-    camX += dx;
-    camY += dy;
-  }
+  function moveCamera(dx, dy) { camX += dx; camY += dy; }
 
   function centerOnTile(col, row, canvasW, canvasH) {
-    const { x, y } = gridToScreen(col, row);
-    camX += canvasW / 2 / camZoom - x + camX * (1 - 1);
-    camY += canvasH / 2 / camZoom - y + camY * (1 - 1);
+    camX = canvasW / 2 / camZoom - col * TILE_W - TILE_W / 2;
+    camY = canvasH / 2 / camZoom - row * TILE_H - TILE_H / 2;
   }
 
-  /**
-   * Zoom in/out centered on a screen point (e.g., mouse position).
-   * @param {number} delta - Positive = zoom in, negative = zoom out
-   * @param {number} focusX - Screen X to zoom toward
-   * @param {number} focusY - Screen Y to zoom toward
-   */
   function zoom(delta, focusX, focusY) {
     const oldZoom = camZoom;
     camZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, camZoom + delta * ZOOM_SPEED));
-
-    // Adjust camera to keep the focus point stable
     if (focusX !== undefined && focusY !== undefined) {
       const zoomRatio = camZoom / oldZoom;
       camX = focusX - (focusX - camX) * zoomRatio;
@@ -449,137 +358,549 @@ const IsoEngine = (() => {
   // ===== Helpers =====
 
   function adjustBrightness(hex, amount) {
+    if (!hex || hex[0] !== '#') return hex;
     const r = Math.min(255, Math.max(0, parseInt(hex.slice(1, 3), 16) + amount));
     const g = Math.min(255, Math.max(0, parseInt(hex.slice(3, 5), 16) + amount));
     const b = Math.min(255, Math.max(0, parseInt(hex.slice(5, 7), 16) + amount));
     return `rgb(${r},${g},${b})`;
   }
 
-  // ===== Isometric sprite helpers =====
+  // ===== Top-down sprite helpers =====
 
-  // Draw a simple isometric tree at screen position
+  // Tree (viewed from above — circular canopy with trunk visible below)
   function drawIsoTree(ctx, sx, sy, tick) {
-    const sway = Math.sin(tick * 0.02) * 1;
+    const sway = Math.sin(tick * 0.02 + sx) * 0.7;
+    // Shadow on ground
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.beginPath();
+    ctx.ellipse(sx + 2, sy + 5, 11, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
     // Trunk
     ctx.fillStyle = '#8B6B3E';
-    ctx.fillRect(sx - 2, sy - 20, 4, 16);
-    // Canopy
-    ctx.fillStyle = '#3EA832';
+    ctx.fillRect(sx - 3, sy - 10, 6, 16);
+    // Canopy layers (darker below, lighter above)
+    ctx.fillStyle = '#3A8A2A';
     ctx.beginPath();
-    ctx.arc(sx + sway, sy - 24, 10, 0, Math.PI * 2);
+    ctx.ellipse(sx + sway, sy - 14, 14, 11, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#4AB840';
+    ctx.fillStyle = '#4EAA3A';
     ctx.beginPath();
-    ctx.arc(sx + sway + 3, sy - 22, 7, 0, Math.PI * 2);
+    ctx.ellipse(sx + sway, sy - 16, 11, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#5CBC48';
+    ctx.beginPath();
+    ctx.ellipse(sx + sway + 1, sy - 18, 7, 5, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Draw a simple isometric character (4 directions)
+  // Character (top-down chibi — big head, small body)
   function drawIsoCharacter(ctx, sx, sy, dir, frame, hoodieColor, tick) {
-    const bob = frame % 2 === 0 ? 0 : -1;
+    const bob = Math.sin(tick * 0.15 + frame) * 1.2;
     const bodyY = sy - 14 + bob;
 
     // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.2)';
     ctx.beginPath();
-    ctx.ellipse(sx, sy, 6, 3, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx, sy + 3, 8, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Legs
-    ctx.fillStyle = '#5B7DAF';
-    if (dir === 'down' || dir === 'up') {
-      ctx.fillRect(sx - 3, bodyY + 8, 3, 4);
-      ctx.fillRect(sx + 1, bodyY + 8, 3, 4);
-    } else {
-      ctx.fillRect(sx - 2, bodyY + 8, 3, 4);
-      ctx.fillRect(sx + 0, bodyY + 9, 3, 3);
-    }
-
-    // Body (hoodie)
+    // Body/hoodie
     ctx.fillStyle = hoodieColor;
-    ctx.fillRect(sx - 5, bodyY, 10, 8);
+    const bodyW = 14, bodyH = 11;
+    ctx.fillRect(sx - bodyW / 2, bodyY, bodyW, bodyH);
 
-    // Head
-    ctx.fillStyle = '#FFD5B8';
-    ctx.fillRect(sx - 4, bodyY - 6, 8, 6);
-
-    // Hair
-    ctx.fillStyle = '#4A3728';
-    ctx.fillRect(sx - 4, bodyY - 8, 8, 3);
-
-    // Eyes (direction-dependent)
-    ctx.fillStyle = '#2C2C2C';
-    if (dir === 'down') {
-      ctx.fillRect(sx - 2, bodyY - 4, 2, 2);
-      ctx.fillRect(sx + 1, bodyY - 4, 2, 2);
-    } else if (dir === 'left') {
-      ctx.fillRect(sx - 3, bodyY - 4, 2, 2);
-    } else if (dir === 'right') {
-      ctx.fillRect(sx + 2, bodyY - 4, 2, 2);
+    // Walking animation — leg movement
+    if (frame % 2 === 1) {
+      ctx.fillStyle = '#5B7DAF';
+      if (dir === 'down' || dir === 'up') {
+        ctx.fillRect(sx - 4, bodyY + bodyH, 4, 4);
+        ctx.fillRect(sx + 1, bodyY + bodyH - 1, 4, 4);
+      } else {
+        ctx.fillRect(sx - 3, bodyY + bodyH, 4, 4);
+        ctx.fillRect(sx, bodyY + bodyH - 1, 4, 3);
+      }
+    } else {
+      ctx.fillStyle = '#5B7DAF';
+      ctx.fillRect(sx - 4, bodyY + bodyH, 4, 3);
+      ctx.fillRect(sx + 1, bodyY + bodyH, 4, 3);
     }
-    // 'up' direction: no eyes visible (back of head)
+
+    // Head (big chibi head)
+    const headW = 16, headH = 14;
+    ctx.fillStyle = '#FFD5B8';
+    ctx.fillRect(sx - headW / 2, bodyY - headH + 3, headW, headH);
+
+    // Hair (covers top of head)
+    ctx.fillStyle = '#4A3728';
+    ctx.fillRect(sx - headW / 2, bodyY - headH + 3, headW, 5);
+    // Hair sides
+    if (dir !== 'up') {
+      ctx.fillRect(sx - headW / 2, bodyY - headH + 7, 3, 4);
+      ctx.fillRect(sx + headW / 2 - 3, bodyY - headH + 7, 3, 4);
+    }
+
+    // Hat/cap (like the reference farmer)
+    ctx.fillStyle = '#4A80C8';
+    ctx.fillRect(sx - 9, bodyY - headH + 1, 18, 4);
+    ctx.fillRect(sx - 8, bodyY - headH - 1, 16, 3);
+
+    // Face details (direction-dependent)
+    const faceY = bodyY - headH + 8;
+    if (dir === 'down') {
+      // Eyes
+      ctx.fillStyle = '#2C2C2C';
+      ctx.fillRect(sx - 4, faceY, 2, 3);
+      ctx.fillRect(sx + 3, faceY, 2, 3);
+      // Mouth
+      ctx.fillStyle = '#C85A32';
+      ctx.fillRect(sx - 1, faceY + 4, 3, 1);
+      // Blush
+      ctx.fillStyle = 'rgba(240,160,160,0.4)';
+      ctx.fillRect(sx - 6, faceY + 1, 3, 3);
+      ctx.fillRect(sx + 5, faceY + 1, 3, 3);
+    } else if (dir === 'left') {
+      ctx.fillStyle = '#2C2C2C';
+      ctx.fillRect(sx - 4, faceY, 2, 3);
+      ctx.fillStyle = '#C85A32';
+      ctx.fillRect(sx - 3, faceY + 4, 3, 1);
+    } else if (dir === 'right') {
+      ctx.fillStyle = '#2C2C2C';
+      ctx.fillRect(sx + 3, faceY, 2, 3);
+      ctx.fillStyle = '#C85A32';
+      ctx.fillRect(sx + 1, faceY + 4, 3, 1);
+    }
+    // 'up' direction: back of head, no face
   }
 
-  // Draw a crop at an isometric position
-  function drawIsoCrop(ctx, sx, sy, stage, color, tick) {
-    if (stage === 0) return; // empty
-    const baseY = sy - 2;
+  // Crop rendering — type-specific, 2 plants per tile for dense row look
+  function drawIsoCrop(ctx, sx, sy, stage, cropType, tick) {
+    if (stage === 0) return;
+
+    // Stage 1: Universal seedling (2 small sprouts per tile)
     if (stage === 1) {
-      // Seed
-      ctx.fillStyle = '#8B6B3E';
-      ctx.fillRect(sx - 1, baseY - 2, 2, 2);
-    } else if (stage === 2) {
-      // Sprout
+      for (let i = -1; i <= 1; i += 2) {
+        const px = sx + i * 7;
+        ctx.fillStyle = '#6B5030';
+        ctx.beginPath();
+        ctx.ellipse(px, sy + 4, 4, 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#5AAE45';
+        ctx.fillRect(px - 1, sy, 2, 5);
+        ctx.fillRect(px - 2, sy - 1, 1, 2);
+        ctx.fillRect(px + 1, sy - 1, 1, 2);
+      }
+      return;
+    }
+
+    // Stage 2: Sprout with slight type variation
+    if (stage === 2) {
+      const tall = cropType === 'corn' || cropType === 'sunflower';
+      for (let i = -1; i <= 1; i += 2) {
+        const px = sx + i * 7;
+        const h = tall ? 13 : 9;
+        ctx.fillStyle = '#4A8A38';
+        ctx.fillRect(px, sy - h, 2, h + 3);
+        ctx.fillStyle = '#5AAE45';
+        ctx.fillRect(px - 4, sy - h + 2, 4, 3);
+        ctx.fillRect(px + 2, sy - h + 1, 4, 3);
+        ctx.fillStyle = '#6AC050';
+        ctx.fillRect(px - 3, sy - h, 3, 2);
+        ctx.fillRect(px + 2, sy - h - 1, 3, 2);
+      }
+      return;
+    }
+
+    // Stage 3-4: Type-specific rendering
+    const mature = stage >= 4;
+    const glow = mature && ((tick / 40) | 0) % 2;
+
+    switch (cropType) {
+      case 'carrot': _drawCarrot(ctx, sx, sy, mature, glow, tick); break;
+      case 'tomato': _drawTomato(ctx, sx, sy, mature, glow, tick); break;
+      case 'corn': _drawCorn(ctx, sx, sy, mature, glow, tick); break;
+      case 'sunflower': _drawSunflower(ctx, sx, sy, mature, glow, tick); break;
+      case 'watermelon': _drawWatermelon(ctx, sx, sy, mature, glow, tick); break;
+      case 'pumpkin': _drawPumpkin(ctx, sx, sy, mature, glow, tick); break;
+      default: _drawGenericCrop(ctx, sx, sy, mature, glow, tick); break;
+    }
+
+    // Harvest sparkle for mature crops
+    if (glow) {
+      ctx.fillStyle = '#FFD700';
+      ctx.fillRect(sx - 11, sy - 22, 2, 2);
+      ctx.fillRect(sx + 9, sy - 18, 2, 2);
+    }
+  }
+
+  // --- Carrot: green feathery tops, orange root peeking from soil ---
+  function _drawCarrot(ctx, sx, sy, mature, glow, tick) {
+    for (let i = -1; i <= 1; i += 2) {
+      const px = sx + i * 7;
+      const sway = Math.sin(tick * 0.04 + px * 0.1) * 0.6;
+      const h = mature ? 26 : 18;
+      // Feathery green leaves
+      ctx.fillStyle = '#4A9A3A';
+      ctx.fillRect(px - 1 + sway, sy - h, 2, h - 2);
+      ctx.fillRect(px - 5 + sway, sy - h + 3, 3, 3);
+      ctx.fillRect(px + 3 + sway, sy - h + 2, 3, 3);
+      ctx.fillStyle = '#5BBE48';
+      ctx.fillRect(px - 3 + sway, sy - h - 1, 2, h - 4);
+      ctx.fillRect(px + 2 + sway, sy - h, 2, h - 5);
+      ctx.fillStyle = '#6CD058';
+      ctx.fillRect(px - 6 + sway, sy - h + 6, 3, 2);
+      ctx.fillRect(px + 4 + sway, sy - h + 5, 3, 2);
+      ctx.fillRect(px - 4 + sway, sy - h + 9, 2, 2);
+      ctx.fillRect(px + 3 + sway, sy - h + 8, 2, 2);
+      // Orange carrot root in soil
+      ctx.fillStyle = glow ? '#FFA030' : '#FF8C00';
+      ctx.fillRect(px - 2, sy - 1, 5, 6);
+      ctx.fillRect(px - 1, sy + 5, 3, 3);
+      ctx.fillStyle = '#E07800';
+      ctx.fillRect(px, sy + 7, 1, 2);
+    }
+  }
+
+  // --- Tomato: bushy green plant with round red fruits ---
+  function _drawTomato(ctx, sx, sy, mature, glow, tick) {
+    for (let i = -1; i <= 1; i += 2) {
+      const px = sx + i * 7;
+      const h = mature ? 24 : 16;
+      // Green bush
+      ctx.fillStyle = '#3A8A30';
+      ctx.fillRect(px - 6, sy - h + 5, 12, h - 6);
+      ctx.fillStyle = '#4AA840';
+      ctx.fillRect(px - 5, sy - h + 3, 10, h - 8);
+      ctx.fillStyle = '#5AB848';
+      ctx.fillRect(px - 4, sy - h, 8, 5);
+      // Stem
+      ctx.fillStyle = '#3A7030';
+      ctx.fillRect(px - 1, sy - 1, 2, 4);
+      // Tomatoes
+      const tc = glow ? '#FF6666' : '#FF4444';
+      if (mature) {
+        ctx.fillStyle = tc;
+        ctx.beginPath(); ctx.arc(px - 3, sy - h + 10, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + 4, sy - h + 12, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px, sy - h + 16, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#FF8888';
+        ctx.fillRect(px - 4, sy - h + 9, 1, 1);
+        ctx.fillRect(px + 3, sy - h + 11, 1, 1);
+      } else {
+        ctx.fillStyle = '#5A9A40';
+        ctx.beginPath(); ctx.arc(px - 2, sy - h + 10, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + 3, sy - h + 12, 2.5, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+
+  // --- Corn: TALL stalk with spreading leaves and yellow cob ---
+  function _drawCorn(ctx, sx, sy, mature, glow, tick) {
+    for (let i = -1; i <= 1; i += 2) {
+      const px = sx + i * 7;
+      const sway = Math.sin(tick * 0.03 + i * 2 + px * 0.05) * 1;
+      const h = mature ? 42 : 28;
+      // Main stalk
+      ctx.fillStyle = '#4A9A3A';
+      ctx.fillRect(px - 1 + sway, sy - h, 3, h + 3);
+      // Spreading leaves
       ctx.fillStyle = '#5AAE45';
-      ctx.fillRect(sx - 1, baseY - 6, 2, 4);
-      ctx.fillRect(sx - 2, baseY - 7, 4, 2);
-    } else if (stage === 3) {
-      // Growing
+      ctx.fillRect(px - 9 + sway, sy - h + 10, 9, 3);
+      ctx.fillRect(px + 2 + sway, sy - h + 14, 9, 3);
+      ctx.fillRect(px - 10 + sway, sy - h + 20, 10, 3);
+      ctx.fillRect(px + 2 + sway, sy - h + 24, 10, 3);
+      // Lighter leaf tips
+      ctx.fillStyle = '#6AC050';
+      ctx.fillRect(px - 9 + sway, sy - h + 10, 2, 2);
+      ctx.fillRect(px + 9 + sway, sy - h + 14, 2, 2);
+      ctx.fillRect(px - 10 + sway, sy - h + 20, 2, 2);
+      ctx.fillRect(px + 10 + sway, sy - h + 24, 2, 2);
+      if (mature) {
+        // Corn cob
+        const cc = glow ? '#FFE8A0' : '#F0E068';
+        ctx.fillStyle = cc;
+        ctx.fillRect(px + 1 + sway, sy - h + 12, 5, 10);
+        // Husk
+        ctx.fillStyle = '#B8D070';
+        ctx.fillRect(px - 1 + sway, sy - h + 11, 3, 3);
+        ctx.fillRect(px + 5 + sway, sy - h + 18, 2, 4);
+        // Silk
+        ctx.fillStyle = '#C8A040';
+        ctx.fillRect(px + 2 + sway, sy - h + 10, 2, 2);
+      }
+    }
+  }
+
+  // --- Sunflower: tall stem with big yellow flower head ---
+  function _drawSunflower(ctx, sx, sy, mature, glow, tick) {
+    for (let i = -1; i <= 1; i += 2) {
+      const px = sx + i * 7;
+      const sway = Math.sin(tick * 0.025 + i * 3) * 1;
+      const h = mature ? 38 : 26;
+      // Thick stem
+      ctx.fillStyle = '#4A9030';
+      ctx.fillRect(px - 1 + sway, sy - h + 10, 3, h - 8);
+      // Leaves along stem
       ctx.fillStyle = '#5AAE45';
-      ctx.fillRect(sx - 1, baseY - 8, 2, 6);
-      ctx.fillStyle = color;
-      ctx.fillRect(sx - 3, baseY - 10, 6, 4);
+      ctx.fillRect(px - 7 + sway, sy - h + 18, 6, 4);
+      ctx.fillRect(px + 3 + sway, sy - h + 24, 6, 4);
+      ctx.fillStyle = '#4A9838';
+      ctx.fillRect(px - 6 + sway, sy - h + 14, 5, 4);
+      ctx.fillRect(px + 3 + sway, sy - h + 20, 5, 4);
+      if (mature) {
+        // Big flower head
+        ctx.fillStyle = glow ? '#FFE040' : '#FFD700';
+        ctx.beginPath();
+        ctx.ellipse(px + sway, sy - h + 5, 9, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Center (brown seeds)
+        ctx.fillStyle = '#8B6B3E';
+        ctx.beginPath();
+        ctx.ellipse(px + sway, sy - h + 5, 5, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#6B4B2E';
+        ctx.fillRect(px - 2 + sway, sy - h + 4, 1, 1);
+        ctx.fillRect(px + 1 + sway, sy - h + 3, 1, 1);
+        ctx.fillRect(px + sway, sy - h + 6, 1, 1);
+      } else {
+        // Bud
+        ctx.fillStyle = '#A0C040';
+        ctx.beginPath();
+        ctx.ellipse(px + sway, sy - h + 8, 5, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(px - 2 + sway, sy - h + 6, 4, 2);
+      }
+    }
+  }
+
+  // --- Watermelon: low vine with large green striped fruit ---
+  function _drawWatermelon(ctx, sx, sy, mature, glow, tick) {
+    for (let i = -1; i <= 1; i += 2) {
+      const px = sx + i * 7;
+      // Vine
+      ctx.fillStyle = '#4A8A38';
+      ctx.fillRect(px - 7, sy + 1, 14, 2);
+      ctx.fillRect(px - 1, sy - 3, 2, 6);
+      // Leaves
+      ctx.fillStyle = '#5AAE45';
+      ctx.fillRect(px - 6, sy - 4, 4, 4);
+      ctx.fillRect(px + 3, sy - 3, 4, 4);
+      ctx.fillStyle = '#6AC050';
+      ctx.fillRect(px - 5, sy - 5, 3, 2);
+      if (mature) {
+        // Big watermelon
+        ctx.fillStyle = glow ? '#358B5F' : '#2E8B57';
+        ctx.beginPath();
+        ctx.ellipse(px, sy - 7, 8, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Dark stripes
+        ctx.fillStyle = '#1A6B3A';
+        ctx.fillRect(px - 4, sy - 10, 1, 7);
+        ctx.fillRect(px, sy - 12, 1, 8);
+        ctx.fillRect(px + 4, sy - 10, 1, 7);
+        // Highlight
+        ctx.fillStyle = '#48A870';
+        ctx.fillRect(px - 5, sy - 10, 2, 2);
+      } else {
+        ctx.fillStyle = '#3A8A48';
+        ctx.beginPath();
+        ctx.ellipse(px, sy - 5, 4, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // --- Pumpkin: vine with big orange round fruit ---
+  function _drawPumpkin(ctx, sx, sy, mature, glow, tick) {
+    for (let i = -1; i <= 1; i += 2) {
+      const px = sx + i * 7;
+      // Vine
+      ctx.fillStyle = '#4A8A38';
+      ctx.fillRect(px - 6, sy + 2, 12, 2);
+      ctx.fillRect(px - 1, sy - 2, 2, 6);
+      // Leaves
+      ctx.fillStyle = '#5AAE45';
+      ctx.fillRect(px - 6, sy - 3, 5, 4);
+      ctx.fillRect(px + 2, sy - 2, 5, 4);
+      if (mature) {
+        // Big pumpkin
+        ctx.fillStyle = glow ? '#FF8530' : '#FF7518';
+        ctx.beginPath();
+        ctx.ellipse(px, sy - 6, 7, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Segment line
+        ctx.strokeStyle = '#E06510';
+        ctx.lineWidth = 0.7;
+        ctx.beginPath();
+        ctx.moveTo(px, sy - 12); ctx.lineTo(px, sy);
+        ctx.stroke();
+        // Stem
+        ctx.fillStyle = '#5A8030';
+        ctx.fillRect(px - 1, sy - 13, 3, 4);
+        // Highlight
+        ctx.fillStyle = '#FF9538';
+        ctx.fillRect(px - 4, sy - 8, 2, 2);
+      } else {
+        ctx.fillStyle = '#8A9A40';
+        ctx.beginPath();
+        ctx.ellipse(px, sy - 5, 5, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // --- Generic fallback ---
+  function _drawGenericCrop(ctx, sx, sy, mature, glow, tick) {
+    for (let i = -1; i <= 1; i += 2) {
+      const px = sx + i * 7;
+      const h = mature ? 20 : 14;
+      ctx.fillStyle = '#4E9A3C';
+      ctx.fillRect(px - 5, sy - h, 10, h - 2);
+      ctx.fillStyle = '#5AAE45';
+      ctx.fillRect(px - 4, sy - h - 2, 8, h - 4);
+      ctx.fillStyle = '#6AC050';
+      ctx.fillRect(px - 3, sy - h - 3, 6, 4);
+      ctx.fillStyle = '#4A8A38';
+      ctx.fillRect(px - 1, sy - 1, 2, 3);
+    }
+  }
+
+  // Fence post (top-down)
+  function drawFencePost(ctx, sx, sy, horizontal) {
+    ctx.fillStyle = '#A88040';
+    if (horizontal) {
+      ctx.fillRect(sx - TILE_W / 2, sy - 2, TILE_W, 4);
+      // Posts
+      ctx.fillStyle = '#8B6830';
+      ctx.fillRect(sx - TILE_W / 2 + 2, sy - 4, 3, 8);
+      ctx.fillRect(sx + TILE_W / 2 - 5, sy - 4, 3, 8);
     } else {
-      // Mature (stage 4)
-      const flash = (tick % 20) < 10;
-      ctx.fillStyle = '#5AAE45';
-      ctx.fillRect(sx - 1, baseY - 10, 2, 8);
-      ctx.fillStyle = flash ? '#FFF' : color;
-      ctx.fillRect(sx - 4, baseY - 14, 8, 6);
-      ctx.fillStyle = flash ? '#FFD700' : adjustBrightness(color, -20);
-      ctx.fillRect(sx - 3, baseY - 12, 6, 3);
+      ctx.fillRect(sx - 2, sy - TILE_H / 2, 4, TILE_H);
+      ctx.fillStyle = '#8B6830';
+      ctx.fillRect(sx - 4, sy - TILE_H / 2 + 2, 8, 3);
+      ctx.fillRect(sx - 4, sy + TILE_H / 2 - 5, 8, 3);
+    }
+  }
+
+  // Animal (top-down chibi style — scaled for 32px tiles)
+  function drawAnimal(ctx, sx, sy, type, frame, tick) {
+    const bob = frame % 2 === 0 ? 0 : -1;
+    const ay = sy + bob;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy + 4, 7, 3.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const colors = {
+      chicken: { body: '#FFFDE0', head: '#FFFDE0', comb: '#E83030', beak: '#F0A030' },
+      cow:     { body: '#F0F0F0', head: '#F0F0F0', spot: '#4A3020', nose: '#FFB8A0' },
+      pig:     { body: '#FFB8A8', head: '#FFB8A8', nose: '#E88878', ear: '#E89888' },
+      sheep:   { body: '#F8F8F0', head: '#FFFDE8', wool: '#E8E8D8', face: '#FFD5B8' },
+      cat:     { body: '#F0A050', head: '#F0A050', ear: '#E09040', stripe: '#D08030' },
+      dog:     { body: '#D8A060', head: '#D8A060', ear: '#C09050', nose: '#3C3C3C' },
+    };
+    const c = colors[type] || colors.chicken;
+
+    switch (type) {
+      case 'chicken':
+        ctx.fillStyle = c.body;
+        ctx.fillRect(sx - 5, ay - 5, 10, 9);
+        ctx.fillStyle = c.comb;
+        ctx.fillRect(sx - 1, ay - 8, 4, 3);
+        ctx.fillStyle = c.beak;
+        ctx.fillRect(sx - 1, ay - 2, 4, 3);
+        ctx.fillStyle = '#2C2C2C';
+        ctx.fillRect(sx - 3, ay - 4, 2, 2);
+        ctx.fillRect(sx + 2, ay - 4, 2, 2);
+        break;
+      case 'cow':
+        ctx.fillStyle = c.body;
+        ctx.fillRect(sx - 8, ay - 7, 16, 12);
+        ctx.fillStyle = c.spot;
+        ctx.fillRect(sx - 4, ay - 4, 5, 4);
+        ctx.fillRect(sx + 3, ay - 1, 4, 4);
+        ctx.fillStyle = c.nose;
+        ctx.fillRect(sx - 3, ay + 3, 6, 3);
+        ctx.fillStyle = '#2C2C2C';
+        ctx.fillRect(sx - 4, ay - 3, 2, 2);
+        ctx.fillRect(sx + 3, ay - 3, 2, 2);
+        break;
+      case 'pig':
+        ctx.fillStyle = c.body;
+        ctx.fillRect(sx - 7, ay - 5, 14, 10);
+        ctx.fillStyle = c.nose;
+        ctx.fillRect(sx - 3, ay, 6, 4);
+        ctx.fillStyle = '#2C2C2C';
+        ctx.fillRect(sx - 1, ay + 1, 1, 1);
+        ctx.fillRect(sx + 1, ay + 1, 1, 1);
+        ctx.fillStyle = '#2C2C2C';
+        ctx.fillRect(sx - 3, ay - 3, 2, 2);
+        ctx.fillRect(sx + 2, ay - 3, 2, 2);
+        break;
+      case 'sheep':
+        ctx.fillStyle = c.wool;
+        ctx.beginPath();
+        ctx.ellipse(sx, ay - 1, 10, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = c.face;
+        ctx.fillRect(sx - 4, ay - 5, 8, 7);
+        ctx.fillStyle = '#2C2C2C';
+        ctx.fillRect(sx - 3, ay - 4, 2, 2);
+        ctx.fillRect(sx + 2, ay - 4, 2, 2);
+        break;
+      case 'cat':
+        ctx.fillStyle = c.body;
+        ctx.fillRect(sx - 5, ay - 4, 10, 8);
+        ctx.fillStyle = c.ear;
+        ctx.fillRect(sx - 5, ay - 8, 4, 4);
+        ctx.fillRect(sx + 2, ay - 8, 4, 4);
+        ctx.fillStyle = '#2C2C2C';
+        ctx.fillRect(sx - 3, ay - 3, 2, 2);
+        ctx.fillRect(sx + 2, ay - 3, 2, 2);
+        ctx.fillStyle = c.stripe;
+        ctx.fillRect(sx - 4, ay - 1, 8, 1);
+        ctx.fillRect(sx - 3, ay + 1, 6, 1);
+        break;
+      case 'dog':
+        ctx.fillStyle = c.body;
+        ctx.fillRect(sx - 7, ay - 5, 14, 9);
+        ctx.fillStyle = c.ear;
+        ctx.fillRect(sx - 7, ay - 8, 4, 5);
+        ctx.fillRect(sx + 4, ay - 8, 4, 5);
+        ctx.fillStyle = c.nose;
+        ctx.fillRect(sx - 1, ay, 3, 3);
+        ctx.fillStyle = '#2C2C2C';
+        ctx.fillRect(sx - 3, ay - 3, 2, 2);
+        ctx.fillRect(sx + 2, ay - 3, 2, 2);
+        // Tail wag
+        if (frame % 2 === 0) {
+          ctx.fillStyle = c.body;
+          ctx.fillRect(sx + 7, ay - 4, 3, 4);
+        } else {
+          ctx.fillStyle = c.body;
+          ctx.fillRect(sx + 7, ay - 6, 3, 4);
+        }
+        break;
     }
   }
 
   return {
-    TILE_W,
-    TILE_H,
-    TILE_DEPTH,
-    TILE_TYPES,
-    TILE_GROUPS,
-    gridToScreen,
-    screenToGrid,
+    TILE_W, TILE_H,
+    TILE_TYPES, TILE_GROUPS,
+    gridToScreen, screenToGrid, mouseToGrid,
     depthKey,
     getTileBitmask,
-    initMap,
-    setTile,
-    getTile,
-    addEntity,
-    clearEntities,
-    drawTile,
-    drawTileTransitions,
+    initMap, setTile, getTile,
+    addEntity, clearEntities,
+    drawTile, drawTileTransitions, drawTileHighlight,
     drawMap,
-    setCamera,
-    moveCamera,
-    centerOnTile,
-    zoom,
-    getZoom,
-    setZoom,
-    drawIsoTree,
-    drawIsoCharacter,
-    drawIsoCrop,
-    mouseToGrid,
-    setHoverTile,
-    getHoverTile,
+    setCamera, moveCamera, centerOnTile,
+    zoom, getZoom, setZoom,
+    adjustBrightness,
+    drawIsoTree, drawIsoCharacter, drawIsoCrop,
+    drawAnimal, drawFencePost,
+    setHoverTile, getHoverTile,
   };
 })();
