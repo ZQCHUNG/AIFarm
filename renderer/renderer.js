@@ -100,6 +100,10 @@
     window.buddy.onActivityEvent((event) => {
       const buddy = buddyMap.get(event.sessionId);
       if (buddy) buddy.sm.transition(event);
+      // BuddyAI: drive farming/tending behavior from activity events
+      if (typeof BuddyAI !== 'undefined' && viewMode === 'iso') {
+        BuddyAI.onActivity(event.sessionId, event.type);
+      }
     });
 
     window.buddy.onResizeCanvas((w, h) => {
@@ -278,6 +282,10 @@
     // Sync buddies
     for (const [id, buddy] of buddyMap) {
       IsoFarm.syncBuddy(id, buddy.project, buddy.colorIndex || 0, buddy.sm.state);
+      // Notify BuddyAI of state changes
+      if (typeof BuddyAI !== 'undefined') {
+        BuddyAI.onStateChange(id, buddy.sm.state);
+      }
     }
 
     // Camera panning (arrow keys) — paused when modal is open
@@ -288,6 +296,11 @@
       if (keys['ArrowRight']) IsoEngine.moveCamera(-PAN_SPEED, 0);
       if (keys['ArrowUp']) IsoEngine.moveCamera(0, PAN_SPEED);
       if (keys['ArrowDown']) IsoEngine.moveCamera(0, -PAN_SPEED);
+    }
+
+    // Update buddy AI (farming/tending behavior)
+    if (typeof BuddyAI !== 'undefined') {
+      BuddyAI.update(tick);
     }
 
     // Update entity manager

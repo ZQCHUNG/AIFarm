@@ -783,10 +783,15 @@ const IsoFarm = (() => {
     return best;
   }
 
+  function getBuddyEntity(sessionId) {
+    return buddyEntities.get(sessionId) || null;
+  }
+
   return {
     MAP_W, MAP_H,
     FIELD, PASTURE_ZONE,
     PLOT_POSITIONS, BUILDING_POSITIONS, ANIMAL_HOMES,
     init, syncState, syncBuddy, removeBuddy, drawHUD,
+    getBuddyEntity,
   };
 })();

@@ -25,6 +25,7 @@
   <script src="iso-tooltip.js"></script>
   <script src="iso-effects.js"></script>
   <script src="iso-ui.js"></script>
+  <script src="buddy-ai.js"></script>
   <script src="character.js"></script>
   <script src="train.js"></script>
   <script src="state-machine.js"></script>
@@ -91,8 +92,8 @@
     info.textContent = 'Arrow keys: pan camera | Mouse wheel: zoom | Hover tiles for highlight';
     document.body.appendChild(info);
 
-    const baseW = 660;
-    const baseH = 500;
+    const baseW = 900;
+    const baseH = 700;
     const c1 = document.createElement('canvas');
     c1.width = baseW;
     c1.height = baseH;
@@ -123,6 +124,16 @@
     for (const b of demoBuddies) {
       IsoFarm.syncBuddy(b.id, b.project, b.colorIndex, 'working');
     }
+
+    // Demo: simulate buddy activity events (BuddyAI drives farming animation)
+    const eventTypes = ['tool_use', 'text', 'thinking', 'bash_progress', 'tool_use'];
+    setInterval(() => {
+      const b = demoBuddies[Math.floor(Math.random() * demoBuddies.length)];
+      const evt = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+      if (typeof BuddyAI !== 'undefined') {
+        BuddyAI.onActivity(b.id, evt);
+      }
+    }, 4000);
 
     // Demo: periodic harvest with floating reward text
     setInterval(() => {
@@ -191,6 +202,11 @@
       if (farmKeys['ArrowUp']) IsoEngine.moveCamera(0, PAN_SPEED);
       if (farmKeys['ArrowDown']) IsoEngine.moveCamera(0, -PAN_SPEED);
 
+      // Update buddy AI (farming/tending behavior)
+      if (typeof BuddyAI !== 'undefined') {
+        BuddyAI.update(farmTick);
+      }
+
       // Update entities
       IsoEntityManager.update(farmTick);
       IsoEntityManager.syncToEngine();
@@ -257,62 +273,6 @@
     }
     requestAnimationFrame(farmLoop);
 
-    // ===== Classic Side-View Demo (for comparison) =====
-    const h2el = document.createElement('h2');
-    h2el.textContent = 'Classic Side-View (Ctrl+Shift+I to toggle in app)';
-    document.body.appendChild(h2el);
-
-    const SCALE = 2;
-    const margin = 15;
-    const buddies = [
-      { name: '~', state: 'bash', detail: '$ npm test' },
-      { name: 'Stock', state: 'writing', detail: '' },
-      { name: 'anya', state: 'reading', detail: '' },
-      { name: 'kisame', state: 'thinking', detail: '' },
-      { name: 'Dog', state: 'sleeping', detail: '' },
-    ];
-    const slotW = 40;
-    const classicW = Math.max(330, buddies.length * slotW * Scene.PX + margin * 2 * Scene.PX + 90);
-    const classicH = 351;
-
-    const c2 = document.createElement('canvas');
-    c2.width = classicW;
-    c2.height = classicH;
-    c2.style.width = classicW + 'px';
-    c2.style.height = classicH + 'px';
-    document.body.appendChild(c2);
-    const cCtx = c2.getContext('2d');
-
-    Train.setStationBuilt(true);
-    setTimeout(() => { Train.queueArrival('newcomer', 3); }, 2000);
-
-    let classicTick = 0;
-    function classicLoop() {
-      classicTick++;
-      cCtx.clearRect(0, 0, classicW, classicH);
-      Scene.drawBackground(cCtx, classicW, classicTick);
-      Farm.drawFarm(cCtx, classicW, classicTick);
-      Train.update(classicTick);
-      Train.draw(cCtx, Math.ceil(classicW / Scene.PX), classicTick);
-
-      const logW = Math.ceil(classicW / Scene.PX);
-      const usable = logW - margin * 2;
-      const sw = Math.min(40, Math.floor(usable / buddies.length));
-
-      buddies.forEach((b, i) => {
-        const sx = margin + i * sw;
-        const frame = ((classicTick / 14) | 0) % 4;
-        Scene.drawStation(cCtx, sx, b.state, classicTick + i * 50);
-        Character.draw(cCtx, sx, b.state, frame, classicTick + i * 30, i);
-        const hc = Character.HOODIE_COLORS[i % Character.HOODIE_COLORS.length];
-        Scene.drawNameplate(cCtx, (sx + sw / 2) * Scene.PX, b.name, hc.o);
-        if (b.detail) {
-          SpeechBubble.draw(cCtx, b.detail, (sx + 10) * Scene.PX, (Scene.GROUND_Y - 15) * Scene.PX);
-        }
-      });
-      requestAnimationFrame(classicLoop);
-    }
-    requestAnimationFrame(classicLoop);
   </script>
 </body>
 </html>
