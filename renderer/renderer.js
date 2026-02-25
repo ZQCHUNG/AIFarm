@@ -110,6 +110,7 @@
     // Mouse wheel zoom (top-down mode)
     canvas.addEventListener('wheel', (e) => {
       if (viewMode !== 'iso' || typeof IsoEngine === 'undefined') return;
+      if (typeof IsoUI !== 'undefined' && IsoUI.isOpen()) return;
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
@@ -125,6 +126,8 @@
 
   function topdownMouseHandler(e) {
     if (viewMode !== 'iso' || typeof IsoEngine === 'undefined') return;
+    // Suppress hover when modal is open
+    if (typeof IsoUI !== 'undefined' && IsoUI.isOpen()) return;
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
@@ -265,12 +268,15 @@
       IsoFarm.syncBuddy(id, buddy.project, buddy.colorIndex || 0, buddy.sm.state);
     }
 
-    // Camera panning (arrow keys)
+    // Camera panning (arrow keys) — paused when modal is open
+    const modalLock = typeof IsoUI !== 'undefined' && IsoUI.isOpen();
     const PAN_SPEED = 4;
-    if (keys['ArrowLeft']) IsoEngine.moveCamera(PAN_SPEED, 0);
-    if (keys['ArrowRight']) IsoEngine.moveCamera(-PAN_SPEED, 0);
-    if (keys['ArrowUp']) IsoEngine.moveCamera(0, PAN_SPEED);
-    if (keys['ArrowDown']) IsoEngine.moveCamera(0, -PAN_SPEED);
+    if (!modalLock) {
+      if (keys['ArrowLeft']) IsoEngine.moveCamera(PAN_SPEED, 0);
+      if (keys['ArrowRight']) IsoEngine.moveCamera(-PAN_SPEED, 0);
+      if (keys['ArrowUp']) IsoEngine.moveCamera(0, PAN_SPEED);
+      if (keys['ArrowDown']) IsoEngine.moveCamera(0, -PAN_SPEED);
+    }
 
     // Update entity manager
     IsoEntityManager.update(tick);
