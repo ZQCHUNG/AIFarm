@@ -92,15 +92,32 @@ const IsoEngine = (() => {
         tileMap[r][c] = defaultTile || 'grass';
       }
     }
+    // Initialize ChunkManager with the home farm layout
+    if (typeof ChunkManager !== 'undefined') {
+      ChunkManager.initHome(tileMap, w, h);
+    }
   }
 
   function setTile(col, row, type) {
+    // Delegate to ChunkManager for infinite map support
+    if (typeof ChunkManager !== 'undefined') {
+      ChunkManager.setTile(col, row, type);
+      // Also update local tileMap if within home bounds (backward compat)
+      if (tileMap && row >= 0 && row < mapHeight && col >= 0 && col < mapWidth) {
+        tileMap[row][col] = type;
+      }
+      return;
+    }
     if (tileMap && row >= 0 && row < mapHeight && col >= 0 && col < mapWidth) {
       tileMap[row][col] = type;
     }
   }
 
   function getTile(col, row) {
+    // Delegate to ChunkManager for infinite map support
+    if (typeof ChunkManager !== 'undefined') {
+      return ChunkManager.getTile(col, row);
+    }
     if (tileMap && row >= 0 && row < mapHeight && col >= 0 && col < mapWidth) {
       return tileMap[row][col];
     }
@@ -309,7 +326,7 @@ const IsoEngine = (() => {
   // ===== Main rendering =====
 
   function drawMap(ctx, canvasW, canvasH, tick) {
-    if (!tileMap) return;
+    if (!tileMap && typeof ChunkManager === 'undefined') return;
 
     // Track canvas size for camera clamping
     lastCanvasW = canvasW;
@@ -322,15 +339,32 @@ const IsoEngine = (() => {
     const cullW = canvasW / camZoom;
     const cullH = canvasH / camZoom;
 
+    // Determine tile iteration range
+    let rMin, rMax, cMin, cMax;
+    if (typeof ChunkManager !== 'undefined') {
+      const wb = ChunkManager.getWorldBounds();
+      rMin = wb.minRow;
+      rMax = wb.maxRow;
+      cMin = wb.minCol;
+      cMax = wb.maxCol;
+    } else {
+      rMin = 0;
+      rMax = mapHeight - 1;
+      cMin = 0;
+      cMax = mapWidth - 1;
+    }
+
     // Collect renderable items
     const renderList = [];
 
     // Tiles (always drawn first, back to front)
-    for (let r = 0; r < mapHeight; r++) {
-      for (let c = 0; c < mapWidth; c++) {
+    for (let r = rMin; r <= rMax; r++) {
+      for (let c = cMin; c <= cMax; c++) {
         const { x, y } = gridToScreen(c, r);
         // Frustum culling
         if (x + TILE_W < 0 || x > cullW || y + TILE_H < 0 || y > cullH) continue;
+        // Skip fog-of-war tiles
+        if (typeof ChunkManager !== 'undefined' && ChunkManager.isFog(c, r)) continue;
         renderList.push({
           depth: depthKey(c, r),
           type: 'tile',
@@ -369,7 +403,8 @@ const IsoEngine = (() => {
     // Render pass
     for (const item of renderList) {
       if (item.type === 'tile') {
-        const tileType = tileMap[item.row][item.col];
+        const tileType = getTile(item.col, item.row);
+        if (!tileType) continue;
         drawTile(ctx, item.x, item.y, tileType, tick);
         drawSoilDetail(ctx, item.x, item.y, tileType, tick);
         drawTileTransitions(ctx, item.x, item.y, item.col, item.row);
@@ -425,16 +460,29 @@ const IsoEngine = (() => {
 
   /** Clamp camera so the map stays mostly on-screen. */
   function clampCamera() {
-    if (!tileMap) return;
+    if (!tileMap && typeof ChunkManager === 'undefined') return;
     const vw = lastCanvasW / camZoom;
     const vh = lastCanvasH / camZoom;
-    const worldW = mapWidth * TILE_W;
-    const worldH = mapHeight * TILE_H;
+
+    let worldW, worldH, offsetX, offsetY;
+    if (typeof ChunkManager !== 'undefined') {
+      const wb = ChunkManager.getWorldBounds();
+      worldW = wb.width * TILE_W;
+      worldH = wb.height * TILE_H;
+      offsetX = wb.minCol * TILE_W;
+      offsetY = wb.minRow * TILE_H;
+    } else {
+      worldW = mapWidth * TILE_W;
+      worldH = mapHeight * TILE_H;
+      offsetX = 0;
+      offsetY = 0;
+    }
+
     // Camera offset ranges: map should fill viewport with margin
-    const minX = -(worldW - vw + CAM_MARGIN);
-    const maxX = CAM_MARGIN;
-    const minY = -(worldH - vh + CAM_MARGIN);
-    const maxY = CAM_MARGIN;
+    const minX = -(worldW + offsetX - vw + CAM_MARGIN);
+    const maxX = -offsetX + CAM_MARGIN;
+    const minY = -(worldH + offsetY - vh + CAM_MARGIN);
+    const maxY = -offsetY + CAM_MARGIN;
     camX = Math.max(minX, Math.min(maxX, camX));
     camY = Math.max(minY, Math.min(maxY, camY));
   }

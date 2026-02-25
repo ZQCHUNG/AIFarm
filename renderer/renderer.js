@@ -65,6 +65,10 @@
       if (state && state.sessionHistory && typeof NPCManager !== 'undefined') {
         NPCManager.init(state.sessionHistory);
       }
+      // Check passive chunk unlock based on cumulative tokens
+      if (state && state.energy && typeof ChunkManager !== 'undefined') {
+        ChunkManager.checkPassiveUnlock(state.energy);
+      }
     });
     window.buddy.onFarmEnergyTick((pts) => { /* could add flash animation */ });
     window.buddy.onVibeUpdate((vibe) => Farm.setVibe(vibe));
@@ -203,6 +207,7 @@
       } else if (typeof IsoFarm !== 'undefined' && IsoFarm.sellAllCrops) {
         IsoFarm.sellAllCrops(tick);
       }
+      return; // prevent E from falling through to handleKey (which would close the shop)
     }
     // Forward other keys to shop modal when open
     if (typeof ShopUI !== 'undefined' && ShopUI.isOpen()) {
@@ -357,6 +362,12 @@
       if (!IsoFarm.isStartupAnimating()) {
         const pp = Player.getPosition();
         IsoEngine.smoothFollow(pp.x, pp.y, 0.08);
+      }
+
+      // Update chunk loading based on player position
+      if (typeof ChunkManager !== 'undefined') {
+        const pt = Player.getTile();
+        ChunkManager.updatePlayerPosition(pt.col, pt.row);
       }
 
       // Update persistent player entity for rendering
