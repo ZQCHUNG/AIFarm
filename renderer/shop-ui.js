@@ -71,6 +71,22 @@ const ShopUI = (() => {
       description: 'Wood \u2192 Plank (1.3x)',
       type: 'permit',
     },
+    {
+      id: 'sprinkler',
+      name: 'Sprinkler',
+      icon: '\u{1F4A6}', // 💦
+      price: 60,
+      description: '3\u00D73 auto-water (2g/cycle)',
+      type: 'automation',
+    },
+    {
+      id: 'auto_collector',
+      name: 'Auto-Collector',
+      icon: '\u{1F916}', // 🤖
+      price: 100,
+      description: 'Auto-harvest crops (3g/cycle)',
+      type: 'automation',
+    },
   ];
 
   // ===== Proximity check =====

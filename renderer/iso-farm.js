@@ -1818,7 +1818,12 @@ const IsoFarm = (() => {
 
     monumentEntity = IsoEntityManager.add(IsoEntityManager.createStatic(17, 2,
       (ctx, sx, sy, tick) => {
-        drawMonument(ctx, sx, sy, tick, state);
+        // Use MonumentV2 if available, fallback to v1
+        if (typeof MonumentV2 !== 'undefined') {
+          MonumentV2.draw(ctx, sx, sy, tick);
+        } else {
+          drawMonument(ctx, sx, sy, tick, state);
+        }
       },
       { spriteId: null }
     ));

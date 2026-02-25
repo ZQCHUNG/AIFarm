@@ -60,6 +60,16 @@
     PlayerAccessories.setupListeners();
   }
 
+  // Initialize automation system
+  if (typeof Automation !== 'undefined') {
+    Automation.init();
+  }
+
+  // Initialize pet AI
+  if (typeof PetAI !== 'undefined') {
+    PetAI.init();
+  }
+
   // Initialize resource popup sprites (fly-to-HUD on harvest)
   if (typeof IsoEffects !== 'undefined' && IsoEffects.setupResourceListeners) {
     IsoEffects.setupResourceListeners();
@@ -453,6 +463,26 @@
       LandmarkGenerator.update(tick);
     }
 
+    // Update automation (sprinklers, auto-collector)
+    if (typeof Automation !== 'undefined') {
+      Automation.update(tick);
+    }
+
+    // Update pet dog AI
+    if (typeof PetAI !== 'undefined') {
+      PetAI.update(tick);
+      // Add pet entity for rendering
+      const petEntity = PetAI.getEntity();
+      if (petEntity) {
+        IsoEngine.setPet(petEntity);
+      }
+    }
+
+    // Update monument v2 (stage calculation)
+    if (typeof MonumentV2 !== 'undefined') {
+      MonumentV2.update(tick);
+    }
+
     // Update buddy AI (farming/tending behavior)
     if (typeof BuddyAI !== 'undefined') {
       BuddyAI.update(tick);
@@ -538,6 +568,15 @@
       LandmarkGenerator.draw(ctx, tick);
       ctx.restore();
       LandmarkGenerator.drawPrompt(ctx, canvas.width, canvas.height);
+    }
+
+    // Automation device visuals (sprinklers, collector)
+    if (typeof Automation !== 'undefined') {
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.scale(IsoEngine.getZoom(), IsoEngine.getZoom());
+      Automation.draw(ctx, tick);
+      ctx.restore();
     }
 
     // HUD (Harvest Moon style)

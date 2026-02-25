@@ -202,16 +202,27 @@ const LandmarkGenerator = (() => {
   /**
    * Check if player is near any unclaimed landmark.
    * Returns the landmark if within 2 tiles, null otherwise.
+   * Optional (col, row, range) args for external callers (e.g., pet AI).
    */
-  function getNearbyLandmark() {
-    if (typeof Player === 'undefined') return null;
-    const pt = Player.getTile();
+  function getNearbyLandmark(col, row, range) {
+    let checkCol, checkRow, checkRange;
+    if (col !== undefined && row !== undefined) {
+      checkCol = col;
+      checkRow = row;
+      checkRange = range || 2;
+    } else {
+      if (typeof Player === 'undefined') return null;
+      const pt = Player.getTile();
+      checkCol = pt.col;
+      checkRow = pt.row;
+      checkRange = 2;
+    }
 
     for (const [, lm] of activeLandmarks) {
       if (lm.claimed) continue;
-      const dx = Math.abs(pt.col - lm.worldCol);
-      const dy = Math.abs(pt.row - lm.worldRow);
-      if (dx <= 2 && dy <= 2) return lm;
+      const dx = Math.abs(checkCol - lm.worldCol);
+      const dy = Math.abs(checkRow - lm.worldRow);
+      if (dx <= checkRange && dy <= checkRange) return lm;
     }
     return null;
   }

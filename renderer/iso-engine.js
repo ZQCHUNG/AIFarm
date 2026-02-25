@@ -151,9 +151,14 @@ const IsoEngine = (() => {
 
   // Persistent player entity (set once, updated in-place each frame)
   let playerEntity = null;
+  let petEntity = null;
 
   function setPlayer(entity) {
     playerEntity = entity;
+  }
+
+  function setPet(entity) {
+    petEntity = entity;
   }
 
   function addEntity(entity) {
@@ -395,6 +400,18 @@ const IsoEngine = (() => {
         depth: depthKey(playerEntity.col, playerEntity.row, ez) + 0.5,
         type: 'entity',
         entity: playerEntity, x, y,
+      });
+    }
+    // Pet entity (follows player)
+    if (petEntity) {
+      const ez = petEntity.z || 0;
+      const { x, y } = gridToScreen(petEntity.col, petEntity.row, ez);
+      petEntity.screenX = x + TILE_W / 2;
+      petEntity.screenY = y;
+      renderList.push({
+        depth: depthKey(petEntity.col, petEntity.row, ez) + 0.4,
+        type: 'entity',
+        entity: petEntity, x, y,
       });
     }
 
@@ -1168,7 +1185,7 @@ const IsoEngine = (() => {
     depthKey,
     getTileBitmask,
     initMap, setTile, getTile,
-    setPlayer, addEntity, clearEntities,
+    setPlayer, setPet, addEntity, clearEntities,
     drawTile, drawTileTransitions, drawTileHighlight,
     drawMap,
     setCamera, moveCamera, centerOnTile, clampCamera,
