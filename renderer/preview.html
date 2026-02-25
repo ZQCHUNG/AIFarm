@@ -172,6 +172,10 @@
       const rect = c1.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
+      // Check snapshot button first (screen coords)
+      if (typeof IsoFarm !== 'undefined' && IsoFarm.handleSnapshotClick) {
+        if (IsoFarm.handleSnapshotClick(mx, my, c1)) return;
+      }
       const grid = IsoEngine.mouseToGrid(mx, my);
       if (typeof IsoUI !== 'undefined') {
         IsoUI.handleClick(grid.col, grid.row);
@@ -179,6 +183,7 @@
     });
     c1.addEventListener('wheel', (e) => {
       e.preventDefault();
+      if (typeof IsoFarm !== 'undefined' && IsoFarm.interruptAutoPan) IsoFarm.interruptAutoPan();
       const rect = c1.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
@@ -198,12 +203,17 @@
       // Startup camera animation
       IsoFarm.updateStartupAnimation();
 
-      // Camera pan
+      // Camera pan (interrupts auto-pan)
       const PAN_SPEED = 4;
+      const anyArrow = farmKeys['ArrowLeft'] || farmKeys['ArrowRight'] || farmKeys['ArrowUp'] || farmKeys['ArrowDown'];
+      if (anyArrow && IsoFarm.interruptAutoPan) IsoFarm.interruptAutoPan();
       if (farmKeys['ArrowLeft']) IsoEngine.moveCamera(PAN_SPEED, 0);
       if (farmKeys['ArrowRight']) IsoEngine.moveCamera(-PAN_SPEED, 0);
       if (farmKeys['ArrowUp']) IsoEngine.moveCamera(0, PAN_SPEED);
       if (farmKeys['ArrowDown']) IsoEngine.moveCamera(0, -PAN_SPEED);
+
+      // Auto-pan idle camera tour
+      if (IsoFarm.updateAutoPan) IsoFarm.updateAutoPan();
 
       // Update buddy AI (farming/tending behavior)
       if (typeof BuddyAI !== 'undefined') {
@@ -259,6 +269,7 @@
       // Weather overlay
       if (typeof IsoWeather !== 'undefined') {
         IsoWeather.draw(fCtx, baseW, baseH, farmTick);
+        IsoWeather.drawNightOverlay(fCtx, baseW, baseH, farmTick);
       }
 
       // Tooltips

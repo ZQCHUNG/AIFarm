@@ -66,10 +66,111 @@ const IsoWeather = (() => {
   function getSeason() { return currentSeason; }
   function setSeason(s) { if (SEASONS[s]) currentSeason = s; }
 
-  /** Get sky gradient colors for the current season. */
+  // ===== Day/Night Cycle =====
+  // Uses real system time by default. timeScale > 1 for accelerated demo.
+  let timeScale = 1;     // 1 = real-time, 60 = 1 min/game-hour
+  let timeOffset = 0;    // ticks since init (for accelerated mode)
+
+  function setTimeScale(s) { timeScale = s; }
+
+  /** Returns hour as float 0-24 (e.g., 14.5 = 2:30 PM). */
+  function getHour() {
+    if (timeScale === 1) {
+      const now = new Date();
+      return now.getHours() + now.getMinutes() / 60;
+    }
+    // Accelerated: timeOffset ticks at 60fps
+    return (timeOffset / 60 / 60 * timeScale) % 24;
+  }
+
+  /** Returns day progress 0-1 (0=midnight, 0.5=noon). */
+  function getDayProgress() { return getHour() / 24; }
+
+  /** Returns phase info: { phase, nightAlpha, lightLevel }. */
+  function getDayPhase() {
+    const h = getHour();
+    let phase, nightAlpha, lightLevel;
+    if (h >= 5 && h < 7) {
+      // Dawn
+      const t = (h - 5) / 2;
+      phase = 'dawn';
+      nightAlpha = 0.25 * (1 - t);
+      lightLevel = 0.4 + t * 0.6;
+    } else if (h >= 7 && h < 18) {
+      // Day
+      phase = 'day';
+      nightAlpha = 0;
+      lightLevel = 1;
+    } else if (h >= 18 && h < 20) {
+      // Dusk
+      const t = (h - 18) / 2;
+      phase = 'dusk';
+      nightAlpha = t * 0.3;
+      lightLevel = 1 - t * 0.6;
+    } else {
+      // Night
+      phase = 'night';
+      nightAlpha = 0.3;
+      lightLevel = 0.4;
+    }
+    return { phase, nightAlpha, lightLevel, hour: h };
+  }
+
+  function isNight() {
+    const h = getHour();
+    return h < 5 || h >= 20;
+  }
+
+  function isDusk() {
+    const h = getHour();
+    return h >= 18 && h < 20;
+  }
+
+  /** Get sky gradient colors for the current season + time of day. */
   function getSkyGradient() {
     const s = SEASONS[currentSeason] || SEASONS.summer;
+    const dp = getDayPhase();
+
+    // Night-time sky modification
+    if (dp.nightAlpha > 0) {
+      return {
+        skyTop: blendColor(s.skyTop, '#0A0A2E', dp.nightAlpha * 2),
+        skyMid: blendColor(s.skyMid, '#1A1A3E', dp.nightAlpha * 1.5),
+        grassTop: blendColor(s.grassTop, '#2A3A20', dp.nightAlpha),
+        grassBot: blendColor(s.grassBot, '#1A2A10', dp.nightAlpha),
+      };
+    }
+    // Dawn tint (warm orange)
+    if (dp.phase === 'dawn') {
+      const t = (dp.hour - 5) / 2;
+      return {
+        skyTop: blendColor('#FF8C42', s.skyTop, t),
+        skyMid: blendColor('#FFB366', s.skyMid, t),
+        grassTop: s.grassTop,
+        grassBot: s.grassBot,
+      };
+    }
     return { skyTop: s.skyTop, skyMid: s.skyMid, grassTop: s.grassTop, grassBot: s.grassBot };
+  }
+
+  /** Blend two hex colors. t=0 returns a, t=1 returns b. */
+  function blendColor(a, b, t) {
+    t = Math.max(0, Math.min(1, t));
+    const pa = hexToRgb(a), pb = hexToRgb(b);
+    const r = Math.round(pa.r + (pb.r - pa.r) * t);
+    const g = Math.round(pa.g + (pb.g - pa.g) * t);
+    const bl = Math.round(pa.b + (pb.b - pa.b) * t);
+    return `rgb(${r},${g},${bl})`;
+  }
+
+  function hexToRgb(hex) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    return {
+      r: parseInt(hex.substring(0, 2), 16),
+      g: parseInt(hex.substring(2, 4), 16),
+      b: parseInt(hex.substring(4, 6), 16),
+    };
   }
 
   /** Get optional ground tint overlay color. */
@@ -88,6 +189,8 @@ const IsoWeather = (() => {
   // ===== Update =====
 
   function update(tick, canvasW, canvasH) {
+    timeOffset = tick; // for accelerated time mode
+
     switch (currentMood) {
       case 'productive': updateProductive(tick, canvasW, canvasH); break;
       case 'focused':    updateFocused(tick, canvasW, canvasH); break;
@@ -437,14 +540,48 @@ const IsoWeather = (() => {
     ctx.restore();
   }
 
+  /** Draw night overlay (dark blue tint over the scene). Call AFTER ground tint. */
+  function drawNightOverlay(ctx, canvasW, canvasH, tick) {
+    const dp = getDayPhase();
+    if (dp.nightAlpha <= 0) return;
+
+    // Dark overlay
+    ctx.save();
+    ctx.fillStyle = `rgba(10, 10, 40, ${(dp.nightAlpha * 0.6).toFixed(3)})`;
+    ctx.fillRect(0, 0, canvasW, canvasH);
+
+    // Stars (only during deep night, phase === 'night')
+    if (dp.phase === 'night') {
+      ctx.fillStyle = '#FFF';
+      const starSeed = 42;
+      for (let i = 0; i < 25; i++) {
+        const sx = ((starSeed * (i + 1) * 7.3) % canvasW);
+        const sy = ((starSeed * (i + 1) * 3.7) % (canvasH * 0.35));
+        const twinkle = Math.sin(tick * 0.05 + i * 2.3) * 0.3 + 0.5;
+        ctx.globalAlpha = twinkle;
+        const size = i % 5 === 0 ? 2 : 1;
+        ctx.fillRect(sx, sy, size, size);
+      }
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
   return {
     setMood,
     update,
     draw,
     drawGroundTint,
+    drawNightOverlay,
     getSeason,
     setSeason,
     getSkyGradient,
     getGroundTint,
+    setTimeScale,
+    getHour,
+    getDayPhase,
+    getDayProgress,
+    isNight,
+    isDusk,
   };
 })();

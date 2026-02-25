@@ -128,6 +128,7 @@
       if (viewMode !== 'iso' || typeof IsoEngine === 'undefined') return;
       if (typeof IsoUI !== 'undefined' && IsoUI.isOpen()) return;
       e.preventDefault();
+      if (typeof IsoFarm !== 'undefined' && IsoFarm.interruptAutoPan) IsoFarm.interruptAutoPan();
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
@@ -295,11 +296,16 @@
     const modalLock = typeof IsoUI !== 'undefined' && IsoUI.isOpen();
     const PAN_SPEED = 4;
     if (!modalLock) {
+      const anyArrow = keys['ArrowLeft'] || keys['ArrowRight'] || keys['ArrowUp'] || keys['ArrowDown'];
+      if (anyArrow && IsoFarm.interruptAutoPan) IsoFarm.interruptAutoPan();
       if (keys['ArrowLeft']) IsoEngine.moveCamera(PAN_SPEED, 0);
       if (keys['ArrowRight']) IsoEngine.moveCamera(-PAN_SPEED, 0);
       if (keys['ArrowUp']) IsoEngine.moveCamera(0, PAN_SPEED);
       if (keys['ArrowDown']) IsoEngine.moveCamera(0, -PAN_SPEED);
     }
+
+    // Auto-pan idle camera tour
+    if (IsoFarm.updateAutoPan) IsoFarm.updateAutoPan();
 
     // Update buddy AI (farming/tending behavior)
     if (typeof BuddyAI !== 'undefined') {
@@ -352,6 +358,7 @@
     // Weather overlay
     if (typeof IsoWeather !== 'undefined') {
       IsoWeather.draw(ctx, canvas.width, canvas.height, tick);
+      IsoWeather.drawNightOverlay(ctx, canvas.width, canvas.height, tick);
     }
 
     // Entity tooltips

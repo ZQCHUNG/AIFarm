@@ -199,6 +199,15 @@ const IsoFarm = (() => {
     ));
     decorEntities.push(shedEnt);
 
+    // Lamp posts along the path (light up at night)
+    const LAMP_POSITIONS = [[3, 10], [7, 10], [11, 10], [15, 10]];
+    for (const [c, r] of LAMP_POSITIONS) {
+      const ent = IsoEntityManager.add(IsoEntityManager.createStatic(c, r,
+        (ctx, sx, sy, tick) => drawLampPost(ctx, sx, sy, tick)
+      ));
+      decorEntities.push(ent);
+    }
+
     // Startup camera animation: start at train station, pan to farm center
     IsoEngine.setZoom(1.8);
     const c = document.getElementById('canvas') || document.getElementById('isoCanvas') || document.getElementById('farm-canvas');
@@ -515,6 +524,119 @@ const IsoFarm = (() => {
 
     if (t >= 1) {
       startupAnim = null; // Animation complete
+    }
+  }
+
+  // ===== Auto-Pan idle camera tour =====
+
+  const AUTO_PAN_IDLE_THRESHOLD = 600; // ~10 seconds at 60fps before auto-pan starts
+  const AUTO_PAN_MOVE_DURATION = 180;  // ~3 seconds to glide between waypoints
+  const AUTO_PAN_PAUSE_DURATION = 240; // ~4 seconds pause at each waypoint
+
+  // Waypoints: key farm locations for the camera tour
+  const AUTO_PAN_WAYPOINTS = [
+    { col: 7,  row: 5,  label: 'crops' },      // Farm center (crop fields)
+    { col: 14, row: 7,  label: 'station' },     // Train station
+    { col: 10, row: 13, label: 'pasture' },     // Animal pasture
+    { col: 8,  row: 16, label: 'town' },        // Buildings/town
+    { col: 17, row: 2,  label: 'monument' },    // Monument (upper-right meadow)
+    { col: 3,  row: 10, label: 'toolshed' },    // Tool shed area
+  ];
+
+  let autoPanActive = false;
+  let autoPanIdleTicks = 0;
+  let autoPanWaypointIdx = 0;
+  let autoPanPhase = 'idle';   // 'idle' | 'moving' | 'pausing'
+  let autoPanProgress = 0;     // 0-1 progress through current phase
+  let autoPanStartX = 0, autoPanStartY = 0;
+  let autoPanEndX = 0, autoPanEndY = 0;
+
+  function resetAutoPan() {
+    autoPanActive = false;
+    autoPanIdleTicks = 0;
+    autoPanPhase = 'idle';
+    autoPanProgress = 0;
+  }
+
+  function interruptAutoPan() {
+    if (autoPanActive) {
+      autoPanActive = false;
+      autoPanPhase = 'idle';
+    }
+    autoPanIdleTicks = 0;
+  }
+
+  function updateAutoPan() {
+    // Don't run during startup animation or modal
+    if (startupAnim) return;
+    if (typeof IsoUI !== 'undefined' && IsoUI.isOpen()) return;
+
+    if (!autoPanActive) {
+      // Count idle ticks
+      autoPanIdleTicks++;
+      if (autoPanIdleTicks >= AUTO_PAN_IDLE_THRESHOLD) {
+        // Start auto-pan tour
+        autoPanActive = true;
+        autoPanPhase = 'pausing'; // Brief pause before first move
+        autoPanProgress = 0;
+        // Start from the waypoint nearest to current camera position
+        const cam = IsoEngine.getCameraState();
+        let bestDist = Infinity;
+        for (let i = 0; i < AUTO_PAN_WAYPOINTS.length; i++) {
+          const wp = AUTO_PAN_WAYPOINTS[i];
+          IsoEngine.centerOnTile(wp.col, wp.row);
+          const wpCam = IsoEngine.getCameraState();
+          const dx = wpCam.x - cam.x;
+          const dy = wpCam.y - cam.y;
+          const dist = dx * dx + dy * dy;
+          if (dist < bestDist) {
+            bestDist = dist;
+            autoPanWaypointIdx = i;
+          }
+        }
+        // Restore camera position
+        IsoEngine.setCamera(cam.x, cam.y);
+      }
+      return;
+    }
+
+    // Auto-pan is active — advance through waypoints
+    autoPanProgress++;
+
+    if (autoPanPhase === 'pausing') {
+      if (autoPanProgress >= AUTO_PAN_PAUSE_DURATION) {
+        // Move to next waypoint
+        autoPanPhase = 'moving';
+        autoPanProgress = 0;
+        autoPanWaypointIdx = (autoPanWaypointIdx + 1) % AUTO_PAN_WAYPOINTS.length;
+        // Save current camera as start
+        const cam = IsoEngine.getCameraState();
+        autoPanStartX = cam.x;
+        autoPanStartY = cam.y;
+        // Compute target by centering on waypoint tile, then reading camera state
+        const wp = AUTO_PAN_WAYPOINTS[autoPanWaypointIdx];
+        IsoEngine.centerOnTile(wp.col, wp.row);
+        const target = IsoEngine.getCameraState();
+        autoPanEndX = target.x;
+        autoPanEndY = target.y;
+        // Restore camera to start (smooth interpolation will move it)
+        IsoEngine.setCamera(autoPanStartX, autoPanStartY);
+      }
+    } else if (autoPanPhase === 'moving') {
+      const t = Math.min(1, autoPanProgress / AUTO_PAN_MOVE_DURATION);
+      // Smooth ease-in-out
+      const ease = t < 0.5
+        ? 2 * t * t
+        : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+      const cx = autoPanStartX + (autoPanEndX - autoPanStartX) * ease;
+      const cy = autoPanStartY + (autoPanEndY - autoPanStartY) * ease;
+      IsoEngine.setCamera(cx, cy);
+
+      if (t >= 1) {
+        autoPanPhase = 'pausing';
+        autoPanProgress = 0;
+      }
     }
   }
 
@@ -1031,6 +1153,55 @@ const IsoFarm = (() => {
     }
   }
 
+  // ===== Lamp post (lights up at night) =====
+
+  function drawLampPost(ctx, sx, sy, tick) {
+    const night = (typeof IsoWeather !== 'undefined') ? IsoWeather.isNight() || IsoWeather.isDusk() : false;
+
+    // Post
+    ctx.fillStyle = '#555';
+    ctx.fillRect(sx - 1, sy - 20, 2, 20);
+
+    // Lamp head
+    ctx.fillStyle = '#666';
+    ctx.fillRect(sx - 4, sy - 22, 8, 3);
+
+    if (night) {
+      // Warm glow
+      ctx.save();
+      const grad = ctx.createRadialGradient(sx, sy - 18, 2, sx, sy - 10, 28);
+      grad.addColorStop(0, 'rgba(255, 220, 100, 0.5)');
+      grad.addColorStop(0.4, 'rgba(255, 200, 80, 0.2)');
+      grad.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(sx, sy - 10, 28, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Bright bulb
+      ctx.fillStyle = '#FFDD66';
+      ctx.beginPath();
+      ctx.arc(sx, sy - 20, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Flicker
+      if (tick % 120 < 3) {
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.arc(sx, sy - 20, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    } else {
+      // Daytime: dull bulb
+      ctx.fillStyle = '#AAA';
+      ctx.beginPath();
+      ctx.arc(sx, sy - 20, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   // ===== Golden Bird (hidden visitor random event) =====
 
   let goldenBirdEntity = null;
@@ -1321,6 +1492,93 @@ const IsoFarm = (() => {
     if (vibe) {
       drawVibeIndicator(ctx, canvasW - 110, canvasH - 26, vibe);
     }
+
+    // Snapshot camera button (bottom-right, above vibe)
+    drawSnapshotButton(ctx, canvasW - 32, canvasH - 52, tick, canvasW, canvasH);
+  }
+
+  // ===== Snapshot button =====
+
+  let snapshotFlash = 0; // flash animation counter
+
+  function drawSnapshotButton(ctx, x, y, tick, canvasW, canvasH) {
+    // Track canvas size for hit testing
+    snapshotCanvasW = canvasW || 0;
+    snapshotCanvasH = canvasH || 0;
+
+    // Button background
+    ctx.fillStyle = snapshotFlash > 0 ? 'rgba(255, 255, 255, 0.9)' : 'rgba(20, 20, 40, 0.7)';
+    ctx.beginPath();
+    ctx.arc(x, y, 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Camera icon
+    ctx.fillStyle = snapshotFlash > 0 ? '#333' : '#FFF';
+    ctx.font = '12px monospace';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText('\u{1F4F7}', x, y);
+
+    if (snapshotFlash > 0) snapshotFlash--;
+  }
+
+  // Snapshot button hit test (called from handleFarmClick or separate handler)
+  let snapshotBtnX = 0, snapshotBtnY = 0, snapshotCanvasW = 0, snapshotCanvasH = 0;
+
+  function handleSnapshotClick(screenX, screenY, canvas) {
+    // Check if click is on the snapshot button (screen coords)
+    const btnX = (snapshotCanvasW || 900) - 32;
+    const btnY = (snapshotCanvasH || 700) - 52;
+    const dx = screenX - btnX;
+    const dy = screenY - btnY;
+    if (Math.sqrt(dx * dx + dy * dy) > 14) return false;
+
+    // Trigger snapshot
+    snapshotFlash = 15;
+    captureSnapshot(canvas);
+    return true;
+  }
+
+  function captureSnapshot(canvas) {
+    if (!canvas) {
+      canvas = document.getElementById('farm-canvas') || document.getElementById('canvas');
+    }
+    if (!canvas) return;
+
+    // Create a temporary canvas for the snapshot with watermark
+    const snap = document.createElement('canvas');
+    snap.width = canvas.width;
+    snap.height = canvas.height;
+    const sCtx = snap.getContext('2d');
+    sCtx.drawImage(canvas, 0, 0);
+
+    // Add watermark border
+    sCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    sCtx.fillRect(0, snap.height - 24, snap.width, 24);
+    sCtx.fillStyle = '#FFD700';
+    sCtx.font = 'bold 10px monospace';
+    sCtx.textBaseline = 'middle';
+    sCtx.textAlign = 'left';
+    sCtx.fillText('\u{1F33E} AIFarm — Claude Buddy', 8, snap.height - 12);
+
+    // Timestamp
+    const now = new Date();
+    const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    sCtx.textAlign = 'right';
+    sCtx.fillStyle = '#AAA';
+    sCtx.font = '9px monospace';
+    sCtx.fillText(ts, snap.width - 8, snap.height - 12);
+
+    // Download
+    const link = document.createElement('a');
+    link.download = `aifarm-snapshot-${Date.now()}.png`;
+    link.href = snap.toDataURL('image/png');
+    link.click();
+
+    // Farm log
+    if (typeof Farm !== 'undefined' && Farm.logEvent) {
+      Farm.logEvent('\u{1F4F7}', 'Farm snapshot saved!');
+    }
   }
 
   function drawEnergyBar(ctx, x, y, energy) {
@@ -1458,7 +1716,8 @@ const IsoFarm = (() => {
     MAP_W, MAP_H,
     FIELD, PASTURE_ZONE,
     PLOT_POSITIONS, BUILDING_POSITIONS, ANIMAL_HOMES,
-    init, syncState, syncBuddy, removeBuddy, drawHUD, handleFarmClick,
+    init, syncState, syncBuddy, removeBuddy, drawHUD, handleFarmClick, handleSnapshotClick,
     getBuddyEntity, getCropStage, updateStartupAnimation,
+    updateAutoPan, interruptAutoPan, resetAutoPan,
   };
 })();
