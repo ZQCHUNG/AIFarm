@@ -165,10 +165,7 @@
     if (typeof IsoUI !== 'undefined' && IsoUI.handleClick(grid.col, grid.row)) {
       return;
     }
-    const tile = IsoEngine.getTile(grid.col, grid.row);
-    if (tile) {
-      console.log(`[TopDown] Click: (${grid.col}, ${grid.row}) = ${tile}`);
-    }
+    // Tile click available for future interactions
   }
 
   // Keyboard handler

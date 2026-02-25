@@ -35,6 +35,9 @@ const IsoFarm = (() => {
   // Pasture zone (animals roam)
   const PASTURE_ZONE = { minCol: 1, maxCol: 18, minRow: 11, maxRow: 14 };
 
+  // Extension zone — reserved for future features (fishing pond, village expansion, etc.)
+  const EXTENSION_ZONE = { minCol: 12, maxCol: 19, minRow: 0, maxRow: 9 };
+
   // Animal home positions
   const ANIMAL_HOMES = {
     chicken: { col: 3,  row: 12 },
@@ -1714,7 +1717,7 @@ const IsoFarm = (() => {
 
   return {
     MAP_W, MAP_H,
-    FIELD, PASTURE_ZONE,
+    FIELD, PASTURE_ZONE, EXTENSION_ZONE,
     PLOT_POSITIONS, BUILDING_POSITIONS, ANIMAL_HOMES,
     init, syncState, syncBuddy, removeBuddy, drawHUD, handleFarmClick, handleSnapshotClick,
     getBuddyEntity, getCropStage, updateStartupAnimation,
