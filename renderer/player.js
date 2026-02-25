@@ -249,6 +249,12 @@ const Player = (() => {
         if (typeof IsoEngine !== 'undefined' && IsoEngine.drawIsoCharacter) {
           IsoEngine.drawIsoCharacter(ctx, sx, sy, direction, animFrame, PLAYER_COLOR, tick);
 
+          // Draw equipped accessories (hat, backpack)
+          if (typeof PlayerAccessories !== 'undefined') {
+            const bob = Math.sin(tick * 0.15 + animFrame) * 1.2;
+            PlayerAccessories.drawAccessories(ctx, sx, sy, direction, tick, bob);
+          }
+
           // Player indicator arrow above head
           ctx.save();
           const arrowColor = isSprinting ? '#FF6600' : '#FFD700';

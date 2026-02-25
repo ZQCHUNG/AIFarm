@@ -50,6 +50,16 @@
     ResourceInventory.setupListeners();
   }
 
+  // Initialize collection UI + listeners
+  if (typeof CollectionUI !== 'undefined') {
+    CollectionUI.setupListeners();
+  }
+
+  // Initialize player accessories event listeners
+  if (typeof PlayerAccessories !== 'undefined') {
+    PlayerAccessories.setupListeners();
+  }
+
   // Initialize resource popup sprites (fly-to-HUD on harvest)
   if (typeof IsoEffects !== 'undefined' && IsoEffects.setupResourceListeners) {
     IsoEffects.setupResourceListeners();
@@ -83,6 +93,10 @@
       // Check passive chunk unlock based on cumulative tokens
       if (state && state.energy && typeof ChunkManager !== 'undefined') {
         ChunkManager.checkPassiveUnlock(state.energy);
+      }
+      // Sync cumulative energy to landmark generator for rarity scaling
+      if (state && state.energy && typeof LandmarkGenerator !== 'undefined') {
+        LandmarkGenerator.setCumulativeEnergy(state.energy);
       }
     });
     window.buddy.onFarmEnergyTick((pts) => { /* could add flash animation */ });
@@ -223,10 +237,22 @@
         IsoFishing.handleAction();
       } else if (typeof IsoFishing !== 'undefined' && IsoFishing.isNearWater()) {
         IsoFishing.startFishing();
+      } else if (typeof LandmarkGenerator !== 'undefined' && LandmarkGenerator.getNearbyLandmark()) {
+        LandmarkGenerator.handleAction();
       } else if (typeof IsoFarm !== 'undefined' && IsoFarm.sellAllCrops) {
         IsoFarm.sellAllCrops(tick);
       }
       return; // prevent E from falling through to handleKey (which would close the shop)
+    }
+    // Collection UI (C key)
+    if (typeof CollectionUI !== 'undefined' && CollectionUI.isOpen()) {
+      if (CollectionUI.handleKey(e.key)) return;
+    }
+    if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.shiftKey) {
+      if (typeof CollectionUI !== 'undefined') {
+        CollectionUI.toggle();
+        return;
+      }
     }
     // Forward other keys to shop modal when open
     if (typeof ShopUI !== 'undefined' && ShopUI.isOpen()) {
@@ -351,7 +377,8 @@
 
     // Player control + camera follow (replaces manual arrow-key panning)
     const modalLock = (typeof IsoUI !== 'undefined' && IsoUI.isOpen())
-      || (typeof ShopUI !== 'undefined' && ShopUI.isOpen());
+      || (typeof ShopUI !== 'undefined' && ShopUI.isOpen())
+      || (typeof CollectionUI !== 'undefined' && CollectionUI.isOpen());
     if (typeof Player !== 'undefined') {
       // Initialize player once at farm center (col 9, row 7)
       if (!playerInited) {
@@ -419,6 +446,11 @@
     // Update fishing mini-game
     if (typeof IsoFishing !== 'undefined') {
       IsoFishing.update(tick);
+    }
+
+    // Update wilderness landmarks
+    if (typeof LandmarkGenerator !== 'undefined') {
+      LandmarkGenerator.update(tick);
     }
 
     // Update buddy AI (farming/tending behavior)
@@ -498,6 +530,16 @@
       IsoFishing.drawPrompt(ctx, canvas.width, canvas.height);
     }
 
+    // Wilderness landmark visuals + prompt
+    if (typeof LandmarkGenerator !== 'undefined') {
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.scale(IsoEngine.getZoom(), IsoEngine.getZoom());
+      LandmarkGenerator.draw(ctx, tick);
+      ctx.restore();
+      LandmarkGenerator.drawPrompt(ctx, canvas.width, canvas.height);
+    }
+
     // HUD (Harvest Moon style)
     IsoFarm.drawHUD(ctx, canvas.width, canvas.height, tick);
 
@@ -521,6 +563,12 @@
     if (typeof ShopUI !== 'undefined') {
       ShopUI.update();
       ShopUI.draw(ctx, canvas.width, canvas.height, tick);
+    }
+
+    // Collection UI modal overlay
+    if (typeof CollectionUI !== 'undefined') {
+      CollectionUI.update();
+      CollectionUI.draw(ctx, canvas.width, canvas.height, tick);
     }
   }
 

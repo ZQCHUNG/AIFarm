@@ -63,6 +63,7 @@ const IsoFarm = (() => {
     clock:    { col: 14, row: 15 },
     townhall: { col: 4,  row: 17 },
     statue:   { col: 15, row: 17 },
+    museum:   { col: 8,  row: 17 },
   };
 
   // Tree positions (decorative border)
@@ -1049,7 +1050,7 @@ const IsoFarm = (() => {
     for (const ent of buildingEntities) IsoEntityManager.remove(ent);
     buildingEntities = [];
 
-    const buildingTypes = ['well', 'barn', 'mill', 'windmill', 'workshop', 'market', 'clock', 'townhall', 'statue'];
+    const buildingTypes = ['well', 'barn', 'mill', 'windmill', 'workshop', 'market', 'clock', 'townhall', 'statue', 'museum'];
     for (const bld of buildingTypes) {
       if (!state.buildings[bld]) continue;
       const pos = BUILDING_POSITIONS[bld];
@@ -1104,6 +1105,7 @@ const IsoFarm = (() => {
     clock:    { w: 56,  h: 18 },
     townhall: { w: 140, h: 32 },
     statue:   { w: 56,  h: 18 },
+    museum:   { w: 120, h: 28 },
   };
 
   function drawBuildingShadow(ctx, sx, sy, type) {
@@ -1138,6 +1140,7 @@ const IsoFarm = (() => {
       case 'clock': drawClock(ctx, sx, sy, tick); break;
       case 'townhall': drawTownhall(ctx, sx, sy, tick); break;
       case 'statue': drawStatue(ctx, sx, sy, tick); break;
+      case 'museum': drawMuseum(ctx, sx, sy, tick); break;
     }
   }
 
@@ -1522,6 +1525,75 @@ const IsoFarm = (() => {
     if (sparkle === 2) {
       ctx.fillStyle = '#FFF8D0';
       ctx.fillRect(sx - 4, sy - 20, 2, 2);
+    }
+  }
+
+  // ===== Museum building =====
+
+  function drawMuseum(ctx, sx, sy, tick) {
+    // Stone foundation
+    ctx.fillStyle = '#8B8680';
+    ctx.fillRect(sx - 18, sy - 2, 36, 8);
+    // Main building body
+    ctx.fillStyle = '#D2C8B0';
+    ctx.fillRect(sx - 16, sy - 22, 32, 20);
+    // Roof (classical pediment triangle)
+    ctx.fillStyle = '#B04838';
+    ctx.beginPath();
+    ctx.moveTo(sx - 20, sy - 22);
+    ctx.lineTo(sx, sy - 34);
+    ctx.lineTo(sx + 20, sy - 22);
+    ctx.closePath();
+    ctx.fill();
+    // Roof outline
+    ctx.strokeStyle = '#8B3828';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(sx - 20, sy - 22);
+    ctx.lineTo(sx, sy - 34);
+    ctx.lineTo(sx + 20, sy - 22);
+    ctx.stroke();
+    // Columns (4)
+    ctx.fillStyle = '#E8E0D0';
+    for (let i = 0; i < 4; i++) {
+      const cx = sx - 12 + i * 8;
+      ctx.fillRect(cx - 1, sy - 20, 3, 18);
+    }
+    // Door
+    ctx.fillStyle = '#5A3A1A';
+    ctx.fillRect(sx - 4, sy - 12, 8, 10);
+    // Door handle
+    ctx.fillStyle = '#FFD700';
+    ctx.fillRect(sx + 2, sy - 8, 1, 1);
+    // Windows (2)
+    ctx.fillStyle = '#87CEEB';
+    ctx.fillRect(sx - 12, sy - 16, 5, 5);
+    ctx.fillRect(sx + 7, sy - 16, 5, 5);
+    // Window frames
+    ctx.strokeStyle = '#8B8680';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(sx - 12, sy - 16, 5, 5);
+    ctx.strokeRect(sx + 7, sy - 16, 5, 5);
+    // Museum sign
+    ctx.fillStyle = '#FFD700';
+    ctx.font = '5px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('MUSEUM', sx, sy + 8);
+    // Collection progress indicator
+    if (typeof CollectionUI !== 'undefined') {
+      const pct = CollectionUI.getCompletionPercent();
+      if (pct > 0) {
+        ctx.fillStyle = '#FFD700';
+        ctx.font = '6px monospace';
+        ctx.fillText(`${pct}%`, sx, sy - 26);
+      }
+    }
+    // Sparkle at top when collection > 50%
+    if (typeof CollectionUI !== 'undefined' && CollectionUI.getCompletionPercent() > 50) {
+      const sparkle = Math.sin(tick * 0.08) * 0.4 + 0.6;
+      ctx.fillStyle = `rgba(255, 215, 0, ${sparkle})`;
+      ctx.fillRect(sx - 1, sy - 36, 2, 2);
     }
   }
 

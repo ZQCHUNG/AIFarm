@@ -64,6 +64,7 @@ const BUILDINGS = [
   { id: 'workshop', unlock: 3000, w: 10, h: 8 },
   { id: 'market',   unlock: 3500, w: 12, h: 7 },
   { id: 'clock',    unlock: 5000, w: 8,  h: 14 },
+  { id: 'museum',   unlock: 5000, w: 12, h: 10 },
   { id: 'townhall', unlock: 7500, w: 16, h: 11 },
   { id: 'statue',   unlock: 10000,w: 5,  h: 8 },
 ];
