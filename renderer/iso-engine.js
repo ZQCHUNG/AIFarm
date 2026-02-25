@@ -270,6 +270,7 @@ const IsoEngine = (() => {
     if (!tileMap) return;
 
     ctx.save();
+    ctx.imageSmoothingEnabled = false;
     ctx.scale(camZoom, camZoom);
 
     const cullW = canvasW / camZoom;
@@ -886,6 +887,93 @@ const IsoEngine = (() => {
     }
   }
 
+  // ===== Particle System (harvest effects) =====
+
+  const particles = [];
+  const MAX_PARTICLES = 200;
+
+  function spawnHarvestParticles(col, row, color, count) {
+    const { x, y } = gridToScreen(col, row);
+    const cx = x + TILE_W / 2;
+    const cy = y + TILE_H / 2;
+    const n = Math.min(count || 12, MAX_PARTICLES - particles.length);
+    for (let i = 0; i < n; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.5 + Math.random() * 2;
+      const size = 2 + Math.random() * 3;
+      particles.push({
+        x: cx + (Math.random() - 0.5) * 10,
+        y: cy - Math.random() * 8,
+        vx: Math.cos(angle) * speed,
+        vy: -1.5 - Math.random() * 2.5,
+        size,
+        color,
+        alpha: 1,
+        life: 40 + Math.random() * 30,
+        age: 0,
+        type: Math.random() < 0.3 ? 'star' : 'square',
+      });
+    }
+  }
+
+  function updateParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.age++;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.04; // gravity
+      p.vx *= 0.98; // friction
+      p.alpha = Math.max(0, 1 - p.age / p.life);
+      if (p.age >= p.life) {
+        particles.splice(i, 1);
+      }
+    }
+  }
+
+  function drawParticles(ctx) {
+    for (const p of particles) {
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = p.color;
+      if (p.type === 'star') {
+        // Small star shape
+        const s = p.size * 0.7;
+        ctx.fillRect(p.x - s / 2, p.y - s, s, s * 2);
+        ctx.fillRect(p.x - s, p.y - s / 2, s * 2, s);
+      } else {
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Draw mature crop golden aura (call after crop entity rendering)
+  function drawMatureGlow(ctx, sx, sy, tick, color) {
+    const pulse = 0.15 + Math.sin(tick * 0.08) * 0.1;
+    const radius = 14 + Math.sin(tick * 0.06) * 3;
+
+    // Soft golden glow
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy - 8, radius, radius * 0.7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Tiny sparkle dots orbiting
+    const sparkleCount = 3;
+    for (let i = 0; i < sparkleCount; i++) {
+      const angle = tick * 0.04 + i * (Math.PI * 2 / sparkleCount);
+      const sparkleR = radius + 2;
+      const spx = sx + Math.cos(angle) * sparkleR;
+      const spy = sy - 8 + Math.sin(angle) * sparkleR * 0.6;
+      const sparkleAlpha = 0.4 + Math.sin(tick * 0.15 + i * 2) * 0.3;
+      ctx.fillStyle = `rgba(255, 215, 0, ${sparkleAlpha})`;
+      ctx.fillRect(Math.round(spx) - 1, Math.round(spy) - 1, 2, 2);
+    }
+  }
+
   return {
     TILE_W, TILE_H,
     TILE_TYPES, TILE_GROUPS,
@@ -902,5 +990,7 @@ const IsoEngine = (() => {
     drawIsoTree, drawIsoCharacter, drawIsoCrop,
     drawAnimal, drawFencePost,
     setHoverTile, getHoverTile,
+    spawnHarvestParticles, updateParticles, drawParticles,
+    drawMatureGlow,
   };
 })();

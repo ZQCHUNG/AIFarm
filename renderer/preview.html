@@ -114,6 +114,18 @@
       IsoFarm.syncBuddy(b.id, b.project, b.colorIndex, 'working');
     }
 
+    // Demo: periodic harvest particle bursts for testing
+    setInterval(() => {
+      const plotIdx = Math.floor(Math.random() * IsoFarm.PLOT_POSITIONS.length);
+      const pos = IsoFarm.PLOT_POSITIONS[plotIdx];
+      const cropColors = ['#FF8C00', '#FFD700', '#2E8B57', '#FF4444', '#F0E68C', '#FF7518'];
+      const color = cropColors[Math.floor(Math.random() * cropColors.length)];
+      for (let tc = 0; tc < (pos.width || 1); tc++) {
+        IsoEngine.spawnHarvestParticles(pos.col + tc, pos.row, color, 8);
+        IsoEngine.spawnHarvestParticles(pos.col + tc, pos.row, '#FFD700', 4);
+      }
+    }, 3000);
+
     // Camera state for mouse interaction
     let hoverCol = -1, hoverRow = -1;
 
@@ -175,8 +187,18 @@
         IsoWeather.update(farmTick, baseW, baseH);
       }
 
+      // Update + render particles
+      IsoEngine.updateParticles();
+
       // Render map + entities
       IsoEngine.drawMap(fCtx, baseW, baseH, farmTick);
+
+      // Draw particles (in zoomed space)
+      fCtx.save();
+      fCtx.imageSmoothingEnabled = false;
+      fCtx.scale(IsoEngine.getZoom(), IsoEngine.getZoom());
+      IsoEngine.drawParticles(fCtx);
+      fCtx.restore();
 
       // Weather overlay
       if (typeof IsoWeather !== 'undefined') {

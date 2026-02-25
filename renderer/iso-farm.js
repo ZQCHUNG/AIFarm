@@ -6,6 +6,7 @@ const IsoFarm = (() => {
   const MAP_H = 18;
   let initialized = false;
   let lastStateHash = '';
+  let prevPlotStates = []; // Track previous crop states for harvest detection
 
   // ===== Grid layout (Harvest Moon style) =====
   //
@@ -217,6 +218,18 @@ const IsoFarm = (() => {
       const pos = PLOT_POSITIONS[i];
       const plotWidth = pos.width || 1;
 
+      // Detect harvest: previous stage was 4 (mature) and now reset to lower stage
+      const prev = prevPlotStates[i];
+      if (prev && prev.stage === 4 && plot.stage < prev.stage) {
+        const harvestColor = CROP_COLORS[prev.crop] || '#FFD700';
+        // Spawn particles at each tile of the plot row
+        for (let tc = 0; tc < plotWidth; tc++) {
+          IsoEngine.spawnHarvestParticles(pos.col + tc, pos.row, harvestColor, 8);
+          // Also spawn golden sparkles
+          IsoEngine.spawnHarvestParticles(pos.col + tc, pos.row, '#FFD700', 4);
+        }
+      }
+
       // Check if plot is unlocked
       let unlocked = false;
       if (i < 3) unlocked = energy >= 50;
@@ -239,9 +252,14 @@ const IsoFarm = (() => {
         if (plot.crop && plot.stage > 0) {
           const cropType = plot.crop;
           const stage = plot.stage;
+          const isMature = stage >= 4;
           const cropSpriteId = `crop_${cropType}`;
           const ent = IsoEntityManager.add(IsoEntityManager.createStatic(tileCol, tileRow,
             (ctx, sx, sy, tick) => {
+              // Mature glow aura (drawn BEHIND the crop)
+              if (isMature) {
+                IsoEngine.drawMatureGlow(ctx, sx, sy, tick, CROP_COLORS[cropType]);
+              }
               if (typeof SpriteManager !== 'undefined' && SpriteManager.has(cropSpriteId)) {
                 SpriteManager.drawStatic(ctx, cropSpriteId, sx, sy, Math.min(stage - 1, 3));
               } else {
@@ -254,6 +272,9 @@ const IsoFarm = (() => {
         }
       }
     }
+
+    // Save current state for next harvest detection
+    prevPlotStates = state.plots.map(p => ({ crop: p.crop, stage: p.stage }));
   }
 
   function syncAnimals(state) {

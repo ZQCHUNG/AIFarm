@@ -280,8 +280,18 @@
       IsoWeather.update(tick, canvas.width, canvas.height);
     }
 
+    // Update particles
+    IsoEngine.updateParticles();
+
     // Render tile map + entities
     IsoEngine.drawMap(ctx, canvas.width, canvas.height, tick);
+
+    // Draw particles (in zoomed space)
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.scale(IsoEngine.getZoom(), IsoEngine.getZoom());
+    IsoEngine.drawParticles(ctx);
+    ctx.restore();
 
     // Weather overlay
     if (typeof IsoWeather !== 'undefined') {
