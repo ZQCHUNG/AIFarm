@@ -220,34 +220,50 @@ const BuddyAI = (() => {
 
     // Walking animation frame
     ent.frame = ((tick / 8) | 0) % 4;
+
+    // Dust puffs at feet while walking
+    if (tick % 12 === 0 && typeof IsoEngine !== 'undefined') {
+      IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY + 0.1, '#C8B896', 1);
+    }
   }
 
   function updateFarming(ai, ent, tick) {
     ai.actionTimer--;
 
-    // Bounce animation (simulating watering motion)
+    // Watering bob animation
     const bounce = Math.sin(tick * 0.15 + ai.bobPhase) * 2;
     ent.z = Math.max(0, bounce);
 
-    // Periodic water particles
-    if (ai.actionTimer % 30 === 0 && typeof IsoEngine !== 'undefined') {
-      IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, '#4FC3F7', 3); // water blue
+    // Water drop particles — spray forward from hand position
+    if (ai.actionTimer % 15 === 0 && typeof IsoEngine !== 'undefined') {
+      const dropX = ent.gridX + (Math.random() - 0.5) * 0.6;
+      const dropY = ent.gridY + 0.3 + Math.random() * 0.3;
+      IsoEngine.spawnHarvestParticles(dropX, dropY, '#4FC3F7', 2);
+      IsoEngine.spawnHarvestParticles(dropX, dropY, '#81D4FA', 1);
     }
 
-    // Face the crop (look down toward plot)
+    // Floating water icon every 40 ticks
+    if (ai.actionTimer % 40 === 0 && typeof IsoEffects !== 'undefined') {
+      IsoEffects.spawnText(ent.gridX + (Math.random() - 0.5) * 0.4,
+        ent.gridY - 0.3, '\u{1F4A7}', { color: '#4FC3F7', life: 40, rise: 0.8 });
+    }
+
+    // Face the crop
     ent.direction = 'down';
     ent.frame = ((tick / 10) | 0) % 2;
 
     if (ai.actionTimer <= 0) {
       ent.z = 0;
-      // Release plot claim
       if (ai.claimedPlotKey) {
         claimedPlots.delete(ai.claimedPlotKey);
         ai.claimedPlotKey = null;
       }
-      // Spawn completion effect
+      // Completion burst
       if (typeof IsoEffects !== 'undefined') {
-        IsoEffects.spawnText(ent.gridX, ent.gridY, '\u{1F4A7}', { color: '#4FC3F7', size: 14 });
+        IsoEffects.spawnText(ent.gridX, ent.gridY - 0.5, '\u{2714}\u{FE0F}', { color: '#4CAF50', life: 60 });
+      }
+      if (typeof IsoEngine !== 'undefined') {
+        IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, '#4FC3F7', 8);
       }
       ai.state = STATE.IDLE;
       ai.idleTimer = IDLE_LINGER;
@@ -257,21 +273,34 @@ const BuddyAI = (() => {
   function updateTending(ai, ent, tick) {
     ai.actionTimer--;
 
-    // Gentle bounce (feeding motion)
+    // Feeding bob animation
     const bounce = Math.sin(tick * 0.12 + ai.bobPhase) * 1.5;
     ent.z = Math.max(0, bounce);
 
-    // Periodic feed particles
-    if (ai.actionTimer % 40 === 0 && typeof IsoEngine !== 'undefined') {
-      IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, '#FFD54F', 2); // feed gold
+    // Feed scatter particles
+    if (ai.actionTimer % 20 === 0 && typeof IsoEngine !== 'undefined') {
+      const scatterX = ent.gridX + (Math.random() - 0.5) * 0.8;
+      const scatterY = ent.gridY + Math.random() * 0.4;
+      IsoEngine.spawnHarvestParticles(scatterX, scatterY, '#FFD54F', 2);
+      IsoEngine.spawnHarvestParticles(scatterX, scatterY, '#FFF176', 1);
+    }
+
+    // Floating hearts every 35 ticks
+    if (ai.actionTimer % 35 === 0 && typeof IsoEffects !== 'undefined') {
+      IsoEffects.spawnText(ent.gridX + (Math.random() - 0.5) * 0.5,
+        ent.gridY - 0.4, '\u{2764}\u{FE0F}', { color: '#E91E63', life: 50, rise: 0.7 });
     }
 
     ent.frame = ((tick / 12) | 0) % 2;
 
     if (ai.actionTimer <= 0) {
       ent.z = 0;
+      // Completion burst
       if (typeof IsoEffects !== 'undefined') {
-        IsoEffects.spawnText(ent.gridX, ent.gridY, '\u{1F33E}', { color: '#8BC34A', size: 14 });
+        IsoEffects.spawnText(ent.gridX, ent.gridY - 0.5, '\u{1F33E}', { color: '#8BC34A', life: 60 });
+      }
+      if (typeof IsoEngine !== 'undefined') {
+        IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, '#FFD54F', 8);
       }
       ai.state = STATE.IDLE;
       ai.idleTimer = IDLE_LINGER;
@@ -300,14 +329,16 @@ const BuddyAI = (() => {
   function spawnActionEffect(ent, type) {
     if (typeof IsoEffects !== 'undefined') {
       if (type === 'water') {
-        IsoEffects.spawnText(ent.gridX, ent.gridY - 0.5, '\u{1F4A6}', { color: '#4FC3F7', size: 16 });
+        IsoEffects.spawnText(ent.gridX, ent.gridY - 0.6, '\u{1F4A6}', { color: '#4FC3F7', life: 50, rise: 0.9 });
       } else if (type === 'feed') {
-        IsoEffects.spawnText(ent.gridX, ent.gridY - 0.5, '\u{1F331}', { color: '#8BC34A', size: 16 });
+        IsoEffects.spawnText(ent.gridX, ent.gridY - 0.6, '\u{1F331}', { color: '#8BC34A', life: 50, rise: 0.9 });
       }
     }
     if (typeof IsoEngine !== 'undefined') {
       const color = type === 'water' ? '#4FC3F7' : '#FFD54F';
-      IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, color, 6);
+      IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, color, 8);
+      // Extra burst to make arrival visible
+      IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, '#FFFFFF', 3);
     }
   }
 
