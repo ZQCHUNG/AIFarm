@@ -347,6 +347,11 @@
       canvas.style.width = w + 'px';
       canvas.style.height = h + 'px';
       Viewport.setViewportWidth(w);
+      // Scale zoom proportionally to canvas height (baseline: 351px → 1.8x)
+      if (viewMode === 'iso' && typeof IsoEngine !== 'undefined') {
+        const baseZoom = 1.8 * (h / 351);
+        IsoEngine.setZoom(Math.max(1.0, Math.min(3.0, baseZoom)));
+      }
     });
 
     canvas.addEventListener('mousemove', (e) => {

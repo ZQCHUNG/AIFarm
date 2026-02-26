@@ -259,10 +259,13 @@ const IsoFarm = (() => {
 
     // Startup camera animation: start at train station, pan to farm center
     // Skip animation if tutorial is already complete (returning player)
-    IsoEngine.setZoom(1.8);
+    // Scale zoom proportionally to canvas height so the visible world area
+    // stays consistent across screen sizes. Baseline: 351px → zoom 1.8
     const c = document.getElementById('canvas') || document.getElementById('isoCanvas') || document.getElementById('farm-canvas');
     const cw = c ? c.width : 660;
     const ch = c ? c.height : 500;
+    const baseZoom = 1.8 * (ch / 351);
+    IsoEngine.setZoom(Math.max(1.0, Math.min(3.0, baseZoom)));
 
     const tutDone = typeof TutorialManager !== 'undefined' && TutorialManager.isComplete();
     if (tutDone) {
