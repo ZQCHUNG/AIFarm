@@ -87,6 +87,14 @@ function ensureWindow() {
 
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.setIgnoreMouseEvents(true, { forward: true });
+
+  // Intercept close — hide instead of destroy (so tray can re-show)
+  win.on('close', (e) => {
+    if (!app.isQuitting) {
+      e.preventDefault();
+      win.hide();
+    }
+  });
 }
 
 function resizeWindow(numBuddies) {
@@ -103,6 +111,22 @@ function resizeWindow(numBuddies) {
 
   // Tell renderer about new canvas size
   win.webContents.send('resize-canvas', newW, winH);
+}
+
+// ---------- Toggle window visibility ----------
+
+function toggleWindow() {
+  if (!win || win.isDestroyed()) return;
+  if (win.isVisible()) {
+    hiddenBounds = win.getBounds();
+    win.hide();
+  } else {
+    if (hiddenBounds) {
+      win.setBounds(hiddenBounds);
+    }
+    win.show();
+    win.setAlwaysOnTop(true);
+  }
 }
 
 // ---------- Session management ----------
@@ -248,14 +272,14 @@ function createTray() {
       { label: `Active: ${buddies.size} buddies`, enabled: false },
       ...items,
       { type: 'separator' },
-      { label: 'Show / Hide', click: () => { if (win) win.isVisible() ? win.hide() : win.show(); } },
+      { label: 'Show / Hide', click: () => toggleWindow() },
       { type: 'separator' },
       { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } },
     ]);
   };
   setInterval(() => tray.setContextMenu(buildMenu()), 5000);
   tray.setContextMenu(buildMenu());
-  tray.on('click', () => { if (win) win.isVisible() ? win.hide() : win.show(); });
+  tray.on('click', () => toggleWindow());
 }
 
 // ---------- Fullscreen toggle (F11) ----------
@@ -314,6 +338,7 @@ ipcMain.on('capture-to-file', async (e, filePath) => {
 });
 
 let isIgnoring = true; // tracks current ignore state to prevent jitter
+let hiddenBounds = null; // saved bounds before hide, restored on show
 ipcMain.on('set-ignore-mouse', (e, ignore) => {
   if (isIgnoring === ignore) return; // state unchanged — skip to prevent flicker
   isIgnoring = ignore;
