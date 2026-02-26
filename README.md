@@ -150,6 +150,18 @@ Web Audio API 合成 8-bit 音效：UI 點擊、收穫彈出、錯誤蜂鳴、�
 ### UGC 資產匯入
 自動監控 `renderer/assets/custom/` 資料夾。PNG 檔名慣例自動解析精靈圖元資料（如 `character-ninja_32x32_4f.png`），即時註冊到 AssetManager 供遊戲使用。
 
+### 動態浮動經濟
+- **均值回歸價格模型**：每 10 秒基於 Ornstein-Uhlenbeck 過程更新物價（±20% 波動）
+- **牛市事件**：Webhook 觸發 `bull_market` → 全品收購價 +50%，持續 10 分鐘
+- **行情看板**：村莊廣場的交易行情板，紅/綠箭頭顯示各作物漲跌趨勢
+
+### 遊戲手把支援
+HTML5 Gamepad API 完整整合：
+- 左搖桿 / D-Pad：8 方向移動
+- A 鍵：互動 [E]、B 鍵：取消 [ESC]、X 鍵：收藏 [C]、Y 鍵：委託 [Q]
+- RT / R2：衝刺、Start：交易
+- 自動偵測手把輸入，切換 UI 提示圖示
+
 ## 操作方式
 
 | 輸入 | 動作 |
@@ -208,6 +220,7 @@ Web Audio API 合成 8-bit 音效：UI 點擊、收穫彈出、錯誤蜂鳴、�
 | 24 | 建築師覺醒 | 漸進式建造系統（8 藍圖 + 4 階段視覺）、AI Builder NPC（錘子動畫 + 木屑火花粒子） |
 | 25 | 多人基建與引擎優化 | SQLite 狀態儲存遷移、動態資源管理器、WebSocket 多人連線原型 |
 | 26 | 神諭與市集 | HTTP Webhook API（外部事件觸發視覺效果）、玩家對玩家交易系統、UGC 資產匯入器 |
+| 27 | 華爾街農場 | 動態浮動經濟系統（均值回歸 ±20%）、遊戲手把支援（Gamepad API）、記憶體優化掃除 |
 
 ### 待辦（路線圖）
 
@@ -280,6 +293,8 @@ claude-buddy/
     network-client.js  # WebSocket 多人連線客戶端
     oracle-effects.js  # Webhook 神諭視覺效果（金雨、水晶、公告）
     trade-ui.js        # 玩家對玩家交易 UI（木框面板、資源交換）
+    market-economy.js  # 動態浮動經濟系統（均值回歸定價、牛市事件、行情板）
+    gamepad-input.js   # HTML5 Gamepad API 手把輸入整合
     farm.js            # 渲染端共享農場狀態
     sprite-manager.js  # PNG 精靈圖載入與程序化回退
     character.js       # 8 色帽 T 角色精靈圖
