@@ -47,6 +47,7 @@ const IsoEngine = (() => {
     sand:     { top: '#E8D89C', border: '#D0C488', dark: '#C8BC80' },
     path:     { top: '#D8C8A0', border: '#C0B088', dark: '#B8A880' },
     fence:    { top: '#C8A060', border: '#A88040', dark: '#906830' },
+    tree:     { top: '#6EBF4E', border: '#5AAE3D', dark: '#5BA83E' },  // grass base (tree drawn on top)
     mountain: { top: '#6B5B4B', border: '#5A4A3A', dark: '#4A3A2A' },
     empty:    { top: null, border: null, dark: null },
   };
@@ -195,7 +196,7 @@ const IsoEngine = (() => {
   const TILE_GROUPS = {
     grass: 'land', darkgrass: 'land', dirt: 'land', soil: 'farm',
     soilwet: 'farm', sand: 'land', path: 'land', stone: 'land',
-    fence: 'land', mountain: 'mountain', water: 'water', empty: 'void',
+    fence: 'land', tree: 'land', mountain: 'mountain', water: 'water', empty: 'void',
   };
 
   function getTileBitmask(col, row) {
@@ -640,6 +641,10 @@ const IsoEngine = (() => {
         drawTile(ctx, item.x, item.y, tileType, tick);
         drawSoilDetail(ctx, item.x, item.y, tileType, tick);
         drawTileTransitions(ctx, item.x, item.y, item.col, item.row);
+        // Tree tiles: draw visible tree sprite on top of grass base
+        if (tileType === 'tree') {
+          drawIsoTree(ctx, item.x + TILE_W / 2, item.y + TILE_H / 2, tick);
+        }
         // Impassable tile indicator: subtle diagonal stripes
         if (tileType === 'mountain' || tileType === 'empty') {
           ctx.save();

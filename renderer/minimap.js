@@ -29,6 +29,7 @@ const Minimap = (() => {
     sand:      '#E8D8A0',
     water:     '#4A90D9',
     fence:     '#6B4226',
+    tree:      '#2D7A1E',
     mountain:  '#7A7A78',
   };
 

@@ -56,7 +56,7 @@ const Player = (() => {
 
   // Solid tile types (null/undefined are NOT solid — the fence perimeter
   // and ChunkManager's 'mountain' out-of-world-bounds handle boundaries)
-  const SOLID_TILES = new Set(['water', 'fence', 'mountain', 'empty']);
+  const SOLID_TILES = new Set(['water', 'fence', 'tree', 'mountain', 'empty']);
 
   // ===== Public API =====
 

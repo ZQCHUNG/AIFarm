@@ -104,16 +104,16 @@ const ChunkManager = (() => {
             }
           }
 
-          // Trees (fence tiles) based on biome tree density
+          // Trees based on biome tree density
           if (biome.treeDensity > 0 && h2 < biome.treeDensity) {
             // Don't place trees on path tiles
             if (tile !== 'path' && tile !== 'water') {
-              tile = 'fence';
+              tile = 'tree';
             }
           }
 
           // Water patches based on biome water chance
-          if (biome.waterChance > 0 && h2 > (1 - biome.waterChance) && tile !== 'fence') {
+          if (biome.waterChance > 0 && h2 > (1 - biome.waterChance) && tile !== 'tree') {
             tile = 'water';
           }
         } else {
