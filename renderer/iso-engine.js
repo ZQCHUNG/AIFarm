@@ -376,6 +376,50 @@ const IsoEngine = (() => {
       return;
     }
 
+    // Stone: cobblestone ground with visible stone pattern
+    if (type === 'stone') {
+      // Dark mortar base
+      ctx.fillStyle = '#706058';
+      ctx.fillRect(sx, sy, TILE_W, TILE_H);
+
+      // Deterministic seed from position
+      const seed = (Math.abs(Math.round(sx) * 37 + Math.round(sy) * 53)) % 1000;
+
+      // Cobblestones — 6 rounded rectangles in a brick-like pattern
+      const rows = [
+        // Row 1: two stones
+        { x: 1, y: 1, w: 14, h: 9 },
+        { x: 17, y: 1, w: 14, h: 9 },
+        // Row 2: two stones (offset half brick)
+        { x: 1, y: 12, w: 9, h: 9 },
+        { x: 12, y: 12, w: 9, h: 9 },
+        { x: 23, y: 12, w: 8, h: 9 },
+        // Row 3: two stones
+        { x: 1, y: 23, w: 14, h: 8 },
+        { x: 17, y: 23, w: 14, h: 8 },
+      ];
+
+      const colors = ['#C0B8B0', '#B0A898', '#C8C0B0', '#A8A090', '#B8B0A0', '#BCAC9C', '#C4B4A4'];
+
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const ci = (seed + i * 31) % colors.length;
+        // Stone face
+        ctx.fillStyle = colors[ci];
+        ctx.fillRect(sx + r.x, sy + r.y, r.w, r.h);
+        // Top-left highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillRect(sx + r.x, sy + r.y, r.w, 2);
+        ctx.fillRect(sx + r.x, sy + r.y, 2, r.h);
+        // Bottom-right shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(sx + r.x, sy + r.y + r.h - 1, r.w, 1);
+        ctx.fillRect(sx + r.x + r.w - 1, sy + r.y, 1, r.h);
+      }
+
+      return;
+    }
+
     // Water shimmer (for other animated tiles)
     if (def.animated && tick) {
       const shimmer = Math.sin(tick * 0.06 + sx * 0.03 + sy * 0.02) * 12;
