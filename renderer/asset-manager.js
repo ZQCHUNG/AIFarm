@@ -158,10 +158,14 @@ const AssetManager = (() => {
       asset.retries++;
       if (asset.retries < 3) {
         asset.status = STATUS.PENDING;
-        // Retry after delay
-        setTimeout(() => request(id), 1000 * asset.retries);
+        // Retry after delay — track handle for cleanup
+        asset.retryTimeout = setTimeout(() => {
+          asset.retryTimeout = null;
+          request(id);
+        }, 1000 * asset.retries);
       } else {
         asset.status = STATUS.FAILED;
+        if (asset.retryTimeout) { clearTimeout(asset.retryTimeout); asset.retryTimeout = null; }
         console.warn(`[AssetManager] Failed to load ${id} after 3 retries`);
       }
     }
@@ -249,6 +253,19 @@ const AssetManager = (() => {
     return { total: assets.size, pending, loading: loading_, loaded, failed };
   }
 
+  /** Remove failed assets from registry to free memory. */
+  function cleanupFailed() {
+    const failed = [];
+    for (const [id, asset] of assets) {
+      if (asset.status === STATUS.FAILED) {
+        if (asset.retryTimeout) { clearTimeout(asset.retryTimeout); asset.retryTimeout = null; }
+        failed.push(id);
+      }
+    }
+    for (const id of failed) assets.delete(id);
+    return failed.length;
+  }
+
   // ===== Init =====
 
   function init(config) {
@@ -278,5 +295,6 @@ const AssetManager = (() => {
     importSpriteConfig,
     getStatus,
     getStats,
+    cleanupFailed,
   };
 })();

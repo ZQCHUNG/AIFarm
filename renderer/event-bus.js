@@ -16,6 +16,13 @@ const EventBus = (() => {
       listeners.get(event).push(fn);
     },
 
+    /** Register listener only if not already registered (prevents duplicate listeners on reinit). */
+    once_unique(event, fn) {
+      if (!listeners.has(event)) listeners.set(event, []);
+      const fns = listeners.get(event);
+      if (fns.indexOf(fn) === -1) fns.push(fn);
+    },
+
     off(event, fn) {
       const fns = listeners.get(event);
       if (!fns) return;

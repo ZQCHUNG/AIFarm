@@ -34,6 +34,10 @@ const OracleEffects = (() => {
       case 'announcement':
         showAnnouncement(event.message, event.data);
         break;
+      case 'bull_market':
+        // Forward to MarketEconomy (handled via EventBus)
+        showAnnouncement(event.message || 'Bull Market! All prices +50%!', { color: '#00E676' });
+        break;
       default:
         // Generic event — show announcement
         showAnnouncement(event.message || `Event: ${event.event}`, {});

@@ -74,9 +74,12 @@ const ResourceInventory = (() => {
     return (inventory[resource] || 0) >= amount;
   }
 
-  /** Sell a resource for GOLD via the shipping bin. */
+  /** Sell a resource for GOLD via the shipping bin. Uses dynamic market pricing if available. */
   function sell(resource, quantity) {
-    const price = SELL_PRICES[resource];
+    // Use dynamic market price if MarketEconomy is loaded, otherwise static
+    const price = (typeof MarketEconomy !== 'undefined')
+      ? MarketEconomy.getSellPrice(resource)
+      : SELL_PRICES[resource];
     if (!price) return false;
     const qty = quantity || 1;
     if (!spend(resource, qty)) return false;

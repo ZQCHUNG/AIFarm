@@ -378,6 +378,12 @@ const ChunkManager = (() => {
         const homeCX = Math.floor(homeOffsetCol / CHUNK_SIZE);
         const homeCY = Math.floor(homeOffsetRow / CHUNK_SIZE);
         if (Math.abs(cx - homeCX) <= 1 && Math.abs(cy - homeCY) <= 1) continue;
+        // Explicitly clear tile data to help GC
+        const chunk = chunks.get(key);
+        if (chunk && chunk.tiles) {
+          chunk.tiles.length = 0;
+          chunk.tiles = null;
+        }
         chunks.delete(key);
       }
     }

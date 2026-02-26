@@ -85,6 +85,16 @@
     TradeUI.setupListeners();
   }
 
+  // Initialize market economy (dynamic pricing + oracle bull market)
+  if (typeof MarketEconomy !== 'undefined') {
+    MarketEconomy.setupListeners();
+  }
+
+  // Initialize gamepad input
+  if (typeof GamepadInput !== 'undefined') {
+    GamepadInput.init();
+  }
+
   // Initialize player accessories event listeners
   if (typeof PlayerAccessories !== 'undefined') {
     PlayerAccessories.setupListeners();
@@ -337,6 +347,8 @@
   const keys = {};
   document.addEventListener('keydown', (e) => {
     keys[e.key] = true;
+    // Switch to keyboard mode when typing
+    if (typeof GamepadInput !== 'undefined') GamepadInput.onKeyboardInput();
     // Unlock audio on first user interaction
     if (typeof AudioManager !== 'undefined') AudioManager.unlock();
     // Shop/sell action (E key) — scene manager takes priority, then shop
@@ -555,6 +567,22 @@
       SceneManager.update(tick);
     }
 
+    // Poll gamepad and merge virtual keys
+    if (typeof GamepadInput !== 'undefined') {
+      GamepadInput.poll();
+      const gpKeys = GamepadInput.getKeys();
+      for (const k of Object.keys(gpKeys)) {
+        if (gpKeys[k]) keys[k] = true;
+      }
+      // Process gamepad button presses as keyboard events
+      const presses = GamepadInput.popPresses();
+      for (const key of presses) {
+        // Simulate keydown dispatch for menu/modal handling
+        const fakeEvent = { key, ctrlKey: false, shiftKey: false, preventDefault: () => {} };
+        document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      }
+    }
+
     // Player control + camera follow (replaces manual arrow-key panning)
     const sceneLock = (typeof SceneManager !== 'undefined' && SceneManager.isInputLocked());
     const modalLock = (typeof IsoUI !== 'undefined' && IsoUI.isOpen())
@@ -688,6 +716,11 @@
       // Update oracle effects (gold rain, announcements)
       if (typeof OracleEffects !== 'undefined') {
         OracleEffects.update(tick);
+      }
+
+      // Update market economy (price fluctuation)
+      if (typeof MarketEconomy !== 'undefined') {
+        MarketEconomy.update(tick);
       }
 
       // Update network client (ghost player interpolation)
@@ -846,6 +879,15 @@
         NetworkClient.draw(ctx, tick);
       }
 
+      // Market ticker board (in zoomed space)
+      if (typeof MarketEconomy !== 'undefined') {
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.scale(IsoEngine.getZoom(), IsoEngine.getZoom());
+        MarketEconomy.draw(ctx, tick);
+        ctx.restore();
+      }
+
       // Oracle effects overlay (gold rain tint, announcement banner, crystal HUD)
       if (typeof OracleEffects !== 'undefined') {
         OracleEffects.draw(ctx, canvas.width, canvas.height);
@@ -922,6 +964,14 @@
     // Milestone snapshot theater (cinematic bars, on top of everything)
     if (typeof SnapshotV2 !== 'undefined') {
       SnapshotV2.drawTheater(ctx, canvas.width, canvas.height, tick);
+    }
+
+    // Clear gamepad-injected keys after frame (they're re-polled next frame)
+    if (typeof GamepadInput !== 'undefined') {
+      const gpKeys = GamepadInput.getKeys();
+      for (const k of Object.keys(gpKeys)) {
+        delete keys[k];
+      }
     }
   }
 
