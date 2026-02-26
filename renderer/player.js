@@ -116,8 +116,9 @@ const Player = (() => {
 
     // ===== Stamina management =====
     sprinting = state === STATE.SPRINT;
+    const staminaMod = (typeof CookingSystem !== 'undefined') ? CookingSystem.getStaminaMod() : 1.0;
     if (sprinting) {
-      stamina = Math.max(0, stamina - STAMINA_DRAIN);
+      stamina = Math.max(0, stamina - STAMINA_DRAIN * staminaMod);
       recoveryTimer = 0;
       if (stamina <= 0) {
         state = STATE.EXHAUSTED;
@@ -131,10 +132,11 @@ const Player = (() => {
     }
 
     // ===== Speed cap based on state =====
+    const speedMod = (typeof CookingSystem !== 'undefined') ? CookingSystem.getSpeedMod() : 1.0;
     let maxSpeed;
-    if (state === STATE.SPRINT) maxSpeed = SPRINT_SPEED;
+    if (state === STATE.SPRINT) maxSpeed = SPRINT_SPEED * speedMod;
     else if (state === STATE.EXHAUSTED) maxSpeed = EXHAUSTED_SPEED;
-    else maxSpeed = WALK_SPEED;
+    else maxSpeed = WALK_SPEED * speedMod;
 
     // Apply acceleration
     vx += ix * ACCEL;
@@ -306,6 +308,14 @@ const Player = (() => {
     ctx.restore();
   }
 
+  /** Restore stamina by a ratio (1.0 = full). */
+  function restoreStamina(ratio) {
+    stamina = Math.min(STAMINA_MAX, stamina + STAMINA_MAX * ratio);
+    if (state === STATE.EXHAUSTED && stamina >= STAMINA_MAX * 0.3) {
+      state = STATE.IDLE;
+    }
+  }
+
   function setPosition(x, y) { wx = x; wy = y; vx = 0; vy = 0; }
   function getPosition() { return { x: wx, y: wy }; }
   function getTile() {
@@ -323,6 +333,7 @@ const Player = (() => {
     setCollisionFn,
     setDirtParticleFn,
     update,
+    restoreStamina,
     getEntity,
     getPosition,
     getTile,

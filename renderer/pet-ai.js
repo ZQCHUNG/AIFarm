@@ -49,6 +49,10 @@ const PetAI = (() => {
   let barkEmoji = null;
   let barkTimer = 0;
 
+  // Treat buff state (from cooking system)
+  let treatBuffTimer = 0;
+  let treatHeartTimer = 0;
+
   // ===== Initialization =====
 
   function init() {
@@ -93,6 +97,25 @@ const PetAI = (() => {
   }
 
   function setActive(val) { active = val; }
+
+  /** Apply treat buff from cooking system. */
+  function applyTreatBuff(duration) {
+    treatBuffTimer = duration;
+    treatHeartTimer = 0;
+    // Heart burst
+    if (typeof IsoEffects !== 'undefined') {
+      for (let i = 0; i < 5; i++) {
+        const ox = (Math.random() - 0.5) * 20;
+        const oy = -Math.random() * 20 - 10;
+        IsoEffects.spawnFloatingText(wx + ox, wy + oy, '\u{2764}\u{FE0F}', '#FF5555');
+      }
+    }
+    if (typeof Farm !== 'undefined' && Farm.logEvent) {
+      Farm.logEvent('\u{1F9B4}', 'Dog loved the treat! Finding rare items...');
+    }
+  }
+
+  function hasTreatBuff() { return treatBuffTimer > 0; }
   function isActive() { return active; }
 
   // ===== Update =====
@@ -128,6 +151,23 @@ const PetAI = (() => {
       case STATE.SNIFFING:
         updateSniffing(tick);
         break;
+    }
+
+    // Treat buff countdown + periodic hearts
+    if (treatBuffTimer > 0) {
+      treatBuffTimer--;
+      treatHeartTimer++;
+      if (treatHeartTimer % 90 === 0 && typeof IsoEffects !== 'undefined') {
+        IsoEffects.spawnFloatingText(wx + (Math.random() - 0.5) * 10, wy - 16, '\u{2764}\u{FE0F}', '#FF5555');
+      }
+      // Rare item find chance (gold nugget every ~10s)
+      if (tick % 600 === 0 && typeof ResourceInventory !== 'undefined') {
+        const goldAmount = 1 + Math.floor(Math.random() * 3);
+        ResourceInventory.add('gold', goldAmount);
+        if (typeof IsoEffects !== 'undefined') {
+          IsoEffects.spawnFloatingText(wx, wy - 20, `+${goldAmount} \u{1F4B0}`, '#FFD700');
+        }
+      }
     }
 
     // Check for nearby landmarks (in any state except barking)
@@ -509,6 +549,8 @@ const PetAI = (() => {
     activate,
     setActive,
     isActive,
+    applyTreatBuff,
+    hasTreatBuff,
     update,
     getEntity,
     getState,

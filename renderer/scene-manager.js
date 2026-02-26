@@ -412,6 +412,11 @@ const SceneManager = (() => {
         return true;
       }
     } else if (currentScene === SCENE.INTERIOR) {
+      // Cooking interaction at fireplace takes priority
+      if (typeof CookingSystem !== 'undefined' && CookingSystem.isNearFireplace()) {
+        CookingSystem.open();
+        return true;
+      }
       if (isNearExitDoor()) {
         exitInterior();
         return true;

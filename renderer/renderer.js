@@ -304,6 +304,10 @@
       }
       return; // prevent E from falling through to handleKey (which would close the shop)
     }
+    // Cooking UI (consumes keys when open)
+    if (typeof CookingSystem !== 'undefined' && CookingSystem.isOpen()) {
+      if (CookingSystem.handleKey(e.key, tick)) return;
+    }
     // Collection UI (C key)
     if (typeof CollectionUI !== 'undefined' && CollectionUI.isOpen()) {
       if (CollectionUI.handleKey(e.key)) return;
@@ -473,7 +477,8 @@
     const modalLock = (typeof IsoUI !== 'undefined' && IsoUI.isOpen())
       || (typeof ShopUI !== 'undefined' && ShopUI.isOpen())
       || (typeof CollectionUI !== 'undefined' && CollectionUI.isOpen())
-      || (typeof QuestBoard !== 'undefined' && QuestBoard.isOpen());
+      || (typeof QuestBoard !== 'undefined' && QuestBoard.isOpen())
+      || (typeof CookingSystem !== 'undefined' && (CookingSystem.isOpen() || CookingSystem.isCooking()));
     if (typeof Player !== 'undefined') {
       // Initialize player at farm center (offset by home chunk in mega-map)
       if (!playerInited) {
@@ -597,6 +602,11 @@
       QuestBoard.update(tick);
     }
 
+    // Update cooking system (buffs tick in all scenes)
+    if (typeof CookingSystem !== 'undefined') {
+      CookingSystem.update(tick);
+    }
+
     // Update entity manager (always — manages interior furniture too)
     IsoEntityManager.update(tick);
     IsoEntityManager.syncToEngine();
@@ -712,6 +722,11 @@
       // HUD (Harvest Moon style)
       IsoFarm.drawHUD(ctx, canvas.width, canvas.height, tick);
 
+      // Cooking buff HUD icons (visible in overworld too)
+      if (typeof CookingSystem !== 'undefined') {
+        CookingSystem.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
       // NPC info popup (when clicked)
       if (typeof NPCManager !== 'undefined') {
         NPCManager.draw(ctx, canvas.width, canvas.height, tick);
@@ -760,6 +775,11 @@
           ctx.textBaseline = 'top';
           ctx.fillText(ai.name, canvas.width / 2, 8);
         }
+      }
+
+      // Cooking system (interior only: prompt, menu, cooking anim)
+      if (typeof CookingSystem !== 'undefined') {
+        CookingSystem.draw(ctx, canvas.width, canvas.height, tick);
       }
     }
 
