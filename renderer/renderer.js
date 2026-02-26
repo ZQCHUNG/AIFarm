@@ -105,6 +105,11 @@
     AmbientAudio.init();
   }
 
+  // Initialize friendship system (NPC hearts & gifting)
+  if (typeof FriendshipSystem !== 'undefined') {
+    FriendshipSystem.setupListeners();
+  }
+
   // Initialize player accessories event listeners
   if (typeof PlayerAccessories !== 'undefined') {
     PlayerAccessories.setupListeners();
@@ -174,6 +179,10 @@
       // Initialize tutorial from persisted state
       if (typeof TutorialManager !== 'undefined') {
         TutorialManager.init(state && state.tutorial || null);
+      }
+      // Initialize friendship system from persisted state
+      if (typeof FriendshipSystem !== 'undefined') {
+        FriendshipSystem.init(state && state.friendship || null);
       }
       // Check passive chunk unlock based on cumulative tokens
       if (state && state.energy && typeof ChunkManager !== 'undefined') {
@@ -374,6 +383,18 @@
     // Post-processing filter cycle (F9)
     if (e.key === 'F9') {
       if (typeof PostProcessing !== 'undefined') PostProcessing.cycleFilter();
+      return;
+    }
+    // Debug dashboard toggle (F3)
+    if (e.key === 'F3') {
+      if (typeof DebugDashboard !== 'undefined') DebugDashboard.toggle();
+      return;
+    }
+    // Gift to nearby NPC (G key)
+    if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.shiftKey) {
+      if (typeof FriendshipSystem !== 'undefined') {
+        FriendshipSystem.tryGift(tick);
+      }
       return;
     }
     // Shop/sell action (E key) — scene manager takes priority, then shop
@@ -765,6 +786,21 @@
         AmbientAudio.update(tick);
       }
 
+      // Update weather hazards (lightning, drought, cozy buff)
+      if (typeof WeatherLogicV2 !== 'undefined') {
+        WeatherLogicV2.update(tick);
+      }
+
+      // Update friendship system (gift animations, dialogue timers)
+      if (typeof FriendshipSystem !== 'undefined') {
+        FriendshipSystem.update(tick);
+      }
+
+      // Update debug dashboard (FPS counter)
+      if (typeof DebugDashboard !== 'undefined') {
+        DebugDashboard.update(tick);
+      }
+
       // Update network client (ghost player interpolation)
       if (typeof NetworkClient !== 'undefined') {
         NetworkClient.update(tick);
@@ -984,6 +1020,16 @@
         TradeUI.draw(ctx, canvas.width, canvas.height, tick);
       }
 
+      // Weather hazards overlay (lightning flash, drought tint)
+      if (typeof WeatherLogicV2 !== 'undefined') {
+        WeatherLogicV2.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
+      // Friendship system (gift prompt, heart indicators, animations)
+      if (typeof FriendshipSystem !== 'undefined') {
+        FriendshipSystem.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
       // Tutorial overlay (dialog box + bouncing arrows, on top of modals)
       if (typeof TutorialManager !== 'undefined') {
         TutorialManager.draw(ctx, canvas.width, canvas.height, tick);
@@ -1021,6 +1067,11 @@
     // Post-processing filter (CRT scanlines, warm sunset — absolute last layer)
     if (typeof PostProcessing !== 'undefined') {
       PostProcessing.draw(ctx, canvas.width, canvas.height, tick);
+    }
+
+    // Debug dashboard (on top of everything, including filters)
+    if (typeof DebugDashboard !== 'undefined') {
+      DebugDashboard.draw(ctx, canvas.width, canvas.height, tick);
     }
 
     // Clear gamepad-injected keys after frame (they're re-polled next frame)
