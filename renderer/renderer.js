@@ -1016,7 +1016,7 @@
                 _blockedTileExpiry = Date.now() + 800;
                 if (Date.now() - _lastCollisionLog > 500) {
                   _lastCollisionLog = Date.now();
-                  console.log(`[Collision] Blocked at (${c},${r}) tile=${tile} dist=${Math.sqrt(distSq).toFixed(1)}`);
+                  console.log(`[Collision] Blocked at (${c},${r}) tile=${tile}`);
                 }
                 return true;
               }
