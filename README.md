@@ -334,17 +334,18 @@ Sprint 30 最終平衡調整：
 
 > Joe 可以直接看這裡追蹤進度，不需要追問團隊。
 
-### 🔥 Sprint 23 — "The Quality & Pulse" (進行中)
+### 🔥 Sprint 23 — "The Iron Shield" (進行中) — 品質優先，暫停新功能
+
+> CTO 致歉：loop() 缺少 try-catch 是基礎架構失誤。已啟動全面靜默故障審查。
 
 | 狀態 | 優先級 | 任務 | 負責人 | 備註 |
 |------|--------|------|--------|------|
-| ✅ | P0 | 空白畫面 Bug 根因修復 | Claude | render loop 無 try-catch → 啟動 race condition 永久殺死 rAF 鏈。已加 try-catch 保護。(fbe1d8b) |
+| ✅ | P0 | 空白畫面 Bug 根因修復 | Claude | render loop 無 try-catch → 啟動 race condition 永久殺死 rAF 鏈 (fbe1d8b) |
 | ✅ | P0 | 視窗找不到 Bug 修復 | Claude | skipTaskbar=false + ensureOnScreen + Ctrl+Shift+F12 強制顯示 (fbe1d8b) |
-| ✅ | P0 | Token 燃燒脈動指示器 | Claude | Energy 條旁脈動火焰 + active session 數 + rate + 浮動 "+X" 文字 (fbe1d8b) |
-| ⬜ | P0 | 自動化測試套件 (Jest) | Claude | 單元測試：market-economy、tech-tree、resource-inventory |
-| ⬜ | P0 | CDP 整合測試腳本 | Claude | 碰撞邊界 5 分鐘自動行走 + 穿牆/卡住偵測 |
-| ⬜ | P0 | CTO 全面 Code Review | CTO | Joe 要求 CTO 審查整個 repo，找出所有 Bug |
-| ⬜ | P1 | 視覺回歸測試 | Claude | 濾鏡穩定度 + NPC/Buddy 動畫 pivot point 校驗 |
+| ✅ | P0 | Token 燃燒脈動指示器 | Claude | Energy 條旁脈動火焰 + rate + 浮動 "+X" 文字 (fbe1d8b) |
+| ⬜ | P0 | 韌性測試套件 | Claude | tests/resilience.test.js — 啟動煙霧測試 + loop 壓力測試 + IPC 故障容錯 |
+| ⬜ | P0 | CTO 靜默故障審查 | CTO | 已發現 3 類問題：IPC async 陷阱、AssetManager null 崩潰、SceneManager race condition |
+| ⬜ | P1 | F3 Dashboard 錯誤視覺化 | Claude | Debug 面板顯示被 try-catch 攔截的錯誤 |
 | ⬜ | P1 | NPC 失蹤修復 | Claude | sessionHistory 為空，需加 REQUEST_INITIAL_DATA IPC |
 
 ### 📋 Sprint 24 — "The Aesthetic Overhaul" (待排入)
