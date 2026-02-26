@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const SessionFinder = require('./watcher/session-finder');
@@ -74,7 +74,7 @@ function ensureWindow() {
     frame: false,
     transparent: true,
     alwaysOnTop: true,
-    skipTaskbar: true,
+    skipTaskbar: false,  // Always show in taskbar so window is findable
     resizable: false,
     hasShadow: false,
     webPreferences: {
@@ -124,9 +124,44 @@ function toggleWindow() {
     if (hiddenBounds) {
       win.setBounds(hiddenBounds);
     }
+    // Ensure window is within visible screen bounds
+    ensureOnScreen();
     win.show();
     win.setAlwaysOnTop(true);
   }
+}
+
+/** Force window onto visible screen if it ended up off-screen. */
+function ensureOnScreen() {
+  if (!win || win.isDestroyed()) return;
+  const bounds = win.getBounds();
+  const displays = screen.getAllDisplays();
+  const visible = displays.some(d => {
+    const wa = d.workArea;
+    return bounds.x < wa.x + wa.width && bounds.x + bounds.width > wa.x &&
+           bounds.y < wa.y + wa.height && bounds.y + bounds.height > wa.y;
+  });
+  if (!visible) {
+    const primary = screen.getPrimaryDisplay().workArea;
+    const winH = getWindowHeight();
+    win.setPosition(
+      Math.floor(primary.x + primary.width / 2 - bounds.width / 2),
+      primary.y + primary.height - winH
+    );
+    console.log('[Claude Buddy] Window was off-screen, moved to primary display');
+  }
+}
+
+/** Force-show: bring window to front regardless of state. Ctrl+Shift+F12. */
+function forceShowWindow() {
+  if (!win || win.isDestroyed()) {
+    ensureWindow();
+  }
+  ensureOnScreen();
+  win.show();
+  win.focus();
+  win.setAlwaysOnTop(true);
+  console.log('[Claude Buddy] Force-show window via shortcut');
 }
 
 // ---------- Session management ----------
@@ -407,9 +442,13 @@ app.whenReady().then(() => {
   ensureWindow();
   createTray();
 
+  // Global shortcut: Ctrl+Shift+F12 to force-show window (rescue from off-screen/hidden)
+  globalShortcut.register('CommandOrControl+Shift+F12', forceShowWindow);
+
   // Re-adapt window when display changes (plug/unplug external monitor)
   screen.on('display-metrics-changed', () => {
     resizeWindow(buddies.size);
+    ensureOnScreen();
   });
 
 
@@ -499,6 +538,7 @@ function startSpriteWatcher() {
 
 app.on('window-all-closed', () => {});
 app.on('before-quit', () => {
+  globalShortcut.unregisterAll();
   stopAchievementFlush();
   exporter.flush();
   exporter.stop();

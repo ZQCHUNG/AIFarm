@@ -261,6 +261,10 @@
       if (typeof EventBus !== 'undefined' && pts > 0) {
         EventBus.emit('TOKEN_BURNED', { amount: pts });
       }
+      // Notify HUD token burning indicator
+      if (typeof IsoFarm !== 'undefined' && IsoFarm.notifyEnergyTick) {
+        IsoFarm.notifyEnergyTick(pts);
+      }
     });
     window.buddy.onVibeUpdate((vibe) => Farm.setVibe(vibe));
     window.buddy.onUsageUpdate((state) => Farm.setUsage(state));
@@ -715,17 +719,25 @@
 
   function logicTick() {
     tick++;
-    if (viewMode === 'iso') {
-      logicTopDown();
+    try {
+      if (viewMode === 'iso') {
+        logicTopDown();
+      }
+    } catch (e) {
+      console.error('[Renderer] logic error:', e.message, e.stack);
     }
-    // Classic mode has minimal logic — handled inline in render
   }
 
   function loop() {
-    if (viewMode === 'iso') {
-      renderTopDown();
-    } else {
-      loopClassic();
+    try {
+      if (viewMode === 'iso') {
+        renderTopDown();
+      } else {
+        loopClassic();
+      }
+    } catch (e) {
+      // Never let the render loop die — log and continue next frame
+      console.error('[Renderer] render error:', e.message, e.stack);
     }
     lastRenderTick = tick;
     requestAnimationFrame(loop);

@@ -115,6 +115,11 @@ const IsoFarm = (() => {
   let fieldFenceEntities = [];
   let pastureFenceEntities = [];
   let pastureDecorEntities = [];
+
+  // Token burning pulse indicator state
+  let tokenBurnTicks = [];     // timestamps of recent energy ticks
+  let tokenBurnFloats = [];    // floating "-X" text animations
+  let tokenBurnRate = 0;       // smoothed ticks per second
   let lastFieldPhase = -1;
   let lastPasturePhase = -1;
 
@@ -2033,6 +2038,9 @@ const IsoFarm = (() => {
     // Top-left: Energy (like stamina)
     drawEnergyBar(ctx, 8, 8, energy);
 
+    // Token burning indicator (right of energy bar)
+    drawTokenBurnIndicator(ctx, 150, 8, tick);
+
     // Top-left (below energy): Resource inventory bar
     if (typeof ResourceInventory !== 'undefined') {
       drawResourceBar(ctx, 8, 32, tick);
@@ -2301,6 +2309,91 @@ const IsoFarm = (() => {
     syncState();
   }
 
+  // --- Token Burning Pulse Indicator ---
+
+  /** Called by renderer when an energy tick arrives. */
+  function notifyEnergyTick(pts) {
+    const now = Date.now();
+    tokenBurnTicks.push(now);
+    // Floating "-X" text
+    tokenBurnFloats.push({ pts, born: now, alpha: 1.0 });
+    // Keep only last 30s of ticks
+    while (tokenBurnTicks.length > 0 && now - tokenBurnTicks[0] > 30000) {
+      tokenBurnTicks.shift();
+    }
+    // Smooth rate: ticks in last 10 seconds
+    const recent = tokenBurnTicks.filter(t => now - t < 10000).length;
+    tokenBurnRate = recent / 10; // ticks per second
+  }
+
+  function drawTokenBurnIndicator(ctx, x, y, tick) {
+    const activeSessions = buddyEntities.size;
+    const now = Date.now();
+
+    // Clean expired floating texts (older than 2s)
+    tokenBurnFloats = tokenBurnFloats.filter(f => now - f.born < 2000);
+
+    // Update smoothed rate
+    const recent = tokenBurnTicks.filter(t => now - t < 10000).length;
+    tokenBurnRate = recent / 10;
+
+    const isActive = activeSessions > 0 || tokenBurnRate > 0;
+    if (!isActive) return;
+
+    // Background pill
+    const pillW = activeSessions > 0 ? 72 : 50;
+    ctx.fillStyle = 'rgba(20, 20, 40, 0.75)';
+    roundRect(ctx, x, y, pillW, 18, 4);
+    ctx.fill();
+
+    // Pulsing flame icon
+    const pulsePhase = Math.sin(tick * 0.15) * 0.3 + 0.7; // 0.4 to 1.0
+    const flameScale = tokenBurnRate > 0 ? 1.0 + Math.sin(tick * 0.2) * 0.15 : 0.8;
+    ctx.save();
+    ctx.globalAlpha = pulsePhase;
+    ctx.fillStyle = tokenBurnRate > 0 ? '#FF6B35' : '#888';
+    ctx.font = `bold ${Math.round(11 * flameScale)}px monospace`;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillText('\u{1F525}', x + 3, y + 10); // 🔥
+    ctx.restore();
+
+    // Session count
+    if (activeSessions > 0) {
+      ctx.fillStyle = '#FFF';
+      ctx.font = 'bold 9px monospace';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      ctx.fillText(activeSessions + ' active', x + 16, y + 10);
+    }
+
+    // Rate indicator (ticks/sec)
+    if (tokenBurnRate > 0) {
+      const rateText = tokenBurnRate.toFixed(1) + '/s';
+      ctx.fillStyle = '#FF9F43';
+      ctx.font = '8px monospace';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      const rateX = activeSessions > 0 ? x + 50 : x + 16;
+      ctx.fillText(rateText, rateX, y + 10);
+    }
+
+    // Floating "-X" texts
+    for (const f of tokenBurnFloats) {
+      const age = (now - f.born) / 2000; // 0 to 1 over 2 seconds
+      const floatY = y - 4 - age * 16;   // drift upward 16px
+      f.alpha = 1.0 - age;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, f.alpha);
+      ctx.fillStyle = '#FF6B35';
+      ctx.font = 'bold 8px monospace';
+      ctx.textBaseline = 'bottom';
+      ctx.textAlign = 'center';
+      ctx.fillText('+' + f.pts, x + pillW / 2, floatY);
+      ctx.restore();
+    }
+  }
+
   return {
     MAP_W, MAP_H,
     FIELD, PASTURE_ZONE, EXTENSION_ZONE,
@@ -2309,6 +2402,6 @@ const IsoFarm = (() => {
     getBuddyEntity, getCropStage, updateStartupAnimation,
     isStartupAnimating: () => !!startupAnim,
     updateAutoPan, interruptAutoPan, resetAutoPan,
-    sellAllCrops, reloadMap,
+    sellAllCrops, reloadMap, notifyEnergyTick,
   };
 })();
