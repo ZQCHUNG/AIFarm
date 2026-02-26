@@ -61,8 +61,8 @@ const Player = (() => {
   // Reference to collision checker
   let collisionFn = null;
 
-  // Solid tile types — tree is NOT solid (walkable scenery, prevents invisible walls)
-  const SOLID_TILES = new Set(['water', 'fence', 'mountain', 'empty']);
+  // Solid tile types — tree IS solid (natural obstacle, needs clear visual)
+  const SOLID_TILES = new Set(['water', 'fence', 'tree', 'mountain', 'empty']);
 
   // ===== Public API =====
 
