@@ -452,9 +452,11 @@
       || (typeof CollectionUI !== 'undefined' && CollectionUI.isOpen())
       || (typeof QuestBoard !== 'undefined' && QuestBoard.isOpen());
     if (typeof Player !== 'undefined') {
-      // Initialize player once at farm center (col 9, row 7)
+      // Initialize player at farm center (offset by home chunk in mega-map)
       if (!playerInited) {
-        Player.init(9, 7, {
+        const homeOff = (typeof ChunkManager !== 'undefined' && ChunkManager.getHomeOffset)
+          ? ChunkManager.getHomeOffset() : { col: 0, row: 0 };
+        Player.init(homeOff.col + 9, homeOff.row + 7, {
           collisionFn: (wx, wy) => {
             const col = Math.floor(wx / IsoEngine.TILE_W);
             const row = Math.floor(wy / IsoEngine.TILE_H);

@@ -187,8 +187,9 @@ const QuestBoard = (() => {
   function updateProximity() {
     if (typeof Player === 'undefined') { playerNearBoard = false; return; }
     const pt = Player.getTile();
-    const dx = Math.abs(pt.col - BOARD_COL);
-    const dy = Math.abs(pt.row - BOARD_ROW);
+    const off = (typeof IsoEngine !== 'undefined' && IsoEngine.getHomeOffset) ? IsoEngine.getHomeOffset() : { col: 0, row: 0 };
+    const dx = Math.abs(pt.col - (BOARD_COL + off.col));
+    const dy = Math.abs(pt.row - (BOARD_ROW + off.row));
     playerNearBoard = dx <= INTERACT_RANGE && dy <= INTERACT_RANGE;
   }
 

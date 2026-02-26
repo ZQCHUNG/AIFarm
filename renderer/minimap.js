@@ -29,6 +29,7 @@ const Minimap = (() => {
     sand:      '#E8D8A0',
     water:     '#4A90D9',
     fence:     '#6B4226',
+    mountain:  '#7A7A78',
   };
 
   // Building marker colors
@@ -104,16 +105,18 @@ const Minimap = (() => {
       }
     }
 
-    // Draw buildings as colored markers
+    // Draw buildings as colored markers (offset to world coords)
     const farmState = (typeof Farm !== 'undefined') ? Farm.getState() : null;
+    const off = (typeof IsoEngine !== 'undefined' && IsoEngine.getHomeOffset)
+      ? IsoEngine.getHomeOffset() : { col: 0, row: 0 };
     if (farmState && farmState.buildings && typeof IsoFarm !== 'undefined') {
       for (const [bldId, isBuilt] of Object.entries(farmState.buildings)) {
         if (!isBuilt) continue;
         const pos = IsoFarm.BUILDING_POSITIONS[bldId];
         if (!pos) continue;
 
-        const dx = pos.col - playerTile.col;
-        const dy = pos.row - playerTile.row;
+        const dx = (off.col + pos.col) - playerTile.col;
+        const dy = (off.row + pos.row) - playerTile.row;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist > viewRadius) continue;
 

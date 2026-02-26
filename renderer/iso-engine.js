@@ -10,6 +10,10 @@ const IsoEngine = (() => {
   let mapHeight = 18;
   let tileMap = null;
 
+  // Home farm offset in world coordinates (set by ChunkManager mega-map)
+  let homeOffsetCol = 0;
+  let homeOffsetRow = 0;
+
   // Camera offset (screen pixels)
   let camX = 0;
   let camY = 0;
@@ -37,6 +41,7 @@ const IsoEngine = (() => {
     sand:     { top: '#E8D89C', border: '#D0C488', dark: '#C8BC80' },
     path:     { top: '#D8C8A0', border: '#C0B088', dark: '#B8A880' },
     fence:    { top: '#C8A060', border: '#A88040', dark: '#906830' },
+    mountain: { top: '#7A7A78', border: '#5A5A58', dark: '#4A4A48' },
     empty:    { top: null, border: null, dark: null },
   };
 
@@ -95,6 +100,12 @@ const IsoEngine = (() => {
     // Initialize ChunkManager with the home farm layout
     if (typeof ChunkManager !== 'undefined') {
       ChunkManager.initHome(tileMap, w, h);
+      // Store home offset so local coords (used by IsoFarm) map to world coords
+      if (ChunkManager.getHomeOffset) {
+        const off = ChunkManager.getHomeOffset();
+        homeOffsetCol = off.col;
+        homeOffsetRow = off.row;
+      }
     }
   }
 
@@ -103,8 +114,10 @@ const IsoEngine = (() => {
     if (typeof ChunkManager !== 'undefined') {
       ChunkManager.setTile(col, row, type);
       // Also update local tileMap if within home bounds (backward compat)
-      if (tileMap && row >= 0 && row < mapHeight && col >= 0 && col < mapWidth) {
-        tileMap[row][col] = type;
+      const lc = col - homeOffsetCol;
+      const lr = row - homeOffsetRow;
+      if (tileMap && lr >= 0 && lr < mapHeight && lc >= 0 && lc < mapWidth) {
+        tileMap[lr][lc] = type;
       }
       return;
     }
@@ -124,11 +137,16 @@ const IsoEngine = (() => {
     return null;
   }
 
+  /** Get home farm world offset (for converting local farm coords to world). */
+  function getHomeOffset() {
+    return { col: homeOffsetCol, row: homeOffsetRow };
+  }
+
   // Tile groups for transition detection
   const TILE_GROUPS = {
     grass: 'land', darkgrass: 'land', dirt: 'land', soil: 'farm',
     soilwet: 'farm', sand: 'land', path: 'land', stone: 'land',
-    fence: 'land', water: 'water', empty: 'void',
+    fence: 'land', mountain: 'mountain', water: 'water', empty: 'void',
   };
 
   function getTileBitmask(col, row) {
@@ -174,6 +192,29 @@ const IsoEngine = (() => {
   function drawTile(ctx, sx, sy, type, tick) {
     const def = TILE_TYPES[type];
     if (!def || !def.top) return;
+
+    // Mountain tiles: tall rocky wall
+    if (type === 'mountain') {
+      const wallH = 20; // extra height above tile
+      // Cliff face (dark)
+      ctx.fillStyle = def.dark;
+      ctx.fillRect(sx, sy - wallH, TILE_W, wallH + TILE_H);
+      // Lighter top face
+      ctx.fillStyle = def.top;
+      ctx.fillRect(sx + 2, sy - wallH, TILE_W - 4, 6);
+      // Snow cap on top
+      ctx.fillStyle = '#E8E8E0';
+      ctx.fillRect(sx + 4, sy - wallH - 2, TILE_W - 8, 4);
+      // Rock texture lines
+      ctx.strokeStyle = def.border;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(sx + 4, sy - wallH + 8); ctx.lineTo(sx + TILE_W - 4, sy - wallH + 10);
+      ctx.moveTo(sx + 6, sy - wallH + 16); ctx.lineTo(sx + TILE_W - 6, sy - wallH + 14);
+      ctx.moveTo(sx + 3, sy); ctx.lineTo(sx + TILE_W - 3, sy + 2);
+      ctx.stroke();
+      return;
+    }
 
     let topColor = def.top;
 
@@ -483,7 +524,10 @@ const IsoEngine = (() => {
 
     let worldW, worldH, offsetX, offsetY;
     if (typeof ChunkManager !== 'undefined') {
-      const wb = ChunkManager.getWorldBounds();
+      // Use full world bounds for camera clamping (not just loaded chunks)
+      const wb = ChunkManager.getFullWorldBounds
+        ? ChunkManager.getFullWorldBounds()
+        : ChunkManager.getWorldBounds();
       worldW = wb.width * TILE_W;
       worldH = wb.height * TILE_H;
       offsetX = wb.minCol * TILE_W;
@@ -1229,5 +1273,6 @@ const IsoEngine = (() => {
     setHoverTile, getHoverTile,
     spawnHarvestParticles, updateParticles, drawParticles,
     drawMatureGlow,
+    getHomeOffset,
   };
 })();

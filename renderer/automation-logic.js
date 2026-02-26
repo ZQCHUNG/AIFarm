@@ -45,6 +45,15 @@ const Automation = (() => {
   let sprinklersPurchased = 0;
   let collectorPurchased = false;
 
+  // Home offset helper for mega-map support
+  function _off() {
+    return (typeof IsoEngine !== 'undefined' && IsoEngine.getHomeOffset)
+      ? IsoEngine.getHomeOffset() : { col: 0, row: 0 };
+  }
+  /** Get world col from local farm col. */
+  function _wc(c) { return c + _off().col; }
+  function _wr(r) { return r + _off().row; }
+
   // ===== Initialization =====
 
   function init() {
@@ -68,8 +77,8 @@ const Automation = (() => {
     if (sprinklersPurchased >= SPRINKLER_POSITIONS.length) return false;
     const pos = SPRINKLER_POSITIONS[sprinklersPurchased];
     sprinklers.push({
-      col: pos.col,
-      row: pos.row,
+      col: _wc(pos.col),
+      row: _wr(pos.row),
       active: true,
       lastCycle: tick,
     });
@@ -99,7 +108,7 @@ const Automation = (() => {
     }
 
     if (typeof IsoEffects !== 'undefined') {
-      IsoEffects.spawnFloatingText(COLLECTOR_POSITION.col * 32, COLLECTOR_POSITION.row * 32 - 16,
+      IsoEffects.spawnFloatingText(_wc(COLLECTOR_POSITION.col) * 32, _wr(COLLECTOR_POSITION.row) * 32 - 16,
         '\u{1F916} Auto-Collector active!', '#FFD700');
     }
 
@@ -242,8 +251,8 @@ const Automation = (() => {
 
     // Collector visual pulse
     if (typeof IsoEngine !== 'undefined') {
-      IsoEngine.spawnHarvestParticles(COLLECTOR_POSITION.col + 0.5,
-        COLLECTOR_POSITION.row + 0.5, '#FFD700', 5);
+      IsoEngine.spawnHarvestParticles(_wc(COLLECTOR_POSITION.col) + 0.5,
+        _wr(COLLECTOR_POSITION.row) + 0.5, '#FFD700', 5);
     }
   }
 
@@ -259,7 +268,7 @@ const Automation = (() => {
 
     // Draw auto-collector
     if (collectorPurchased) {
-      const screen = IsoEngine.gridToScreen(COLLECTOR_POSITION.col, COLLECTOR_POSITION.row);
+      const screen = IsoEngine.gridToScreen(_wc(COLLECTOR_POSITION.col), _wr(COLLECTOR_POSITION.row));
       if (screen) {
         drawCollector(ctx, screen.x, screen.y, collectorActive, tick);
       }

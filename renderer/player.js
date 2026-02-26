@@ -55,7 +55,7 @@ const Player = (() => {
   let collisionFn = null;
 
   // Solid tile types
-  const SOLID_TILES = new Set(['water', 'fence', 'empty', null]);
+  const SOLID_TILES = new Set(['water', 'fence', 'mountain', 'empty', null]);
 
   // ===== Public API =====
 

@@ -51,9 +51,10 @@ const IsoFishing = (() => {
   function isNearWater() {
     if (typeof Player === 'undefined') return false;
     const pt = Player.getTile();
+    const off = (typeof IsoEngine !== 'undefined' && IsoEngine.getHomeOffset) ? IsoEngine.getHomeOffset() : { col: 0, row: 0 };
     for (const wt of WATER_TILES) {
-      const dx = Math.abs(pt.col - wt.col);
-      const dy = Math.abs(pt.row - wt.row);
+      const dx = Math.abs(pt.col - (wt.col + off.col));
+      const dy = Math.abs(pt.row - (wt.row + off.row));
       if (dx <= 1 && dy <= 1) return true;
     }
     // Also check chunk-generated water tiles in adjacent positions
@@ -75,14 +76,17 @@ const IsoFishing = (() => {
     let nearest = null;
     let nearestDist = Infinity;
 
-    // Check home farm water
+    // Check home farm water (offset to world coords)
+    const off = (typeof IsoEngine !== 'undefined' && IsoEngine.getHomeOffset) ? IsoEngine.getHomeOffset() : { col: 0, row: 0 };
     for (const wt of WATER_TILES) {
-      const dx = wt.col - pt.col;
-      const dy = wt.row - pt.row;
+      const wCol = wt.col + off.col;
+      const wRow = wt.row + off.row;
+      const dx = wCol - pt.col;
+      const dy = wRow - pt.row;
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d < nearestDist) {
         nearestDist = d;
-        nearest = wt;
+        nearest = { col: wCol, row: wRow };
       }
     }
     // Check chunk water

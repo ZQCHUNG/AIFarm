@@ -26,9 +26,15 @@ const BuddyAI = (() => {
   const SOCIAL_DISTANCE = 1.5; // grid units to trigger
   const SOCIAL_COOLDOWN = 600; // ~10 seconds between chats per pair
 
-  // Tool shed location (near field entrance on path row)
+  // Tool shed location (near field entrance on path row — local farm coords)
   const TOOL_SHED_COL = 2;
   const TOOL_SHED_ROW = 10;
+
+  // Home offset helper for mega-map support
+  function _off() {
+    return (typeof IsoEngine !== 'undefined' && IsoEngine.getHomeOffset)
+      ? IsoEngine.getHomeOffset() : { col: 0, row: 0 };
+  }
 
   // Per-buddy AI state (keyed by sessionId)
   const buddyAI = new Map();
@@ -240,6 +246,7 @@ const BuddyAI = (() => {
     if (typeof IsoFarm === 'undefined') return;
     const plots = IsoFarm.PLOT_POSITIONS;
     if (!plots || plots.length === 0) return;
+    const off = _off();
 
     // Pick a random unoccupied plot
     const available = [];
@@ -252,7 +259,7 @@ const BuddyAI = (() => {
     }
     if (available.length === 0) {
       const p = plots[Math.floor(Math.random() * plots.length)];
-      setWalkTarget(ai, p.col + 1, p.row + 0.3, 'watering');
+      setWalkTarget(ai, off.col + p.col + 1, off.row + p.row + 0.3, 'watering');
       return;
     }
 
@@ -277,18 +284,19 @@ const BuddyAI = (() => {
 
     const offsetCol = (chosen.width || 1) * 0.5 + (Math.random() - 0.5) * 0.4;
     const offsetRow = 0.3 + Math.random() * 0.2;
-    // Route through tool shed first (if not already near it)
-    routeViaShed(ai, chosen.col + offsetCol, chosen.row + offsetRow, action);
+    // Route through tool shed first (offset to world coords)
+    routeViaShed(ai, off.col + chosen.col + offsetCol, off.row + chosen.row + offsetRow, action);
   }
 
   function assignTendTarget(ai, sessionId) {
     if (typeof IsoFarm === 'undefined') return;
     const pasture = IsoFarm.PASTURE_ZONE;
     if (!pasture) return;
+    const off = _off();
 
-    // Pick a random spot in the pasture zone
-    const col = pasture.minCol + 1 + Math.random() * (pasture.maxCol - pasture.minCol - 2);
-    const row = pasture.minRow + Math.random() * (pasture.maxRow - pasture.minRow);
+    // Pick a random spot in the pasture zone (offset to world coords)
+    const col = off.col + pasture.minCol + 1 + Math.random() * (pasture.maxCol - pasture.minCol - 2);
+    const row = off.row + pasture.minRow + Math.random() * (pasture.maxRow - pasture.minRow);
     // Route through tool shed first
     routeViaShed(ai, col + (Math.random() - 0.5) * 0.4, row, 'feeding');
   }
@@ -296,10 +304,10 @@ const BuddyAI = (() => {
   function assignHomeTarget(ai, sessionId) {
     const ent = getBuddyEntity(sessionId);
     if (!ent) return;
-    // Home = initial spawn position (row 10 area)
+    // Home = initial spawn position (row 10 area, offset to world coords)
     if (ai.homeCol === 0 && ai.homeRow === 0) {
       ai.homeCol = ent.gridX;
-      ai.homeRow = 10;
+      ai.homeRow = _off().row + 10;
     }
     // Release plot claim
     if (ai.claimedPlotKey) {
@@ -323,8 +331,9 @@ const BuddyAI = (() => {
     ai.pendingTargetCol = destCol;
     ai.pendingTargetRow = destRow;
     // Walk to tool shed first (with slight random offset so buddies don't stack)
-    const shedX = TOOL_SHED_COL + 0.5 + (Math.random() - 0.5) * 0.6;
-    const shedY = TOOL_SHED_ROW + 0.3;
+    const off = _off();
+    const shedX = off.col + TOOL_SHED_COL + 0.5 + (Math.random() - 0.5) * 0.6;
+    const shedY = off.row + TOOL_SHED_ROW + 0.3;
     setWalkTarget(ai, shedX, shedY, 'pickup');
   }
 
@@ -594,9 +603,12 @@ const BuddyAI = (() => {
       // Pick a new nearby wander point (small radius)
       const wanderCol = ent.gridX + (Math.random() - 0.5) * 2;
       const wanderRow = ent.gridY + (Math.random() - 0.5) * 1;
-      // Clamp to world bounds
-      const clampedCol = Math.max(1, Math.min(wanderCol, (typeof IsoFarm !== 'undefined' ? IsoFarm.MAP_W : 20) - 2));
-      const clampedRow = Math.max(1, Math.min(wanderRow, (typeof IsoFarm !== 'undefined' ? IsoFarm.MAP_H : 18) - 2));
+      // Clamp to home farm bounds (offset to world coords)
+      const off = _off();
+      const farmW = (typeof IsoFarm !== 'undefined' ? IsoFarm.MAP_W : 20);
+      const farmH = (typeof IsoFarm !== 'undefined' ? IsoFarm.MAP_H : 18);
+      const clampedCol = Math.max(off.col + 1, Math.min(wanderCol, off.col + farmW - 2));
+      const clampedRow = Math.max(off.row + 1, Math.min(wanderRow, off.row + farmH - 2));
       setWalkTarget(ai, clampedCol, clampedRow, null);
     }
   }
@@ -612,12 +624,13 @@ const BuddyAI = (() => {
     // 30% chance to seek shelter per check (every 120 ticks ~ 2s)
     if (Math.random() > 0.3) return;
 
-    // Find nearest shelter
+    // Find nearest shelter (offset to world coords)
+    const off = _off();
     let nearestDist = Infinity;
     let nearestShelter = null;
     for (const s of SHELTER_POSITIONS) {
-      const dx = s.col - ent.gridX;
-      const dy = s.row - ent.gridY;
+      const dx = (off.col + s.col) - ent.gridX;
+      const dy = (off.row + s.row) - ent.gridY;
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d < nearestDist) {
         nearestDist = d;
@@ -627,8 +640,8 @@ const BuddyAI = (() => {
     if (!nearestShelter || nearestDist < 1.5) return; // already sheltered
 
     ai.state = STATE.SHELTER;
-    ai.targetCol = nearestShelter.col + (Math.random() - 0.5) * 0.5;
-    ai.targetRow = nearestShelter.row + (Math.random() - 0.5) * 0.3;
+    ai.targetCol = off.col + nearestShelter.col + (Math.random() - 0.5) * 0.5;
+    ai.targetRow = off.row + nearestShelter.row + (Math.random() - 0.5) * 0.3;
     ai.actionTimer = 600; // shelter for ~10 seconds
 
     // Rain emoji

@@ -124,11 +124,35 @@ const IsoFarm = (() => {
 
   // ===== Initialization =====
 
+  // Home offset: converts local farm coords (0-19, 0-17) to world coords
+  let _oC = 0; // homeOffsetCol
+  let _oR = 0; // homeOffsetRow
+
+  /** Convert local farm col to world col. */
+  function wc(col) { return col + _oC; }
+  /** Convert local farm row to world row. */
+  function wr(row) { return row + _oR; }
+  /** Set tile using local farm coordinates. */
+  function farmSetTile(col, row, type) { IsoEngine.setTile(wc(col), wr(row), type); }
+  /** Create static entity at local farm coordinates. */
+  function farmStatic(col, row, drawFn, opts) {
+    return IsoEntityManager.createStatic(wc(col), wr(row), drawFn, opts);
+  }
+  /** Create animal at local farm coordinates. */
+  function farmAnimal(type, col, row, opts) {
+    return IsoEntityManager.createAnimal(type, wc(col), wr(row), opts);
+  }
+
   function init() {
     if (initialized) return;
     initialized = true;
 
     IsoEngine.initMap(MAP_W, MAP_H, 'grass');
+
+    // Get home offset from engine (set by ChunkManager mega-map)
+    const off = IsoEngine.getHomeOffset ? IsoEngine.getHomeOffset() : { col: 0, row: 0 };
+    _oC = off.col;
+    _oR = off.row;
 
     // -- Paint terrain --
     // NOTE: Crop field soil/dirt/fences are painted dynamically in syncTerrain()
@@ -136,39 +160,39 @@ const IsoFarm = (() => {
 
     // Path running horizontally below field
     for (let c = 0; c < MAP_W; c++) {
-      IsoEngine.setTile(c, 10, 'path');
-      IsoEngine.setTile(c, 11, 'path');
+      farmSetTile(c, 10, 'path');
+      farmSetTile(c, 11, 'path');
     }
 
     // Shipping bin tile (solid — player can't walk through)
-    IsoEngine.setTile(SHIPPING_BIN_COL, SHIPPING_BIN_ROW, 'fence');
+    farmSetTile(SHIPPING_BIN_COL, SHIPPING_BIN_ROW, 'fence');
 
     // Small pond in pasture
-    IsoEngine.setTile(16, 12, 'water');
-    IsoEngine.setTile(17, 12, 'water');
-    IsoEngine.setTile(16, 13, 'water');
-    IsoEngine.setTile(17, 13, 'water');
+    farmSetTile(16, 12, 'water');
+    farmSetTile(17, 12, 'water');
+    farmSetTile(16, 13, 'water');
+    farmSetTile(17, 13, 'water');
     // Sand around pond
-    IsoEngine.setTile(15, 12, 'sand');
-    IsoEngine.setTile(15, 13, 'sand');
-    IsoEngine.setTile(18, 12, 'sand');
-    IsoEngine.setTile(18, 13, 'sand');
-    IsoEngine.setTile(16, 11, 'sand');
-    IsoEngine.setTile(17, 11, 'sand');
-    IsoEngine.setTile(16, 14, 'sand');
-    IsoEngine.setTile(17, 14, 'sand');
+    farmSetTile(15, 12, 'sand');
+    farmSetTile(15, 13, 'sand');
+    farmSetTile(18, 12, 'sand');
+    farmSetTile(18, 13, 'sand');
+    farmSetTile(16, 11, 'sand');
+    farmSetTile(17, 11, 'sand');
+    farmSetTile(16, 14, 'sand');
+    farmSetTile(17, 14, 'sand');
 
     // Town area: stone ground
     for (let r = 15; r < MAP_H; r++) {
       for (let c = 0; c < MAP_W; c++) {
-        IsoEngine.setTile(c, r, 'stone');
+        farmSetTile(c, r, 'stone');
       }
     }
 
     // -- Static decorations --
     // Trees
     for (const [c, r] of TREE_POSITIONS) {
-      const ent = IsoEntityManager.add(IsoEntityManager.createStatic(c, r,
+      const ent = IsoEntityManager.add(farmStatic(c, r,
         (ctx, sx, sy, tick) => IsoEngine.drawIsoTree(ctx, sx, sy, tick)
       ));
       decorEntities.push(ent);
@@ -176,7 +200,7 @@ const IsoFarm = (() => {
 
     // Flowers/bushes
     for (const [c, r] of FLOWER_POSITIONS) {
-      const ent = IsoEntityManager.add(IsoEntityManager.createStatic(c, r,
+      const ent = IsoEntityManager.add(farmStatic(c, r,
         (ctx, sx, sy, tick) => drawFlower(ctx, sx, sy, tick, c + r)
       ));
       decorEntities.push(ent);
@@ -185,7 +209,7 @@ const IsoFarm = (() => {
     // Rocks
     for (const [c, r] of ROCK_POSITIONS) {
       const seed = c * 7 + r * 13;
-      const ent = IsoEntityManager.add(IsoEntityManager.createStatic(c, r,
+      const ent = IsoEntityManager.add(farmStatic(c, r,
         (ctx, sx, sy, tick) => drawRock(ctx, sx, sy, tick, seed)
       ));
       decorEntities.push(ent);
@@ -195,19 +219,19 @@ const IsoFarm = (() => {
 
     // Dirt path connecting main road to town
     for (let r = 11; r <= 14; r++) {
-      IsoEngine.setTile(9, r, 'path');
-      IsoEngine.setTile(10, r, 'path');
+      farmSetTile(9, r, 'path');
+      farmSetTile(10, r, 'path');
     }
 
     // Bulletin board (usage data sign, right of crop fields)
-    const boardEnt = IsoEntityManager.add(IsoEntityManager.createStatic(12, 5,
+    const boardEnt = IsoEntityManager.add(farmStatic(12, 5,
       (ctx, sx, sy, tick) => drawBulletinBoard(ctx, sx, sy, tick),
       { signType: 'bulletin' }
     ));
     decorEntities.push(boardEnt);
 
     // Tool shed (buddies stop here to pick up tools before farming)
-    const shedEnt = IsoEntityManager.add(IsoEntityManager.createStatic(2, 10,
+    const shedEnt = IsoEntityManager.add(farmStatic(2, 10,
       (ctx, sx, sy, tick) => drawToolShed(ctx, sx, sy, tick)
     ));
     decorEntities.push(shedEnt);
@@ -215,14 +239,14 @@ const IsoFarm = (() => {
     // Lamp posts along the path (light up at night)
     const LAMP_POSITIONS = [[3, 10], [7, 10], [11, 10], [15, 10]];
     for (const [c, r] of LAMP_POSITIONS) {
-      const ent = IsoEntityManager.add(IsoEntityManager.createStatic(c, r,
+      const ent = IsoEntityManager.add(farmStatic(c, r,
         (ctx, sx, sy, tick) => drawLampPost(ctx, sx, sy, tick)
       ));
       decorEntities.push(ent);
     }
 
     // Shipping bin (resource → GOLD, at path edge near farm)
-    const shippingBinEnt = IsoEntityManager.add(IsoEntityManager.createStatic(1, 10,
+    const shippingBinEnt = IsoEntityManager.add(farmStatic(1, 10,
       (ctx, sx, sy, tick) => drawShippingBin(ctx, sx, sy, tick),
       { z: 0 }
     ));
@@ -398,8 +422,8 @@ const IsoFarm = (() => {
   function updateShippingBin(tick) {
     if (typeof Player === 'undefined' || typeof ResourceInventory === 'undefined') return;
     const pt = Player.getTile();
-    const dx = Math.abs(pt.col - SHIPPING_BIN_COL);
-    const dy = Math.abs(pt.row - SHIPPING_BIN_ROW);
+    const dx = Math.abs(pt.col - wc(SHIPPING_BIN_COL));
+    const dy = Math.abs(pt.row - wr(SHIPPING_BIN_ROW));
     // Player is adjacent (within 1.5 tiles)
     if (dx <= 1 && dy <= 1) {
       shippingBinNearby = true;
@@ -549,7 +573,7 @@ const IsoFarm = (() => {
     // Reset entire potential field area to grass
     for (let r = 2; r <= 9; r++) {
       for (let c = 3; c <= 11; c++) {
-        IsoEngine.setTile(c, r, 'grass');
+        farmSetTile(c, r, 'grass');
       }
     }
 
@@ -565,34 +589,34 @@ const IsoFarm = (() => {
 
     // Paint soil for active crop rows
     for (let r = rowMin; r <= rowMax; r++) {
-      for (let c = 4; c <= 6; c++) IsoEngine.setTile(c, r, 'soil');
-      IsoEngine.setTile(7, r, 'path');
-      for (let c = 8; c <= 10; c++) IsoEngine.setTile(c, r, 'soil');
+      for (let c = 4; c <= 6; c++) farmSetTile(c, r, 'soil');
+      farmSetTile(7, r, 'path');
+      for (let c = 8; c <= 10; c++) farmSetTile(c, r, 'soil');
     }
 
     // Dirt border around active field
     const borderTop = rowMin - 1;
     const borderBot = rowMax + 1;
     for (let c = 3; c <= 11; c++) {
-      IsoEngine.setTile(c, borderTop, 'dirt');
-      IsoEngine.setTile(c, borderBot, 'dirt');
+      farmSetTile(c, borderTop, 'dirt');
+      farmSetTile(c, borderBot, 'dirt');
     }
     for (let r = borderTop; r <= borderBot; r++) {
-      IsoEngine.setTile(3, r, 'dirt');
-      IsoEngine.setTile(11, r, 'dirt');
+      farmSetTile(3, r, 'dirt');
+      farmSetTile(11, r, 'dirt');
     }
 
     // Build fences around the active field area
     for (let c = 3; c <= 11; c++) {
-      fieldFenceEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(c, borderTop,
+      fieldFenceEntities.push(IsoEntityManager.add(farmStatic(c, borderTop,
         (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'h'))));
-      fieldFenceEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(c, borderBot,
+      fieldFenceEntities.push(IsoEntityManager.add(farmStatic(c, borderBot,
         (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'h'))));
     }
     for (let r = borderTop; r <= borderBot; r++) {
-      fieldFenceEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(3, r,
+      fieldFenceEntities.push(IsoEntityManager.add(farmStatic(3, r,
         (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'v'))));
-      fieldFenceEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(11, r,
+      fieldFenceEntities.push(IsoEntityManager.add(farmStatic(11, r,
         (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'v'))));
     }
 
@@ -631,14 +655,14 @@ const IsoFarm = (() => {
 
     // Bottom + side fences for pasture
     for (let c = zone.minCol; c <= zone.maxCol; c++) {
-      pastureFenceEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(c, zone.maxRow,
+      pastureFenceEntities.push(IsoEntityManager.add(farmStatic(c, zone.maxRow,
         (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'h'))));
     }
     // Left/right fences (shorter)
     for (let r = zone.minRow; r <= zone.maxRow; r++) {
-      pastureFenceEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(zone.minCol, r,
+      pastureFenceEntities.push(IsoEntityManager.add(farmStatic(zone.minCol, r,
         (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'v'))));
-      pastureFenceEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(zone.maxCol, r,
+      pastureFenceEntities.push(IsoEntityManager.add(farmStatic(zone.maxCol, r,
         (ctx, sx, sy, tick) => drawFence(ctx, sx, sy, tick, 'v'))));
     }
 
@@ -646,19 +670,19 @@ const IsoFarm = (() => {
     if (phase >= 2) {
       const troughCol = zone.minCol + 2;
       const troughRow = zone.minRow + 1;
-      pastureDecorEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(troughCol, troughRow,
+      pastureDecorEntities.push(IsoEntityManager.add(farmStatic(troughCol, troughRow,
         (ctx, sx, sy, tick) => drawWaterTrough(ctx, sx, sy, tick))));
 
       const baleCol = zone.maxCol - 2;
       const baleRow = zone.maxRow - 1;
-      pastureDecorEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(baleCol, baleRow,
+      pastureDecorEntities.push(IsoEntityManager.add(farmStatic(baleCol, baleRow,
         (ctx, sx, sy, tick) => drawHayBale(ctx, sx, sy, tick))));
     }
     // Extra hay bale for bigger pastures
     if (phase >= 3) {
       const bale2Col = Math.floor((zone.minCol + zone.maxCol) / 2);
       const bale2Row = zone.maxRow - 1;
-      pastureDecorEntities.push(IsoEntityManager.add(IsoEntityManager.createStatic(bale2Col, bale2Row,
+      pastureDecorEntities.push(IsoEntityManager.add(farmStatic(bale2Col, bale2Row,
         (ctx, sx, sy, tick) => drawHayBale(ctx, sx, sy, tick))));
     }
 
@@ -979,18 +1003,18 @@ const IsoFarm = (() => {
         const tileRow = pos.row;
 
         if (!unlocked) {
-          IsoEngine.setTile(tileCol, tileRow, 'dirt');
+          farmSetTile(tileCol, tileRow, 'dirt');
           continue;
         }
 
-        IsoEngine.setTile(tileCol, tileRow, plot.crop ? 'soilwet' : 'soil');
+        farmSetTile(tileCol, tileRow, plot.crop ? 'soilwet' : 'soil');
 
         if (plot.crop && plot.stage > 0) {
           const cropType = plot.crop;
           const stage = plot.stage;
           const isMature = stage >= 4;
           const cropSpriteId = `crop_${cropType}`;
-          const ent = IsoEntityManager.add(IsoEntityManager.createStatic(tileCol, tileRow,
+          const ent = IsoEntityManager.add(farmStatic(tileCol, tileRow,
             (ctx, sx, sy, tick) => {
               // Mature glow aura (drawn BEHIND the crop)
               if (isMature) {
@@ -1024,12 +1048,12 @@ const IsoFarm = (() => {
 
       if (isUnlocked && !exists) {
         const home = ANIMAL_HOMES[type];
-        const ent = IsoEntityManager.add(IsoEntityManager.createAnimal(type, home.col, home.row, {
+        const ent = IsoEntityManager.add(farmAnimal(type, home.col, home.row, {
           wanderRadius: 2.5,
-          minCol: PASTURE_ZONE.minCol,
-          maxCol: PASTURE_ZONE.maxCol,
-          minRow: PASTURE_ZONE.minRow,
-          maxRow: PASTURE_ZONE.maxRow,
+          minCol: wc(PASTURE_ZONE.minCol),
+          maxCol: wc(PASTURE_ZONE.maxCol),
+          minRow: wr(PASTURE_ZONE.minRow),
+          maxRow: wr(PASTURE_ZONE.maxRow),
         }));
         animalEntities.set(type, ent);
       } else if (!isUnlocked && exists) {
@@ -1056,7 +1080,7 @@ const IsoFarm = (() => {
       const pos = BUILDING_POSITIONS[bld];
       if (!pos) continue;
 
-      const ent = IsoEntityManager.add(IsoEntityManager.createStatic(pos.col, pos.row,
+      const ent = IsoEntityManager.add(farmStatic(pos.col, pos.row,
         (ctx, sx, sy, tick) => drawBuilding(ctx, sx, sy, bld, tick),
         { z: 0 }
       ));
@@ -1074,7 +1098,7 @@ const IsoFarm = (() => {
       const colorName = HOODIE_COLOR_NAMES[colorIndex % HOODIE_COLOR_NAMES.length];
 
       const ent = IsoEntityManager.add(IsoEntityManager.createCharacter(
-        Math.min(slotCol, MAP_W - 2), 10, {
+        wc(Math.min(slotCol, MAP_W - 2)), wr(10), {
           hoodieColor: color,
           name: project,
           direction: 'down',
@@ -1690,7 +1714,7 @@ const IsoFarm = (() => {
     goldenBirdRow = spot[1];
     birdLifeTimer = BIRD_LIFETIME;
 
-    goldenBirdEntity = IsoEntityManager.add(IsoEntityManager.createStatic(
+    goldenBirdEntity = IsoEntityManager.add(farmStatic(
       goldenBirdCol, goldenBirdRow,
       (ctx, sx, sy, tick) => drawGoldenBird(ctx, sx, sy, tick),
       { signType: 'goldenbird' }
@@ -1816,7 +1840,7 @@ const IsoFarm = (() => {
     }
     if (monumentEntity) return; // already placed
 
-    monumentEntity = IsoEntityManager.add(IsoEntityManager.createStatic(17, 2,
+    monumentEntity = IsoEntityManager.add(farmStatic(17, 2,
       (ctx, sx, sy, tick) => {
         // Use MonumentV2 if available, fallback to v1
         if (typeof MonumentV2 !== 'undefined') {

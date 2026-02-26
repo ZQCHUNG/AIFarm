@@ -17,8 +17,14 @@ const NPCManager = (() => {
   const TIER_VETERAN = 30 * 60 * 1000;   // 30 minutes
   const TIER_SAGE    = 2 * 60 * 60 * 1000; // 2 hours
 
-  // NPC wander zone (village/path area)
+  // NPC wander zone (village/path area — local farm coords, offset applied at runtime)
   const WANDER_ZONE = { minCol: 0, maxCol: 18, minRow: 10, maxRow: 16 };
+
+  // Home offset helper for mega-map support
+  function _off() {
+    return (typeof IsoEngine !== 'undefined' && IsoEngine.getHomeOffset)
+      ? IsoEngine.getHomeOffset() : { col: 0, row: 0 };
+  }
 
   // NPC registry
   let npcs = []; // { id, profile, entity, ai }
@@ -105,10 +111,11 @@ const NPCManager = (() => {
 
   function createAI(profile) {
     const zone = WANDER_ZONE;
+    const off = _off();
     return {
       state: AI_STATE.IDLE,
-      col: zone.minCol + Math.random() * (zone.maxCol - zone.minCol),
-      row: zone.minRow + Math.random() * (zone.maxRow - zone.minRow),
+      col: off.col + zone.minCol + Math.random() * (zone.maxCol - zone.minCol),
+      row: off.row + zone.minRow + Math.random() * (zone.maxRow - zone.minRow),
       targetCol: 0,
       targetRow: 0,
       dir: 0, // 0=down, 1=left, 2=right, 3=up
@@ -123,16 +130,17 @@ const NPCManager = (() => {
     const ai = npc.ai;
     const prof = npc.profile;
     const zone = WANDER_ZONE;
+    const off = _off();
 
     switch (ai.state) {
       case AI_STATE.IDLE:
         ai.idleTimer--;
         if (ai.idleTimer <= 0) {
-          // Pick random target within wander range
+          // Pick random target within wander range (offset to world coords)
           const range = prof.tierDef.wanderRange;
-          ai.targetCol = Math.max(zone.minCol, Math.min(zone.maxCol,
+          ai.targetCol = Math.max(off.col + zone.minCol, Math.min(off.col + zone.maxCol,
             ai.col + (Math.random() - 0.5) * range * 2));
-          ai.targetRow = Math.max(zone.minRow, Math.min(zone.maxRow,
+          ai.targetRow = Math.max(off.row + zone.minRow, Math.min(off.row + zone.maxRow,
             ai.row + (Math.random() - 0.5) * range * 2));
           ai.state = AI_STATE.WALKING;
         }

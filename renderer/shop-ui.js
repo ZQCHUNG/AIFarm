@@ -96,8 +96,9 @@ const ShopUI = (() => {
   function updateProximity() {
     if (typeof Player === 'undefined') { playerNearShop = false; return; }
     const pt = Player.getTile();
-    const dx = Math.abs(pt.col - SHOP_COL);
-    const dy = Math.abs(pt.row - SHOP_ROW);
+    const off = (typeof IsoEngine !== 'undefined' && IsoEngine.getHomeOffset) ? IsoEngine.getHomeOffset() : { col: 0, row: 0 };
+    const dx = Math.abs(pt.col - (SHOP_COL + off.col));
+    const dy = Math.abs(pt.row - (SHOP_ROW + off.row));
     playerNearShop = dx <= 1 && dy <= 1;
   }
 
