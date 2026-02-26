@@ -347,8 +347,8 @@ Sprint 30 最終平衡調整：
 | ✅ | P0 | 大螢幕走路速度修復 | Claude | zoom 隨 canvas 高度比例縮放 (baseline 351px→1.8x) (89caf00) |
 | ✅ | P0 | 隱形牆壁根因修復 | Claude | chunk-manager 樹木用 'fence' 類型但無樹木精靈 → 獨立 'tree' 瓷磚類型 + inline drawIsoTree (978a7b7) |
 | ⬜ | P0 | CTO 靜默故障審查 | CTO | 已發現 3 類問題：IPC async 陷阱、AssetManager null 崩潰、SceneManager race condition |
-| ⬜ | P1 | F3 Dashboard 錯誤視覺化 | Claude | Debug 面板顯示被 try-catch 攔截的錯誤 |
-| ⬜ | P1 | NPC 失蹤修復 | Claude | sessionHistory 為空，需加 REQUEST_INITIAL_DATA IPC |
+| ✅ | P1 | F3 Dashboard 錯誤視覺化 | Claude | Ring Buffer 5 筆錯誤 + 時間戳 + 來源標籤 + 紅色脈動圈指示器 (ed9d8b0) |
+| ✅ | P1 | NPC 失蹤修復 | Claude | request-farm-sync IPC + 500ms 安全網延遲確保 sessionHistory 到達 NPCManager (ed9d8b0) |
 
 ### 📋 Sprint 24 — "The Aesthetic Overhaul" (待排入)
 
@@ -371,6 +371,7 @@ Sprint 30 最終平衡調整：
 
 | 日期 | 任務 | Commit |
 |------|------|--------|
+| 2026-02-26 | F3 Dashboard 錯誤視覺化 + NPC 失蹤修復 (request-farm-sync IPC) | ed9d8b0 |
 | 2026-02-26 | 隱形牆壁根因修復（'tree' 瓷磚類型分離 + inline 樹木精靈） | 978a7b7 |
 | 2026-02-26 | 韌性測試套件 67 tests + Player null fix + Camera NaN guard | f0b1abd |
 | 2026-02-26 | 大螢幕走路速度修復（zoom 比例縮放） | 89caf00 |
