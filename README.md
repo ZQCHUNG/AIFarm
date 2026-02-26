@@ -332,33 +332,40 @@ Sprint 30 最終平衡調整：
 
 ## TODO / 開發待辦
 
-### 🔥 進行中 — Sprint 22.5 "The Pulse of the Farm"
+> Joe 可以直接看這裡追蹤進度，不需要追問團隊。
+
+### 🔥 Sprint 23 — "The Quality & Pulse" (進行中)
 
 | 狀態 | 優先級 | 任務 | 負責人 | 備註 |
 |------|--------|------|--------|------|
-| ✅ | P0 | Buddy 大小閃爍修復 | Claude | commit 3e18bcb |
-| ✅ | P0 | 隱形牆壁 / Null Tile 修復 | Claude | commit 3e18bcb |
-| ✅ | P0 | 走回頭路卡住 / Corner-Assist 碰撞修復 | Claude | commit 3e18bcb |
-| ⬜ | P1 | Token 燃燒 HUD 指示器 | Claude | 脈動火焰 ⚡ + 每秒 token 消耗數字 |
-| ⬜ | P1 | 綜合測試套件 | Claude | 單元測試 + CDP 整合測試 |
-| ⬜ | P1 | 全面 Bug 偵測 & 修復 | CTO/PM/Claude | PM 排定測試 Sprint |
-| ⬜ | P2 | UI/UX 大幅提升 | CTO/PM/Claude | PM 規劃 UI/UX 改善清單 |
+| ⬜ | P0 | Token 燃燒脈動指示器 | Claude | Energy 條旁脈動核心 + "-X tokens" 浮動文字 |
+| ⬜ | P0 | 自動化測試套件 (Jest) | Claude | 單元測試：market-economy、tech-tree、resource-inventory |
+| ⬜ | P0 | CDP 整合測試腳本 | Claude | 碰撞邊界 5 分鐘自動行走 + 穿牆/卡住偵測 |
+| ⬜ | P1 | 視覺回歸測試 | Claude | 濾鏡穩定度 + NPC/Buddy 動畫 pivot point 校驗 |
+| ⬜ | P1 | NPC 失蹤修復 | Claude | sessionHistory 為空，需加 REQUEST_INITIAL_DATA IPC |
 
-### 📋 待排入 Sprint
+### 📋 Sprint 24 — "The Aesthetic Overhaul" (待排入)
 
 | 任務 | 說明 |
 |------|------|
-| 多資源庫存系統 (Sprint 22 原定) | ResourceInventory class、wood/stone/fish/carrot/sunflower、撿拾 VFX、SQLite 持久化 |
-| NPC 失蹤修復 | sessionHistory 為空（無已結束 session），需加入 REQUEST_INITIAL_DATA IPC |
-| 自動化測試基礎設施 | Jest/Mocha 單元測試 + CDP 腳本化整合測試 + CI pipeline |
-| UI/UX 改善: HUD 重設計 | 資源欄位清晰化、active session 指示、minimap 改善 |
-| UI/UX 改善: 碰撞視覺回饋 | 撞牆時微震動/粒子、明確的通行/阻擋區域標示 |
-| UI/UX 改善: 選單與互動 | 商店/委託/收藏 UI 一致性、鍵盤快捷鍵提示 |
+| 互動感知強化 | 靠近可互動實體時游標變手型/對話框、環境音效觸發 |
+| HUD 資訊密度重構 | 合併重複資訊、季節/時間與小地圖整合、騰出中央視野 |
+| 全域像素字體統一 | 替換為高品質像素字體、優化中文字符渲染銳利度 |
+| 碰撞視覺回饋 | 撞牆微震動/粒子、明確通行/阻擋區域標示 |
+| 選單與互動一致性 | 商店/委託/收藏 UI 風格統一、鍵盤快捷鍵提示 |
+
+### 📦 Backlog (未排期)
+
+| 任務 | 說明 |
+|------|------|
+| 多資源庫存系統 | ResourceInventory class、wood/stone/fish/carrot/sunflower、撿拾 VFX、SQLite 持久化 |
+| 多人同步測試 | 模擬兩玩家在線、WebSocket 延遲 + Lerp 插值穩定度 |
 
 ### ✅ 最近完成
 
 | 日期 | 任務 | Commit |
 |------|------|--------|
+| 2026-02-26 | README TODO 追蹤區塊 | 89f9b45 |
 | 2026-02-26 | Buddy 大小閃爍 + 隱形牆壁 + Corner-Assist 碰撞 | 3e18bcb |
 | 2026-02-26 | 邏輯/渲染分離（rAF 凍結修復） | aa59c9f |
 | 2026-02-26 | 視窗顯示/隱藏修復 + playtest 腳本 | a14d9dc |
