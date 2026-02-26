@@ -115,6 +115,22 @@
     GlobalBalance.apply();
   }
 
+  // Initialize tech tree (research upgrades for tools)
+  if (typeof TechTree !== 'undefined') {
+    TechTree.setupListeners();
+  }
+
+  // Initialize AI broadcast board (NPC commentary on activities)
+  if (typeof AIBroadcast !== 'undefined') {
+    AIBroadcast.init();
+    AIBroadcast.setupListeners();
+  }
+
+  // Initialize trade diplomacy (cross-village trade routes)
+  if (typeof TradeDiplomacy !== 'undefined') {
+    TradeDiplomacy.setupListeners();
+  }
+
   // Initialize player accessories event listeners
   if (typeof PlayerAccessories !== 'undefined') {
     PlayerAccessories.setupListeners();
@@ -192,6 +208,22 @@
       // Initialize victory monument from persisted state
       if (typeof VictoryMonument !== 'undefined') {
         VictoryMonument.init(state && state.victory || null);
+      }
+      // Initialize tech tree from persisted state
+      if (typeof TechTree !== 'undefined') {
+        TechTree.init(state && state.techTree || null);
+      }
+      // Initialize house customizer from persisted state
+      if (typeof HouseCustomizer !== 'undefined') {
+        HouseCustomizer.init(state && state.houseCustom || null);
+      }
+      // Initialize AI broadcast from persisted state
+      if (typeof AIBroadcast !== 'undefined' && state && state.broadcast) {
+        AIBroadcast.loadState(state.broadcast);
+      }
+      // Initialize trade diplomacy from persisted state
+      if (typeof TradeDiplomacy !== 'undefined') {
+        TradeDiplomacy.init(state && state.tradeDiplo || null);
       }
       // Check passive chunk unlock based on cumulative tokens
       if (state && state.energy && typeof ChunkManager !== 'undefined') {
@@ -422,6 +454,39 @@
       }
       return;
     }
+    // Tech tree menu (R key)
+    if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.shiftKey) {
+      if (typeof TechTree !== 'undefined') {
+        if (TechTree.isOpen()) {
+          TechTree.handleKey(e.key);
+        } else {
+          TechTree.toggle();
+        }
+      }
+      return;
+    }
+    // House customizer (H key, near house)
+    if ((e.key === 'h' || e.key === 'H') && !e.ctrlKey && !e.shiftKey) {
+      if (typeof HouseCustomizer !== 'undefined') {
+        if (HouseCustomizer.isOpen()) {
+          HouseCustomizer.handleKey(e.key);
+        } else {
+          HouseCustomizer.toggle();
+        }
+      }
+      return;
+    }
+    // AI broadcast board (B key)
+    if ((e.key === 'b' || e.key === 'B') && !e.ctrlKey && !e.shiftKey) {
+      if (typeof AIBroadcast !== 'undefined') {
+        if (AIBroadcast.isOpen()) {
+          AIBroadcast.handleKey(e.key);
+        } else {
+          AIBroadcast.toggle();
+        }
+      }
+      return;
+    }
     // Shop/sell action (E key) — scene manager takes priority, then shop
     if ((e.key === 'e' || e.key === 'E') && !e.ctrlKey && !e.shiftKey) {
       // Scene transition (door enter/exit) takes top priority
@@ -444,6 +509,22 @@
         IsoFarm.sellAllCrops(tick);
       }
       return; // prevent E from falling through to handleKey (which would close the shop)
+    }
+    // Tech tree (consumes keys when open)
+    if (typeof TechTree !== 'undefined' && TechTree.isOpen()) {
+      if (TechTree.handleKey(e.key)) return;
+    }
+    // House customizer (consumes keys when open)
+    if (typeof HouseCustomizer !== 'undefined' && HouseCustomizer.isOpen()) {
+      if (HouseCustomizer.handleKey(e.key)) return;
+    }
+    // AI broadcast (consumes keys when open)
+    if (typeof AIBroadcast !== 'undefined' && AIBroadcast.isOpen()) {
+      if (AIBroadcast.handleKey(e.key)) return;
+    }
+    // Trade diplomacy (consumes keys when open)
+    if (typeof TradeDiplomacy !== 'undefined' && TradeDiplomacy.isOpen()) {
+      if (TradeDiplomacy.handleKey(e.key)) return;
     }
     // Credits screen (consumes keys when open)
     if (typeof CreditsScreen !== 'undefined' && CreditsScreen.isOpen()) {
@@ -491,6 +572,11 @@
       // Try to open trade with nearby player
       if (typeof TradeUI !== 'undefined' && TradeUI.getNearbyPlayer()) {
         TradeUI.requestTrade();
+        return;
+      }
+      // Trade diplomacy (cross-village trade routes)
+      if (typeof TradeDiplomacy !== 'undefined') {
+        TradeDiplomacy.toggle();
         return;
       }
       // Fallback: token burn simulator for construction testing
@@ -668,7 +754,11 @@
       || (typeof QuestBoard !== 'undefined' && QuestBoard.isOpen())
       || (typeof CookingSystem !== 'undefined' && (CookingSystem.isOpen() || CookingSystem.isCooking()))
       || (typeof TradeUI !== 'undefined' && TradeUI.isOpen())
-      || (typeof CreditsScreen !== 'undefined' && CreditsScreen.isOpen());
+      || (typeof CreditsScreen !== 'undefined' && CreditsScreen.isOpen())
+      || (typeof TechTree !== 'undefined' && TechTree.isOpen())
+      || (typeof HouseCustomizer !== 'undefined' && HouseCustomizer.isOpen())
+      || (typeof AIBroadcast !== 'undefined' && AIBroadcast.isOpen())
+      || (typeof TradeDiplomacy !== 'undefined' && TradeDiplomacy.isOpen());
     if (typeof Player !== 'undefined') {
       // Initialize player at farm center (offset by home chunk in mega-map)
       if (!playerInited) {
@@ -834,6 +924,16 @@
       // Update victory monument (ascension check)
       if (typeof VictoryMonument !== 'undefined') {
         VictoryMonument.update(tick);
+      }
+
+      // Update AI broadcast board (random announcements)
+      if (typeof AIBroadcast !== 'undefined') {
+        AIBroadcast.update(tick);
+      }
+
+      // Update trade diplomacy (caravan events)
+      if (typeof TradeDiplomacy !== 'undefined') {
+        TradeDiplomacy.update(tick);
       }
 
       // Update network client (ghost player interpolation)
@@ -1073,6 +1173,26 @@
       // Friendship system (gift prompt, heart indicators, animations)
       if (typeof FriendshipSystem !== 'undefined') {
         FriendshipSystem.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
+      // Tech tree modal overlay
+      if (typeof TechTree !== 'undefined') {
+        TechTree.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
+      // House customizer overlay
+      if (typeof HouseCustomizer !== 'undefined') {
+        HouseCustomizer.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
+      // AI broadcast board overlay
+      if (typeof AIBroadcast !== 'undefined') {
+        AIBroadcast.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
+      // Trade diplomacy overlay
+      if (typeof TradeDiplomacy !== 'undefined') {
+        TradeDiplomacy.draw(ctx, canvas.width, canvas.height, tick);
       }
 
       // Tutorial overlay (dialog box + bouncing arrows, on top of modals)
