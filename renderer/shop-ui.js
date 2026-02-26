@@ -267,7 +267,7 @@ const ShopUI = (() => {
 
     // Title
     ctx.fillStyle = '#4A2800';
-    ctx.font = 'bold 10px monospace';
+    ctx.font = `bold 10px ${PF}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText('\u{1F6D2} General Store', px + pw / 2, y);
@@ -275,7 +275,7 @@ const ShopUI = (() => {
 
     // Gold balance
     const gold = (typeof ResourceInventory !== 'undefined') ? ResourceInventory.get('gold') : 0;
-    ctx.font = '8px monospace';
+    ctx.font = `8px ${PF}`;
     ctx.fillStyle = '#DAA520';
     ctx.fillText('\u{1FA99} ' + gold + ' gold', px + pw / 2, y);
     y += 14;
@@ -306,7 +306,7 @@ const ShopUI = (() => {
         ctx.fill();
         // Arrow indicator
         ctx.fillStyle = '#FFD700';
-        ctx.font = '8px monospace';
+        ctx.font = `8px ${PF}`;
         ctx.fillText('\u25B6', LEFT + 2, iy + 6); // ▶
       }
 
@@ -323,19 +323,19 @@ const ShopUI = (() => {
       }
 
       // Icon + Name
-      ctx.font = '9px monospace';
+      ctx.font = `9px ${PF}`;
       ctx.fillStyle = canAfford ? '#4A2800' : '#AAA';
       ctx.fillText(item.icon + ' ' + item.name, LEFT + 12, iy + 6);
 
       // Price
-      ctx.font = '7px monospace';
+      ctx.font = `7px ${PF}`;
       ctx.fillStyle = canAfford ? '#DAA520' : '#C88';
       ctx.textAlign = 'right';
       ctx.fillText(item.price + 'g', px + pw - MARGIN - 4, iy + 6);
       ctx.textAlign = 'left';
 
       // Description (with season indicator for seeds)
-      ctx.font = '7px monospace';
+      ctx.font = `7px ${PF}`;
       let desc = item.description;
       let descColor = '#888';
       if (item.type === 'seed' && typeof IsoSeasons !== 'undefined') {
@@ -356,7 +356,7 @@ const ShopUI = (() => {
     // Controls hint
     y = py + ph - MARGIN - 4;
     ctx.textAlign = 'center';
-    ctx.font = '7px monospace';
+    ctx.font = `7px ${PF}`;
     ctx.fillStyle = '#AAA';
     ctx.fillText('[W/S] Select  [Enter] Buy  [E] Close', px + pw / 2, y);
   }
@@ -366,7 +366,7 @@ const ShopUI = (() => {
     if (!playerNearShop || modalOpen) return;
 
     const text = 'Press [E] to shop';
-    ctx.font = 'bold 9px monospace';
+    ctx.font = `bold 9px ${PF}`;
     const tw = ctx.measureText(text).width;
     const px = (canvasW - tw) / 2 - 8;
     const py = canvasH - 42;

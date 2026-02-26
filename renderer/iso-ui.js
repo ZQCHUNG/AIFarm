@@ -1,6 +1,7 @@
 // Iso UI — modal overlays for the isometric farm view.
 // Handles the bulletin board daily summary popup with bounce animation.
 const IsoUI = (() => {
+  const PF = "Consolas, 'MS Gothic', monospace";
   // ===== Modal state =====
   let modalOpen = false;
   let modalAge = 0;        // ticks since open
@@ -172,7 +173,7 @@ const IsoUI = (() => {
 
     // Title
     ctx.fillStyle = '#4A2800';
-    ctx.font = 'bold 11px monospace';
+    ctx.font = `bold 11px ${PF}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText('\u{1F4CB} Daily Summary', px + pw / 2, y);
@@ -188,7 +189,7 @@ const IsoUI = (() => {
     y += 6;
 
     ctx.textAlign = 'left';
-    ctx.font = '9px monospace';
+    ctx.font = `9px ${PF}`;
 
     if (!usage) {
       ctx.fillStyle = '#888';
@@ -205,11 +206,11 @@ const IsoUI = (() => {
 
     // -- Today's Stats --
     ctx.fillStyle = '#8B5A2B';
-    ctx.font = 'bold 9px monospace';
+    ctx.font = `bold 9px ${PF}`;
     ctx.fillText('\u{26A1} Today', LEFT, y);
     y += 13;
 
-    ctx.font = '8px monospace';
+    ctx.font = `8px ${PF}`;
     ctx.fillStyle = '#4A2800';
     const todayStats = [
       [`Tokens:  ${fmtK(usage.todayTokens || 0)}`, '#D35400'],
@@ -224,11 +225,11 @@ const IsoUI = (() => {
 
     // -- Live Session --
     ctx.fillStyle = '#8B5A2B';
-    ctx.font = 'bold 9px monospace';
+    ctx.font = `bold 9px ${PF}`;
     ctx.fillText('\u{1F4BB} Live Session', LEFT, y);
     y += 13;
 
-    ctx.font = '8px monospace';
+    ctx.font = `8px ${PF}`;
     const liveStats = [
       [`Output:  ${fmtK(usage.liveOutput || 0)} tok`, '#27AE60'],
       [`Input:   ${fmtK(usage.liveInput || 0)} tok`, '#8E44AD'],
@@ -245,11 +246,11 @@ const IsoUI = (() => {
     // -- Farm Progress --
     if (farmState) {
       ctx.fillStyle = '#8B5A2B';
-      ctx.font = 'bold 9px monospace';
+      ctx.font = `bold 9px ${PF}`;
       ctx.fillText('\u{1F33E} Farm', LEFT, y);
       y += 13;
 
-      ctx.font = '8px monospace';
+      ctx.font = `8px ${PF}`;
       ctx.fillStyle = '#4A2800';
       ctx.fillText(`Energy: ${fmtK(farmState.totalEnergy || 0)}`, LEFT + 4, y);
       y += 11;
@@ -280,7 +281,7 @@ const IsoUI = (() => {
         y += barH + 3;
 
         ctx.fillStyle = '#888';
-        ctx.font = '7px monospace';
+        ctx.font = `7px ${PF}`;
         ctx.fillText(`Next: ${fmtK(nextMs)} (${Math.floor(pct * 100)}%)`, LEFT + 4, y);
       }
     }
@@ -290,11 +291,11 @@ const IsoUI = (() => {
     if (log.length > 0) {
       y += 6;
       ctx.fillStyle = '#8B5A2B';
-      ctx.font = 'bold 9px monospace';
+      ctx.font = `bold 9px ${PF}`;
       ctx.fillText('\u{1F4DC} Activity', LEFT, y);
       y += 13;
 
-      ctx.font = '8px monospace';
+      ctx.font = `8px ${PF}`;
       const now = Date.now();
       const maxShow = Math.min(log.length, 5); // show up to 5 in modal
       for (let i = 0; i < maxShow; i++) {
@@ -322,7 +323,7 @@ const IsoUI = (() => {
       const icon = moodEmoji[vibe.mood] || '\u{2699}\u{FE0F}';
       const score = Math.round((vibe.vibeScore || 0) * 100);
       ctx.textAlign = 'right';
-      ctx.font = '8px monospace';
+      ctx.font = `8px ${PF}`;
       ctx.fillStyle = score >= 75 ? '#D35400' : score >= 40 ? '#2E86C1' : '#888';
       ctx.fillText(`${icon} Vibe ${score}%`, px + pw - MARGIN, py + ph - MARGIN);
       ctx.textAlign = 'left';
@@ -330,7 +331,7 @@ const IsoUI = (() => {
 
     // -- Close hint --
     ctx.textAlign = 'center';
-    ctx.font = '7px monospace';
+    ctx.font = `7px ${PF}`;
     ctx.fillStyle = '#AAA';
     ctx.fillText('Click anywhere to close', px + pw / 2, py + ph - MARGIN + 2);
   }

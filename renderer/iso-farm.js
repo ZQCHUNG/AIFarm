@@ -2,6 +2,9 @@
 // Maps crop plots, animals, buildings, and buddies onto the rectangular grid.
 // Reads Farm.getState() each frame and updates IsoEngine + IsoEntityManager.
 const IsoFarm = (() => {
+  // Pixel-crisp font stack: Consolas (Latin), MS Gothic (CJK bitmap), monospace fallback
+  const PF = "Consolas, 'MS Gothic', monospace";
+
   const MAP_W = 20;
   const MAP_H = 18;
   let initialized = false;
@@ -410,7 +413,7 @@ const IsoFarm = (() => {
 
     // Label "SELL"
     ctx.fillStyle = '#FFE0A0';
-    ctx.font = 'bold 5px monospace';
+    ctx.font = `bold 5px ${PF}`;
     ctx.fillText('SELL', sx, sy + 8 + bounceY);
 
     // Floating gold earned animation
@@ -422,7 +425,7 @@ const IsoFarm = (() => {
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.fillStyle = '#FFD700';
-        ctx.font = 'bold 8px monospace';
+        ctx.font = `bold 8px ${PF}`;
         ctx.textAlign = 'center';
         ctx.fillText('+' + shippingBinGoldFloat.amount + 'g', sx, by - 8 + floatY);
         ctx.restore();
@@ -485,7 +488,7 @@ const IsoFarm = (() => {
 
     // Draw "Press E to sell" prompt at bottom center
     const text = 'Press [E] to sell';
-    ctx.font = 'bold 9px monospace';
+    ctx.font = `bold 9px ${PF}`;
     const tw = ctx.measureText(text).width;
     const px = (canvasW - tw) / 2 - 8;
     const py = canvasH - 42;
@@ -528,7 +531,7 @@ const IsoFarm = (() => {
 
     // Text on board
     ctx.fillStyle = goat ? '#B8860B' : '#4A2800';
-    ctx.font = 'bold 6px monospace';
+    ctx.font = `bold 6px ${PF}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(goat ? 'GOAT' : 'INFO', sx, sy - 31);
@@ -541,7 +544,7 @@ const IsoFarm = (() => {
 
     // Trophy badge (GOAT only)
     if (goat) {
-      ctx.font = '8px monospace';
+      ctx.font = `8px ${PF}`;
       ctx.fillText('\u{1F3C6}', sx, sy - 42);
     }
   }
@@ -945,7 +948,7 @@ const IsoFarm = (() => {
     ctx.fillStyle = '#D4A460';
     ctx.fillRect(sx - 6, sy - 12, 12, 4);
     ctx.fillStyle = '#4A2800';
-    ctx.font = '5px monospace';
+    ctx.font = `5px ${PF}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('TOOLS', sx, sy - 10);
@@ -1302,7 +1305,7 @@ const IsoFarm = (() => {
 
     // Label
     ctx.fillStyle = '#FFF';
-    ctx.font = 'bold 6px monospace';
+    ctx.font = `bold 6px ${PF}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('MILL', sx, sy + 10);
@@ -1379,7 +1382,7 @@ const IsoFarm = (() => {
 
     // Label
     ctx.fillStyle = '#FFF';
-    ctx.font = 'bold 5px monospace';
+    ctx.font = `bold 5px ${PF}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('WORKSHOP', sx, sy + 10);
@@ -1422,7 +1425,7 @@ const IsoFarm = (() => {
     } else {
       // Idle indicator — small icon
       ctx.fillStyle = 'rgba(0,0,0,0.4)';
-      ctx.font = '6px monospace';
+      ctx.font = `6px ${PF}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const pulse = Math.sin(tick * 0.05) * 0.2 + 0.8;
@@ -1614,7 +1617,7 @@ const IsoFarm = (() => {
     ctx.strokeRect(sx + 7, sy - 16, 5, 5);
     // Museum sign
     ctx.fillStyle = '#FFD700';
-    ctx.font = '5px monospace';
+    ctx.font = `5px ${PF}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('MUSEUM', sx, sy + 8);
@@ -1623,7 +1626,7 @@ const IsoFarm = (() => {
       const pct = CollectionUI.getCompletionPercent();
       if (pct > 0) {
         ctx.fillStyle = '#FFD700';
-        ctx.font = '6px monospace';
+        ctx.font = `6px ${PF}`;
         ctx.fillText(`${pct}%`, sx, sy - 26);
       }
     }
@@ -1923,7 +1926,7 @@ const IsoFarm = (() => {
     }
 
     // Stats text below pedestal
-    ctx.font = '7px monospace';
+    ctx.font = `7px ${PF}`;
     ctx.textBaseline = 'top';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#DA70D6';
@@ -1935,7 +1938,7 @@ const IsoFarm = (() => {
 
     // "LEGEND" title above crystal
     ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 7px monospace';
+    ctx.font = `bold 7px ${PF}`;
     ctx.fillText('LEGEND', sx, sy - 33);
   }
 
@@ -1987,7 +1990,7 @@ const IsoFarm = (() => {
     ctx.fill();
 
     // Draw each resource
-    ctx.font = '8px monospace';
+    ctx.font = `8px ${PF}`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
 
@@ -2072,7 +2075,7 @@ const IsoFarm = (() => {
       roundRect(ctx, 8, canvasH - 26, 140, 20, 4);
       ctx.fill();
       ctx.fillStyle = '#FFF';
-      ctx.font = '9px monospace';
+      ctx.font = `9px ${PF}`;
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'left';
       ctx.fillText(label, 14, canvasH - 16);
@@ -2112,7 +2115,7 @@ const IsoFarm = (() => {
 
     // Camera icon
     ctx.fillStyle = snapshotFlash > 0 ? '#333' : '#FFF';
-    ctx.font = '12px monospace';
+    ctx.font = `12px ${PF}`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
     ctx.fillText('\u{1F4F7}', x, y);
@@ -2154,7 +2157,7 @@ const IsoFarm = (() => {
     sCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     sCtx.fillRect(0, snap.height - 24, snap.width, 24);
     sCtx.fillStyle = '#FFD700';
-    sCtx.font = 'bold 10px monospace';
+    sCtx.font = 'bold 10px ${PF}';
     sCtx.textBaseline = 'middle';
     sCtx.textAlign = 'left';
     sCtx.fillText('\u{1F33E} AIFarm — Claude Buddy', 8, snap.height - 12);
@@ -2164,7 +2167,7 @@ const IsoFarm = (() => {
     const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
     sCtx.textAlign = 'right';
     sCtx.fillStyle = '#AAA';
-    sCtx.font = '9px monospace';
+    sCtx.font = '9px ${PF}';
     sCtx.fillText(ts, snap.width - 8, snap.height - 12);
 
     // Download
@@ -2188,13 +2191,13 @@ const IsoFarm = (() => {
     ctx.fill();
 
     ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 11px monospace';
+    ctx.font = `bold 11px ${PF}`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.fillText('\u26A1', x + 4, y + barH / 2 + 4);
 
     ctx.fillStyle = '#FFF';
-    ctx.font = 'bold 10px monospace';
+    ctx.font = `bold 10px ${PF}`;
     ctx.fillText(formatEnergy(energy), x + 18, y + barH / 2 + 4);
 
     const barX = x + 55;
@@ -2233,13 +2236,13 @@ const IsoFarm = (() => {
 
     const ms = findMilestone(energy);
     ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 10px monospace';
+    ctx.font = `bold 10px ${PF}`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.fillText(ms ? `${ms.emoji} ${ms.label}` : '\u{1F331} Starting', x + 6, y + 12);
 
     ctx.fillStyle = '#CCC';
-    ctx.font = '9px monospace';
+    ctx.font = `9px ${PF}`;
     const harvests = state.totalHarvests || 0;
     ctx.fillText(`\u{1F33E}${harvests} harvests`, x + 6, y + 28);
     ctx.textAlign = 'right';
@@ -2256,7 +2259,7 @@ const IsoFarm = (() => {
     const moodEmoji = { productive: '\u{1F525}', focused: '\u{1F3AF}', exploring: '\u{1F50D}', debugging: '\u{1F41B}', working: '\u{2699}', idle: '\u{1F4A4}' };
     const emoji = moodEmoji[vibe.mood] || '\u{2699}';
     ctx.fillStyle = '#FFF';
-    ctx.font = '9px monospace';
+    ctx.font = `9px ${PF}`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.fillText(`${emoji} ${vibe.mood}`, x + 4, y + 10);
@@ -2366,7 +2369,7 @@ const IsoFarm = (() => {
     ctx.save();
     ctx.globalAlpha = pulsePhase;
     ctx.fillStyle = tokenBurnRate > 0 ? '#FF6B35' : '#888';
-    ctx.font = `bold ${Math.round(11 * flameScale)}px monospace`;
+    ctx.font = `bold ${Math.round(11 * flameScale)}px ${PF}`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.fillText('\u{1F525}', x + 3, y + 10); // 🔥
@@ -2375,7 +2378,7 @@ const IsoFarm = (() => {
     // Session count
     if (activeSessions > 0) {
       ctx.fillStyle = '#FFF';
-      ctx.font = 'bold 9px monospace';
+      ctx.font = `bold 9px ${PF}`;
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'left';
       ctx.fillText(activeSessions + ' active', x + 16, y + 10);
@@ -2385,7 +2388,7 @@ const IsoFarm = (() => {
     if (tokenBurnRate > 0) {
       const rateText = tokenBurnRate.toFixed(1) + '/s';
       ctx.fillStyle = '#FF9F43';
-      ctx.font = '8px monospace';
+      ctx.font = `8px ${PF}`;
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'left';
       const rateX = activeSessions > 0 ? x + 50 : x + 16;
@@ -2400,7 +2403,7 @@ const IsoFarm = (() => {
       ctx.save();
       ctx.globalAlpha = Math.max(0, f.alpha);
       ctx.fillStyle = '#FF6B35';
-      ctx.font = 'bold 8px monospace';
+      ctx.font = `bold 8px ${PF}`;
       ctx.textBaseline = 'bottom';
       ctx.textAlign = 'center';
       ctx.fillText('+' + f.pts, x + pillW / 2, floatY);

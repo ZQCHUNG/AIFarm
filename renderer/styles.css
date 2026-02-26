@@ -7,4 +7,6 @@ html, body {
 canvas {
   display: block;
   image-rendering: pixelated;
+  font-family: Consolas, 'MS Gothic', monospace;
+  -webkit-font-smoothing: none;
 }

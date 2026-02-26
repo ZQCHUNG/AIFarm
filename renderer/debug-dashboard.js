@@ -76,7 +76,7 @@ const DebugDashboard = (() => {
       ctx.arc(14, 14, 5, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
-      ctx.font = 'bold 7px monospace';
+      ctx.font = `bold 7px ${PF}`;
       ctx.fillStyle = '#FF4444';
       ctx.textAlign = 'center';
       ctx.fillText(String(errorRing.length), 14, 28);
@@ -100,14 +100,14 @@ const DebugDashboard = (() => {
     ctx.strokeRect(px, py, panelW, panelH);
 
     // Title
-    ctx.font = 'bold 8px monospace';
+    ctx.font = `bold 8px ${PF}`;
     ctx.fillStyle = '#0F0';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillText('ENGINE DASHBOARD [F3]', px + 4, py + 4);
 
     // Stats
-    ctx.font = '7px monospace';
+    ctx.font = `7px ${PF}`;
     let y = py + 18;
     const lineH = 11;
 
@@ -206,12 +206,12 @@ const DebugDashboard = (() => {
       // Flashing warning icon
       const showIcon = errorFlashTick > 0 && Math.floor(errorFlashTick / 10) % 2 === 0;
       ctx.fillStyle = showIcon ? '#FF4444' : '#FF8800';
-      ctx.font = 'bold 8px monospace';
+      ctx.font = `bold 8px ${PF}`;
       ctx.fillText(`ERRORS (${errorRing.length})`, px + 4, y);
       y += 10;
 
       // Error entries
-      ctx.font = '6px monospace';
+      ctx.font = `6px ${PF}`;
       for (const err of errorRing) {
         ctx.fillStyle = '#FF6666';
         ctx.fillText(`${err.ts} [${err.source}]`, px + 4, y);
