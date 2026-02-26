@@ -54,8 +54,9 @@ const Player = (() => {
   // Reference to collision checker
   let collisionFn = null;
 
-  // Solid tile types
-  const SOLID_TILES = new Set(['water', 'fence', 'mountain', 'empty', null]);
+  // Solid tile types (null/undefined are NOT solid — the fence perimeter
+  // and ChunkManager's 'mountain' out-of-world-bounds handle boundaries)
+  const SOLID_TILES = new Set(['water', 'fence', 'mountain', 'empty']);
 
   // ===== Public API =====
 
@@ -159,17 +160,28 @@ const Player = (() => {
 
     moving = Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1;
 
-    // Sliding collision
+    // Sliding collision with corner assist
+    // When blocked, try nudging perpendicular by a few pixels to slide
+    // past tile corners (prevents the "stuck walking back" problem).
     const nextX = wx + vx;
     const nextY = wy + vy;
+    const NUDGE = 1.5;
 
     if (!isBlocked(nextX, wy)) {
       wx = nextX;
+    } else if (!isBlocked(nextX, wy - NUDGE) && !isBlocked(wx, wy - NUDGE)) {
+      wx = nextX; wy -= NUDGE;
+    } else if (!isBlocked(nextX, wy + NUDGE) && !isBlocked(wx, wy + NUDGE)) {
+      wx = nextX; wy += NUDGE;
     } else {
       vx = 0;
     }
     if (!isBlocked(wx, nextY)) {
       wy = nextY;
+    } else if (!isBlocked(wx - NUDGE, nextY) && !isBlocked(wx - NUDGE, wy)) {
+      wy = nextY; wx -= NUDGE;
+    } else if (!isBlocked(wx + NUDGE, nextY) && !isBlocked(wx + NUDGE, wy)) {
+      wy = nextY; wx += NUDGE;
     } else {
       vy = 0;
     }

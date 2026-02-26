@@ -628,7 +628,15 @@ const IsoEngine = (() => {
     for (const item of renderList) {
       if (item.type === 'tile') {
         const tileType = getTile(item.col, item.row);
-        if (!tileType) continue;
+        if (!tileType) {
+          // Null tiles are solid — draw a visible placeholder so players
+          // can see the map boundary instead of invisible blocking.
+          ctx.fillStyle = '#8B7355';  // dark dirt color
+          ctx.globalAlpha = 0.4;
+          ctx.fillRect(item.x, item.y, TILE_W, TILE_H);
+          ctx.globalAlpha = 1.0;
+          continue;
+        }
         drawTile(ctx, item.x, item.y, tileType, tick);
         drawSoilDetail(ctx, item.x, item.y, tileType, tick);
         drawTileTransitions(ctx, item.x, item.y, item.col, item.row);
@@ -656,10 +664,12 @@ const IsoEngine = (() => {
         if (shadowR > 0) {
           drawShadow(ctx, item.x + TILE_W / 2, item.y + TILE_H / 2 + 2, shadowR);
         }
-        if (ent.spriteId && typeof SpriteManager !== 'undefined' && SpriteManager.has(ent.spriteId)) {
-          SpriteManager.draw(ctx, ent.spriteId, item.x + TILE_W / 2, item.y + TILE_H / 2, ent.direction, ent.frame);
-        } else if (ent.draw) {
+        // Prefer custom draw function (procedural pixel-art) over SpriteManager
+        // to avoid size mismatch when sprite sheets have different resolutions.
+        if (ent.draw) {
           ent.draw(ctx, item.x + TILE_W / 2, item.y + TILE_H / 2, tick);
+        } else if (ent.spriteId && typeof SpriteManager !== 'undefined' && SpriteManager.has(ent.spriteId)) {
+          SpriteManager.draw(ctx, ent.spriteId, item.x + TILE_W / 2, item.y + TILE_H / 2, ent.direction, ent.frame);
         }
       }
     }
