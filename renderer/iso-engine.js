@@ -81,8 +81,18 @@ const IsoEngine = (() => {
   function getHoverTile() { return { col: hoverCol, row: hoverRow }; }
 
   // Depth key: row-based (higher row = closer to camera)
-  function depthKey(col, row, z) {
-    return row * 100 + (z || 0) * 10 + col * 0.01;
+  /**
+   * Depth sort key — determines front-to-back draw order.
+   * Uses ground position only: row-major + tiny col offset.
+   * Z (elevation/jumping) does NOT affect sort order — it only
+   * shifts screen Y position for visual height.
+   * @param {number} col - Grid column
+   * @param {number} row - Grid row (pivotY / base contact point)
+   * @param {number} _z - Unused (kept for API compat)
+   * @param {number} priority - Entity type priority: 0=tile, 0.3=static, 0.5=character/animal
+   */
+  function depthKey(col, row, _z, priority) {
+    return row * 1000 + col * 0.1 + (priority || 0);
   }
 
   // ===== Map management =====
@@ -403,7 +413,7 @@ const IsoEngine = (() => {
     // Collect renderable items
     const renderList = [];
 
-    // Tiles (always drawn first, back to front)
+    // Tiles (priority 0 — always behind entities at same position)
     for (let r = rMin; r <= rMax; r++) {
       for (let c = cMin; c <= cMax; c++) {
         const { x, y } = gridToScreen(c, r);
@@ -412,45 +422,49 @@ const IsoEngine = (() => {
         // Skip fog-of-war tiles
         if (typeof ChunkManager !== 'undefined' && ChunkManager.isFog(c, r)) continue;
         renderList.push({
-          depth: depthKey(c, r),
+          depth: depthKey(c, r, 0, 0),
           type: 'tile',
           col: c, row: r, x, y,
         });
       }
     }
 
-    // Entities
+    // Entities (priority 0.3 for statics, 0.5 for characters/animals)
     for (const ent of entities) {
       const ez = ent.z || 0;
       const { x, y } = gridToScreen(ent.col, ent.row, ez);
       ent.screenX = x + TILE_W / 2;
       ent.screenY = y;
+      // Use baseRow (pivot) for depth: ground contact point, not visual center
+      const baseRow = ent.baseRow !== undefined ? ent.baseRow : ent.row;
+      const baseCol = ent.baseCol !== undefined ? ent.baseCol : ent.col;
+      const priority = ent.isStatic ? 0.3 : 0.5;
       renderList.push({
-        depth: depthKey(ent.col, ent.row, ez) + 0.5,
+        depth: depthKey(baseCol, baseRow, 0, priority),
         type: 'entity',
         entity: ent, x, y,
       });
     }
-    // Player entity (persistent reference, not re-pushed each frame)
+    // Player entity (priority 0.5 — same as characters)
     if (playerEntity) {
       const ez = playerEntity.z || 0;
       const { x, y } = gridToScreen(playerEntity.col, playerEntity.row, ez);
       playerEntity.screenX = x + TILE_W / 2;
       playerEntity.screenY = y;
       renderList.push({
-        depth: depthKey(playerEntity.col, playerEntity.row, ez) + 0.5,
+        depth: depthKey(playerEntity.col, playerEntity.row, 0, 0.5),
         type: 'entity',
         entity: playerEntity, x, y,
       });
     }
-    // Pet entity (follows player)
+    // Pet entity (priority 0.4 — renders just before player at same depth)
     if (petEntity) {
       const ez = petEntity.z || 0;
       const { x, y } = gridToScreen(petEntity.col, petEntity.row, ez);
       petEntity.screenX = x + TILE_W / 2;
       petEntity.screenY = y;
       renderList.push({
-        depth: depthKey(petEntity.col, petEntity.row, ez) + 0.4,
+        depth: depthKey(petEntity.col, petEntity.row, 0, 0.4),
         type: 'entity',
         entity: petEntity, x, y,
       });

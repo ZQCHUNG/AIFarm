@@ -324,21 +324,28 @@ const IsoEntityManager = (() => {
 
       if (ent.entityType === TYPE.STATIC) {
         // Static entities: use draw function or spriteId
+        // baseRow = gridY (ground contact — trees sort by trunk base)
         IsoEngine.addEntity({
           col: ent.gridX,
           row: ent.gridY,
           z: totalZ,
+          baseRow: ent.gridY,
+          baseCol: ent.gridX,
+          isStatic: true,
           spriteId: ent.spriteId,
           direction: ent.direction,
           frame: ent.frame,
           draw: ent.draw,
         });
       } else if (ent.entityType === TYPE.CHARACTER) {
-        // Characters: sprite fallback to procedural
+        // Characters: baseRow = gridY (feet position)
         IsoEngine.addEntity({
           col: ent.gridX,
           row: ent.gridY,
           z: totalZ,
+          baseRow: ent.gridY,
+          baseCol: ent.gridX,
+          isStatic: false,
           spriteId: ent.spriteId,
           direction: ent.direction,
           frame: ent.frame,
@@ -347,11 +354,14 @@ const IsoEntityManager = (() => {
           },
         });
       } else if (ent.entityType === TYPE.ANIMAL) {
-        // Animals: sprite fallback to top-down procedural
+        // Animals: baseRow = gridY (feet position, unaffected by jumpZ)
         IsoEngine.addEntity({
           col: ent.gridX,
           row: ent.gridY,
           z: totalZ,
+          baseRow: ent.gridY,
+          baseCol: ent.gridX,
+          isStatic: false,
           spriteId: ent.spriteId,
           direction: ent.direction,
           frame: ent.frame,
@@ -406,7 +416,9 @@ const IsoEntityManager = (() => {
       // Pixel-snapping to prevent sub-pixel gaps at non-integer zoom (CTO request)
       ent.screenX = Math.round(screen.x);
       ent.screenY = Math.round(screen.y);
-      ent.depth = IsoEngine.depthKey(ent.gridX, ent.gridY, ent.z || 0) + 0.5;
+      // Depth uses ground position (pivotY), not elevated Z
+      const priority = ent.entityType === TYPE.STATIC ? 0.3 : 0.5;
+      ent.depth = IsoEngine.depthKey(ent.gridX, ent.gridY, 0, priority);
     }
   }
 
