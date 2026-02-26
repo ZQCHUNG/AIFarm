@@ -549,7 +549,11 @@
         return;
       }
     }
-    // Quest board (Q key)
+    // Quest board (Q key) — TradeDiplomacy consumes Q for amount decrease when open
+    if ((e.key === 'q' || e.key === 'Q') && typeof TradeDiplomacy !== 'undefined' && TradeDiplomacy.isOpen()) {
+      TradeDiplomacy.handleKey(e.key);
+      return;
+    }
     if (typeof QuestBoard !== 'undefined' && QuestBoard.isOpen()) {
       if (QuestBoard.handleKey(e.key, tick)) return;
     }
