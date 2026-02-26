@@ -632,6 +632,9 @@ const IsoEngine = (() => {
 
     renderList.sort((a, b) => a.depth - b.depth);
 
+    // Collect tree canopy positions for overlay pass (drawn AFTER entities)
+    const canopyOverlay = [];
+
     // Render pass
     for (const item of renderList) {
       if (item.type === 'tile') {
@@ -648,9 +651,10 @@ const IsoEngine = (() => {
         drawTile(ctx, item.x, item.y, tileType, tick);
         drawSoilDetail(ctx, item.x, item.y, tileType, tick);
         drawTileTransitions(ctx, item.x, item.y, item.col, item.row);
-        // Tree tiles: rich forest floor + tree sprite (fills entire 32x32 tile)
+        // Tree tiles: trunk drawn here, canopy queued for overlay pass
         if (tileType === 'tree') {
           drawTreeTile(ctx, item.x, item.y, item.col, item.row, tick);
+          canopyOverlay.push({ x: item.x + TILE_W / 2, y: item.y + TILE_H / 2 });
         }
         // DEBUG: tile type label on every tile (remove after debugging)
         if (debugTileLabels) {
@@ -703,6 +707,13 @@ const IsoEngine = (() => {
           SpriteManager.draw(ctx, ent.spriteId, item.x + TILE_W / 2, item.y + TILE_H / 2, ent.direction, ent.frame);
         }
       }
+    }
+
+    // ===== Canopy overlay pass =====
+    // Draw tree canopies ON TOP of entities so players walk "under" trees.
+    // This prevents the visual overlap when approaching trees from below.
+    for (let i = 0; i < canopyOverlay.length; i++) {
+      drawTreeCanopy(ctx, canopyOverlay[i].x, canopyOverlay[i].y, tick);
     }
 
     ctx.restore();
@@ -849,34 +860,15 @@ const IsoEngine = (() => {
 
   // ===== Top-down sprite helpers =====
 
-  /** Draw tree tile — tree sprite on grass base. */
+  /** Draw tree tile base (trunk + shadow) — canopy drawn in overlay pass. */
   function drawTreeTile(ctx, tx, ty, col, row, tick) {
-    drawIsoTree(ctx, tx + TILE_W / 2, ty + TILE_H / 2, tick);
+    drawTreeBase(ctx, tx + TILE_W / 2, ty + TILE_H / 2);
   }
 
-  // Tree (viewed from above — circular canopy with trunk visible below)
-  // Seasonal palette from IsoSeasons (spring blossoms, autumn orange, winter bare)
-  function drawIsoTree(ctx, sx, sy, tick) {
+  // Tree trunk + shadow (drawn at tile layer — underneath entities)
+  function drawTreeBase(ctx, sx, sy) {
     sx = Math.round(sx);
     sy = Math.round(sy);
-    const sway = 0; // Static trees — no sway
-    // Get seasonal palette (falls back to summer defaults)
-    const pal = (typeof IsoSeasons !== 'undefined') ? IsoSeasons.getTreePalette() : null;
-    const trunk = pal ? pal.trunk : '#8B6B3E';
-    let c0 = pal ? pal.canopy[0] : '#3A8A2A';
-    let c1 = pal ? pal.canopy[1] : '#4EAA3A';
-    let c2 = pal ? pal.canopy[2] : '#5CBC48';
-
-    // Winter: smaller canopy (sparse leaves) but keep minimum green tint for visibility
-    const season = (typeof IsoWeather !== 'undefined') ? IsoWeather.getSeason() : 'summer';
-    const canopyScale = season === 'winter' ? 0.85 : 1.0;
-    // Winter canopy: blend towards green so trees are visible on any terrain
-    if (season === 'winter') {
-      c0 = '#4A7A4A';  // muted green (instead of pure grey)
-      c1 = '#5A8A5A';
-      c2 = '#6A9A6A';
-    }
-
     // Shadow on ground
     ctx.fillStyle = 'rgba(0,0,0,0.2)';
     ctx.beginPath();
@@ -887,37 +879,59 @@ const IsoEngine = (() => {
     ctx.fillRect(sx - 4, sy - 11, 8, 18);
     ctx.fillStyle = '#A0784A';
     ctx.fillRect(sx - 3, sy - 10, 6, 16);
-    // Canopy layers (original proportions — sub-tile collision handles the rest)
+  }
+
+  // Tree canopy (drawn in overlay pass — ON TOP of entities)
+  function drawTreeCanopy(ctx, sx, sy, tick) {
+    sx = Math.round(sx);
+    sy = Math.round(sy);
+    const pal = (typeof IsoSeasons !== 'undefined') ? IsoSeasons.getTreePalette() : null;
+    let c0 = pal ? pal.canopy[0] : '#3A8A2A';
+    let c1 = pal ? pal.canopy[1] : '#4EAA3A';
+    let c2 = pal ? pal.canopy[2] : '#5CBC48';
+
+    const season = (typeof IsoWeather !== 'undefined') ? IsoWeather.getSeason() : 'summer';
+    const canopyScale = season === 'winter' ? 0.85 : 1.0;
+    if (season === 'winter') {
+      c0 = '#4A7A4A';
+      c1 = '#5A8A5A';
+      c2 = '#6A9A6A';
+    }
+
+    // Canopy layers
     ctx.fillStyle = c0;
     ctx.beginPath();
-    ctx.ellipse(sx + sway, sy - 14, 14 * canopyScale, 11 * canopyScale, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx, sy - 14, 14 * canopyScale, 11 * canopyScale, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = c1;
     ctx.beginPath();
-    ctx.ellipse(sx + sway, sy - 16, 11 * canopyScale, 8 * canopyScale, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx, sy - 16, 11 * canopyScale, 8 * canopyScale, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = c2;
     ctx.beginPath();
-    ctx.ellipse(sx + sway + 1, sy - 18, 7 * canopyScale, 5 * canopyScale, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx + 1, sy - 18, 7 * canopyScale, 5 * canopyScale, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Seasonal accent (blossom spots in spring, red leaves in autumn, snow in winter)
+    // Seasonal accent
     if (pal && pal.accent && pal.accentChance > 0) {
-      // Use deterministic seed from position so accents are stable per tree
       const seed = Math.abs(sx * 31 + sy * 17) % 100;
       if (seed < pal.accentChance * 100) {
         ctx.fillStyle = pal.accent;
-        // 3-4 small accent dots on the canopy
         for (let i = 0; i < 4; i++) {
-          const ax = sx + sway + Math.sin(seed + i * 2.1) * 8 * canopyScale;
+          const ax = sx + Math.sin(seed + i * 2.1) * 8 * canopyScale;
           const ay = sy - 15 + Math.cos(seed + i * 3.3) * 6 * canopyScale;
-          const ar = 1.5 + (i % 2);
           ctx.beginPath();
-          ctx.arc(ax, ay, ar, 0, Math.PI * 2);
+          ctx.arc(ax, ay, 1.5 + (i % 2), 0, Math.PI * 2);
           ctx.fill();
         }
       }
     }
+  }
+
+  // Legacy wrapper (used by external callers)
+  function drawIsoTree(ctx, sx, sy, tick) {
+    drawTreeBase(ctx, sx, sy);
+    drawTreeCanopy(ctx, sx, sy, tick);
   }
 
   // Character (top-down chibi — big head, small body)
