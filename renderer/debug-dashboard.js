@@ -19,6 +19,11 @@ const DebugDashboard = (() => {
   let lastFPSTime = 0;
   let fps = 0;
 
+  // Error ring buffer (max 5 entries)
+  const MAX_ERRORS = 5;
+  const errorRing = [];
+  let errorFlashTick = 0; // >0 means warning icon is flashing
+
   // ===== Toggle =====
 
   function toggle() {
@@ -33,13 +38,23 @@ const DebugDashboard = (() => {
 
   function isVisible() { return visible; }
 
+  /** Log a caught error to the ring buffer. */
+  function logError(source, message) {
+    const now = new Date();
+    const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+    errorRing.push({ ts, source, message: String(message).slice(0, 60) });
+    if (errorRing.length > MAX_ERRORS) errorRing.shift();
+    errorFlashTick = 180; // flash for 3 seconds (60fps)
+  }
+
+  function getErrorCount() { return errorRing.length; }
+
   // ===== Update =====
 
   function update(tick) {
-    if (!visible) return;
-
-    // FPS calculation
+    // Always count FPS and decrement flash (even when hidden, for accuracy)
     frameCount++;
+    if (errorFlashTick > 0) errorFlashTick--;
     const now = performance.now();
     if (now - lastFPSTime >= 1000) {
       fps = frameCount;
@@ -51,19 +66,36 @@ const DebugDashboard = (() => {
   // ===== Draw =====
 
   function draw(ctx, canvasW, canvasH, tick) {
+    // Show pulsing red dot even when dashboard hidden (if errors exist)
+    if (!visible && errorRing.length > 0 && errorFlashTick > 0) {
+      ctx.save();
+      const alpha = 0.4 + Math.sin(tick * 0.2) * 0.4;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#FF4444';
+      ctx.beginPath();
+      ctx.arc(14, 14, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.font = 'bold 7px monospace';
+      ctx.fillStyle = '#FF4444';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(errorRing.length), 14, 28);
+      ctx.restore();
+    }
     if (!visible) return;
 
     ctx.save();
 
-    // Semi-transparent background panel
-    const panelW = 170;
-    const panelH = 200;
+    // Semi-transparent background panel (expand for error section)
+    const panelW = 200;
+    const errH = errorRing.length > 0 ? 20 + errorRing.length * 18 : 0;
+    const panelH = 210 + errH;
     const px = 6;
     const py = 6;
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(px, py, panelW, panelH);
-    ctx.strokeStyle = '#0F0';
+    ctx.strokeStyle = errorRing.length > 0 ? '#FF4444' : '#0F0';
     ctx.lineWidth = 1;
     ctx.strokeRect(px, py, panelW, panelH);
 
@@ -157,6 +189,38 @@ const DebugDashboard = (() => {
 
     // Tick
     drawStat(ctx, px + 4, y, 'Tick', `${tick}`, '#666');
+    y += lineH;
+
+    // Error ring buffer section
+    if (errorRing.length > 0) {
+      y += 2;
+      // Separator line
+      ctx.strokeStyle = '#FF4444';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(px + 4, y);
+      ctx.lineTo(px + panelW - 4, y);
+      ctx.stroke();
+      y += 4;
+
+      // Flashing warning icon
+      const showIcon = errorFlashTick > 0 && Math.floor(errorFlashTick / 10) % 2 === 0;
+      ctx.fillStyle = showIcon ? '#FF4444' : '#FF8800';
+      ctx.font = 'bold 8px monospace';
+      ctx.fillText(`ERRORS (${errorRing.length})`, px + 4, y);
+      y += 10;
+
+      // Error entries
+      ctx.font = '6px monospace';
+      for (const err of errorRing) {
+        ctx.fillStyle = '#FF6666';
+        ctx.fillText(`${err.ts} [${err.source}]`, px + 4, y);
+        y += 8;
+        ctx.fillStyle = '#FFAAAA';
+        ctx.fillText(err.message, px + 8, y);
+        y += 10;
+      }
+    }
 
     ctx.restore();
   }
@@ -173,5 +237,7 @@ const DebugDashboard = (() => {
     isVisible,
     update,
     draw,
+    logError,
+    getErrorCount,
   };
 })();

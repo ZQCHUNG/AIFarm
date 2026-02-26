@@ -730,6 +730,7 @@
       }
     } catch (e) {
       console.error('[Renderer] logic error:', e.message, e.stack);
+      if (typeof DebugDashboard !== 'undefined') DebugDashboard.logError('logic', e.message);
     }
   }
 
@@ -743,6 +744,7 @@
     } catch (e) {
       // Never let the render loop die — log and continue next frame
       console.error('[Renderer] render error:', e.message, e.stack);
+      if (typeof DebugDashboard !== 'undefined') DebugDashboard.logError('render', e.message);
     }
     lastRenderTick = tick;
     requestAnimationFrame(loop);
@@ -1372,4 +1374,10 @@
   }
 
   requestAnimationFrame(loop);
+
+  // Safety net: request fresh farm state after all modules initialized.
+  // Fixes NPC disappearance when did-finish-load fires before listeners are ready.
+  if (window.buddy && window.buddy.requestFarmSync) {
+    setTimeout(() => window.buddy.requestFarmSync(), 500);
+  }
 })();

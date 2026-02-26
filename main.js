@@ -390,6 +390,15 @@ ipcMain.on('focus-window', () => {
   if (win && !win.isDestroyed()) win.focus();
 });
 
+// Re-send full farm state on demand (fixes NPC disappearance after reload)
+ipcMain.on('request-farm-sync', () => {
+  if (win && !win.isDestroyed()) {
+    console.log('[Claude Buddy] Farm sync requested by renderer');
+    win.webContents.send('farm-update', farm.getRendererState());
+    win.webContents.send('usage-update', usage.getRendererState());
+  }
+});
+
 ipcMain.on('set-weather', (e, condition) => {
   // Rain gives +50% crop growth rate
   if (condition === 'rain') {
