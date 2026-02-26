@@ -336,6 +336,14 @@ ipcMain.on('save-construction', (e, constructionState) => {
   }
 });
 
+ipcMain.on('save-tech-tree', (e, s) => { if (s) { farm.state.techTree = s; farm._dirty = true; } });
+ipcMain.on('save-house-custom', (e, s) => { if (s) { farm.state.houseCustom = s; farm._dirty = true; } });
+ipcMain.on('save-broadcast', (e, s) => { if (s) { farm.state.broadcast = s; farm._dirty = true; } });
+ipcMain.on('save-trade-diplo', (e, s) => { if (s) { farm.state.tradeDiplo = s; farm._dirty = true; } });
+ipcMain.on('save-tutorial', (e, s) => { if (s) { farm.state.tutorial = s; farm._dirty = true; } });
+ipcMain.on('save-friendship', (e, s) => { if (s) { farm.state.friendship = s; farm._dirty = true; } });
+ipcMain.on('save-victory', (e, s) => { if (s) { farm.state.victory = s; farm._dirty = true; } });
+
 ipcMain.on('unlock-building', (e, id) => {
   if (!farm.state.buildings[id]) {
     farm.state.buildings[id] = true;

@@ -134,6 +134,13 @@ const AIBroadcast = (() => {
     const now = Date.now();
     messages.unshift({ type, text, time: now });
     if (messages.length > MAX_MESSAGES) messages.pop();
+    _save();
+  }
+
+  function _save() {
+    if (typeof window !== 'undefined' && window.buddy && window.buddy.saveBroadcast) {
+      window.buddy.saveBroadcast(getState());
+    }
   }
 
   function queueNPCComment(text) {

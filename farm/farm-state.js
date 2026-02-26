@@ -42,6 +42,13 @@ class FarmState {
       sessionHistory: [], // Historical sessions for NPC system
       skills: null, // Skill progression state (farming/mining/fishing)
       construction: null, // Progressive construction state
+      tutorial: null, // Tutorial completion state
+      friendship: null, // NPC friendship hearts
+      victory: null, // Victory monument state
+      techTree: null, // Tech tree research progress
+      houseCustom: null, // House interior customization
+      broadcast: null, // AI broadcast messages
+      tradeDiplo: null, // Trade diplomacy state
     };
   }
 
@@ -349,6 +356,13 @@ class FarmState {
       sessionHistory: this.state.sessionHistory || [],
       skills: this.state.skills || null,
       construction: this.state.construction || null,
+      tutorial: this.state.tutorial || null,
+      friendship: this.state.friendship || null,
+      victory: this.state.victory || null,
+      techTree: this.state.techTree || null,
+      houseCustom: this.state.houseCustom || null,
+      broadcast: this.state.broadcast || null,
+      tradeDiplo: this.state.tradeDiplo || null,
       achievements: this.achievements.getRendererState(),
     };
   }

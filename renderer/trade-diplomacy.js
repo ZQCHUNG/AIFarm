@@ -75,7 +75,7 @@ const TradeDiplomacy = (() => {
   function setupListeners() {
     if (typeof EventBus === 'undefined') return;
 
-    // Trading improves diplomacy
+    // Trading improves diplomacy (single source of truth for trade counting)
     EventBus.on('TRADE_COMPLETE', (data) => {
       if (data && data.village) {
         tradeHistory[data.village] = (tradeHistory[data.village] || 0) + 1;
@@ -83,6 +83,7 @@ const TradeDiplomacy = (() => {
         if (tradeHistory[data.village] % 10 === 0) {
           improveDiplomacy(data.village);
         }
+        _save();
       }
     });
   }
@@ -134,13 +135,7 @@ const TradeDiplomacy = (() => {
     ResourceInventory.addResource(resource, -actual);
     ResourceInventory.addResource('gold', goldReceived);
 
-    tradeHistory[village] = (tradeHistory[village] || 0) + 1;
-
-    // Check diplomacy improvement
-    if (tradeHistory[village] % 10 === 0) {
-      improveDiplomacy(village);
-    }
-
+    // Note: tradeHistory increment + diplomacy check handled by TRADE_COMPLETE listener
     if (typeof EventBus !== 'undefined') {
       EventBus.emit('TRADE_COMPLETE', { village, resource, amount: actual, gold: goldReceived });
     }
@@ -345,6 +340,12 @@ const TradeDiplomacy = (() => {
   }
 
   // ===== Persistence =====
+
+  function _save() {
+    if (typeof window !== 'undefined' && window.buddy && window.buddy.saveTradeDiplo) {
+      window.buddy.saveTradeDiplo(getState());
+    }
+  }
 
   function getState() {
     return { diplomacy, tradeHistory };

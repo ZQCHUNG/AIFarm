@@ -82,6 +82,9 @@ const TutorialManager = (() => {
   function complete() {
     active = false;
     completed = true;
+    if (typeof window !== 'undefined' && window.buddy && window.buddy.saveTutorial) {
+      window.buddy.saveTutorial(getState());
+    }
     // Celebrate
     if (typeof IsoEffects !== 'undefined') {
       const pp = (typeof Player !== 'undefined') ? Player.getPosition() : { x: 10, y: 10 };

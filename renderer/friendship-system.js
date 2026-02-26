@@ -192,6 +192,11 @@ const FriendshipSystem = (() => {
       EventBus.emit('NPC_GIFT', { npcId: nearest.id, item: giftItem, pref, hearts: fs.hearts });
     }
 
+    // Persist friendship state
+    if (typeof window !== 'undefined' && window.buddy && window.buddy.saveFriendship) {
+      window.buddy.saveFriendship(getState());
+    }
+
     return true;
   }
 

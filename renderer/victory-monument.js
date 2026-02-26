@@ -69,6 +69,11 @@ const VictoryMonument = (() => {
     ceremonyTimer = CEREMONY_DURATION;
     legendaryUnlocked = true;
 
+    // Persist victory state
+    if (typeof window !== 'undefined' && window.buddy && window.buddy.saveVictory) {
+      window.buddy.saveVictory(getState());
+    }
+
     // Announcement
     if (typeof IsoEffects !== 'undefined') {
       const pp = (typeof Player !== 'undefined') ? Player.getPosition() : { x: 10, y: 10 };

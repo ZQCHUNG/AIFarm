@@ -115,21 +115,14 @@
     GlobalBalance.apply();
   }
 
-  // Initialize tech tree (research upgrades for tools)
-  if (typeof TechTree !== 'undefined') {
-    TechTree.setupListeners();
-  }
-
   // Initialize AI broadcast board (NPC commentary on activities)
   if (typeof AIBroadcast !== 'undefined') {
     AIBroadcast.init();
     AIBroadcast.setupListeners();
   }
 
-  // Initialize trade diplomacy (cross-village trade routes)
-  if (typeof TradeDiplomacy !== 'undefined') {
-    TradeDiplomacy.setupListeners();
-  }
+  // Note: TechTree.setupListeners() and TradeDiplomacy.setupListeners()
+  // are called inside onFarmUpdate AFTER init() to avoid state race conditions.
 
   // Initialize player accessories event listeners
   if (typeof PlayerAccessories !== 'undefined') {
@@ -209,21 +202,24 @@
       if (typeof VictoryMonument !== 'undefined') {
         VictoryMonument.init(state && state.victory || null);
       }
-      // Initialize tech tree from persisted state
+      // Initialize tech tree from persisted state (setupListeners after init to avoid race)
       if (typeof TechTree !== 'undefined') {
         TechTree.init(state && state.techTree || null);
+        if (!TechTree._listenersReady) { TechTree.setupListeners(); TechTree._listenersReady = true; }
       }
       // Initialize house customizer from persisted state
       if (typeof HouseCustomizer !== 'undefined') {
         HouseCustomizer.init(state && state.houseCustom || null);
       }
-      // Initialize AI broadcast from persisted state
-      if (typeof AIBroadcast !== 'undefined' && state && state.broadcast) {
+      // Initialize AI broadcast from persisted state (only once)
+      if (typeof AIBroadcast !== 'undefined' && state && state.broadcast && !AIBroadcast._stateLoaded) {
         AIBroadcast.loadState(state.broadcast);
+        AIBroadcast._stateLoaded = true;
       }
-      // Initialize trade diplomacy from persisted state
+      // Initialize trade diplomacy from persisted state (setupListeners after init to avoid race)
       if (typeof TradeDiplomacy !== 'undefined') {
         TradeDiplomacy.init(state && state.tradeDiplo || null);
+        if (!TradeDiplomacy._listenersReady) { TradeDiplomacy.setupListeners(); TradeDiplomacy._listenersReady = true; }
       }
       // Check passive chunk unlock based on cumulative tokens
       if (state && state.energy && typeof ChunkManager !== 'undefined') {
@@ -489,6 +485,11 @@
     }
     // Shop/sell action (E key) — scene manager takes priority, then shop
     if ((e.key === 'e' || e.key === 'E') && !e.ctrlKey && !e.shiftKey) {
+      // Trade diplomacy amount adjustment when open
+      if (typeof TradeDiplomacy !== 'undefined' && TradeDiplomacy.isOpen()) {
+        TradeDiplomacy.handleKey(e.key);
+        return;
+      }
       // Scene transition (door enter/exit) takes top priority
       if (typeof SceneManager !== 'undefined' && SceneManager.handleAction()) {
         return;

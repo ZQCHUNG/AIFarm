@@ -110,6 +110,7 @@ const TechTree = (() => {
 
     researchPoints -= nextLevel.cost;
     levels[branch] = level + 1;
+    _save();
 
     if (typeof IsoEffects !== 'undefined') {
       const pp = (typeof Player !== 'undefined') ? Player.getPosition() : { x: 10, y: 10 };
@@ -227,6 +228,12 @@ const TechTree = (() => {
   }
 
   // ===== Persistence =====
+
+  function _save() {
+    if (typeof window !== 'undefined' && window.buddy && window.buddy.saveTechTree) {
+      window.buddy.saveTechTree(getState());
+    }
+  }
 
   function getState() {
     return { rp: researchPoints, levels };

@@ -173,6 +173,7 @@ const HouseCustomizer = (() => {
     }
 
     placed.push({ type, gx, gy });
+    _save();
 
     if (typeof IsoEffects !== 'undefined') {
       const pp = (typeof Player !== 'undefined') ? Player.getPosition() : { x: 10, y: 10 };
@@ -185,10 +186,12 @@ const HouseCustomizer = (() => {
   function removeFurnitureAt(gx, gy) {
     const idx = placed.findIndex(p => {
       const pd = FURNITURE[p.type];
+      if (!pd) return false;
       return gx >= p.gx && gx < p.gx + pd.w && gy >= p.gy && gy < p.gy + pd.h;
     });
     if (idx >= 0) {
       const removed = placed.splice(idx, 1)[0];
+      _save();
       // Refund half
       const def = FURNITURE[removed.type];
       if (typeof ResourceInventory !== 'undefined') {
@@ -244,6 +247,7 @@ const HouseCustomizer = (() => {
     // Placed furniture
     for (const p of placed) {
       const def = FURNITURE[p.type];
+      if (!def) continue;
       ctx.font = `${Math.min(def.w, def.h) * 12}px monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -327,6 +331,12 @@ const HouseCustomizer = (() => {
   }
 
   // ===== Persistence =====
+
+  function _save() {
+    if (typeof window !== 'undefined' && window.buddy && window.buddy.saveHouseCustom) {
+      window.buddy.saveHouseCustom(getState());
+    }
+  }
 
   function getState() {
     return { placed, wallColor, floorColor };
