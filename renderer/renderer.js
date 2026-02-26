@@ -717,6 +717,71 @@
     return ((tick / ANIM_SPEED) | 0) % 4;
   }
 
+  // ---------- Interaction indicator ----------
+  // Shows a bouncing [E] above the player when near an interactable entity
+  // that doesn't already have its own prompt.
+  function drawInteractionIndicator(ctx, canvasW, canvasH, tick) {
+    if (typeof Player === 'undefined' || typeof IsoEngine === 'undefined') return;
+
+    // Check if any interaction-specific prompt is already showing
+    const shopOpen = typeof ShopUI !== 'undefined' && (ShopUI.isOpen() || ShopUI.isNearShop());
+    const fishingNear = typeof IsoFishing !== 'undefined' && (IsoFishing.isNearWater() || IsoFishing.isActive());
+    const landmarkNear = typeof LandmarkGenerator !== 'undefined' && LandmarkGenerator.getNearbyLandmark();
+    const worldEventNear = typeof WorldEvents !== 'undefined' && WorldEvents.hasActiveEvent();
+    // If a specific module is already showing its prompt, skip
+    if (shopOpen || fishingNear || landmarkNear || worldEventNear) return;
+
+    // Check for sell action (near shipping bin)
+    const pt = Player.getTile();
+    const homeOff = (typeof ChunkManager !== 'undefined' && ChunkManager.getHomeOffset)
+      ? ChunkManager.getHomeOffset() : { col: 0, row: 0 };
+    const SHIPPING_COL = homeOff.col + 12;
+    const SHIPPING_ROW = homeOff.row + 9;
+    const nearShip = Math.abs(pt.col - SHIPPING_COL) <= 2 && Math.abs(pt.row - SHIPPING_ROW) <= 2;
+
+    // Check for NPC gifting (G key)
+    const nearNPC = typeof NPCManager !== 'undefined' && NPCManager.getNearestNPC && NPCManager.getNearestNPC();
+
+    if (!nearShip && !nearNPC) return;
+
+    // Draw floating prompt above player
+    const pp = Player.getPosition();
+    const screenPos = IsoEngine.gridToScreen(pp.x / 32, pp.y / 32);
+    const zoom = IsoEngine.getZoom();
+    const sx = screenPos.x * zoom + 16 * zoom;
+    const sy = screenPos.y * zoom - 8 * zoom;
+    const bounce = Math.sin(tick * 0.12) * 3;
+
+    let text, key;
+    if (nearShip) { text = 'Sell'; key = 'E'; }
+    else if (nearNPC) { text = 'Gift'; key = 'G'; }
+
+    // Background pill
+    ctx.save();
+    ctx.font = 'bold 8px monospace';
+    const tw = ctx.measureText(`[${key}] ${text}`).width;
+    const px = sx - tw / 2 - 6;
+    const py = sy - 20 + bounce;
+    ctx.fillStyle = 'rgba(20, 20, 40, 0.85)';
+    ctx.beginPath();
+    const r = 5;
+    const w = tw + 12, h = 16;
+    ctx.moveTo(px + r, py);
+    ctx.arcTo(px + w, py, px + w, py + h, r);
+    ctx.arcTo(px + w, py + h, px, py + h, r);
+    ctx.arcTo(px, py + h, px, py, r);
+    ctx.arcTo(px, py, px + w, py, r);
+    ctx.closePath();
+    ctx.fill();
+
+    // Key highlight
+    ctx.fillStyle = '#5BEF5B';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`[${key}] ${text}`, sx, py + h / 2);
+    ctx.restore();
+  }
+
   // ---------- Separated logic / render architecture ----------
   // Logic runs on setInterval (guaranteed 60Hz even when rAF pauses).
   // Render runs on requestAnimationFrame (smooth drawing, can pause safely).
@@ -1267,6 +1332,10 @@
       if (typeof QuestBoard !== 'undefined') {
         QuestBoard.drawPrompt(ctx, canvas.width, canvas.height);
       }
+
+      // Unified interaction indicator — bouncing [E] above player
+      // when near ANY interactable (if no specific prompt is already shown)
+      drawInteractionIndicator(ctx, canvas.width, canvas.height, tick);
 
       // Modal overlay (bulletin board daily summary)
       if (typeof IsoUI !== 'undefined') {
