@@ -330,6 +330,40 @@ Sprint 30 最終平衡調整：
 | 30 | 盛大終曲 | 傳奇黃金尖塔升天儀式、全域數值平衡、啟動畫面與製作名單 |
 | 30.5 | 黃金大師補完 | 科技樹升級、房屋裝潢、村莊廣播板、跨村貿易與外交 |
 
+## TODO / 開發待辦
+
+### 🔥 進行中 — Sprint 22.5 "The Pulse of the Farm"
+
+| 狀態 | 優先級 | 任務 | 負責人 | 備註 |
+|------|--------|------|--------|------|
+| ✅ | P0 | Buddy 大小閃爍修復 | Claude | commit 3e18bcb |
+| ✅ | P0 | 隱形牆壁 / Null Tile 修復 | Claude | commit 3e18bcb |
+| ✅ | P0 | 走回頭路卡住 / Corner-Assist 碰撞修復 | Claude | commit 3e18bcb |
+| ⬜ | P1 | Token 燃燒 HUD 指示器 | Claude | 脈動火焰 ⚡ + 每秒 token 消耗數字 |
+| ⬜ | P1 | 綜合測試套件 | Claude | 單元測試 + CDP 整合測試 |
+| ⬜ | P1 | 全面 Bug 偵測 & 修復 | CTO/PM/Claude | PM 排定測試 Sprint |
+| ⬜ | P2 | UI/UX 大幅提升 | CTO/PM/Claude | PM 規劃 UI/UX 改善清單 |
+
+### 📋 待排入 Sprint
+
+| 任務 | 說明 |
+|------|------|
+| 多資源庫存系統 (Sprint 22 原定) | ResourceInventory class、wood/stone/fish/carrot/sunflower、撿拾 VFX、SQLite 持久化 |
+| NPC 失蹤修復 | sessionHistory 為空（無已結束 session），需加入 REQUEST_INITIAL_DATA IPC |
+| 自動化測試基礎設施 | Jest/Mocha 單元測試 + CDP 腳本化整合測試 + CI pipeline |
+| UI/UX 改善: HUD 重設計 | 資源欄位清晰化、active session 指示、minimap 改善 |
+| UI/UX 改善: 碰撞視覺回饋 | 撞牆時微震動/粒子、明確的通行/阻擋區域標示 |
+| UI/UX 改善: 選單與互動 | 商店/委託/收藏 UI 一致性、鍵盤快捷鍵提示 |
+
+### ✅ 最近完成
+
+| 日期 | 任務 | Commit |
+|------|------|--------|
+| 2026-02-26 | Buddy 大小閃爍 + 隱形牆壁 + Corner-Assist 碰撞 | 3e18bcb |
+| 2026-02-26 | 邏輯/渲染分離（rAF 凍結修復） | aa59c9f |
+| 2026-02-26 | 視窗顯示/隱藏修復 + playtest 腳本 | a14d9dc |
+| 2026-02-25 | Remote play 移動 + 鏡頭追蹤 + 存檔對話框 | 527b666 |
+
 ## 快速開始
 
 ```bash
