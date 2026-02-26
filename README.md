@@ -350,15 +350,15 @@ Sprint 30 最終平衡調整：
 | ✅ | P1 | F3 Dashboard 錯誤視覺化 | Claude | Ring Buffer 5 筆錯誤 + 時間戳 + 來源標籤 + 紅色脈動圈指示器 (ed9d8b0) |
 | ✅ | P1 | NPC 失蹤修復 | Claude | request-farm-sync IPC + 500ms 安全網延遲確保 sessionHistory 到達 NPCManager (ed9d8b0) |
 
-### 📋 Sprint 24 — "The Aesthetic Overhaul" (待排入)
+### 📋 Sprint 24 — "The Aesthetic Overhaul" (進行中)
 
-| 任務 | 說明 |
-|------|------|
-| 互動感知強化 | 靠近可互動實體時游標變手型/對話框、環境音效觸發 |
-| HUD 資訊密度重構 | 合併重複資訊、季節/時間與小地圖整合、騰出中央視野 |
-| 全域像素字體統一 | 替換為高品質像素字體、優化中文字符渲染銳利度 |
-| 碰撞視覺回饋 | 撞牆微震動/粒子、明確通行/阻擋區域標示 |
-| 選單與互動一致性 | 商店/委託/收藏 UI 風格統一、鍵盤快捷鍵提示 |
+| 狀態 | 優先級 | 任務 | 負責人 | 備註 |
+|------|--------|------|--------|------|
+| ✅ | P0 | 碰撞視覺回饋 | Claude | 撞牆微震動 + 粉塵粒子 + saved chunk fence→tree 遷移 (be374f3) |
+| ✅ | P0 | 互動感知強化 | Claude | 靠近出貨箱/NPC 時浮動 [E]/[G] 提示框 (254c583) |
+| ⬜ | P1 | 環境音效程序化生成 | Claude | 收割聲/建築敲打聲/UI 點擊聲 |
+| ⬜ | P2 | HUD 進度條平滑化 | Claude | Token 燃燒進度 Lerp 插值 |
+| ⬜ | P2 | 全域像素字體統一 | Claude | 優化中文字符渲染銳利度 |
 
 ### 📦 Backlog (未排期)
 
@@ -371,6 +371,7 @@ Sprint 30 最終平衡調整：
 
 | 日期 | 任務 | Commit |
 |------|------|--------|
+| 2026-02-26 | Sprint 24: 碰撞回饋 + 互動提示 + saved chunk 遷移 | be374f3, 254c583 |
 | 2026-02-26 | F3 Dashboard 錯誤視覺化 + NPC 失蹤修復 (request-farm-sync IPC) | ed9d8b0 |
 | 2026-02-26 | 隱形牆壁根因修復（'tree' 瓷磚類型分離 + inline 樹木精靈） | 978a7b7 |
 | 2026-02-26 | 韌性測試套件 67 tests + Player null fix + Camera NaN guard | f0b1abd |
