@@ -75,6 +75,16 @@
     ConstructionManager.setupListeners();
   }
 
+  // Initialize oracle effects (webhook event visuals)
+  if (typeof OracleEffects !== 'undefined') {
+    OracleEffects.setupListeners();
+  }
+
+  // Initialize trade UI (player-to-player trading)
+  if (typeof TradeUI !== 'undefined') {
+    TradeUI.setupListeners();
+  }
+
   // Initialize player accessories event listeners
   if (typeof PlayerAccessories !== 'undefined') {
     PlayerAccessories.setupListeners();
@@ -192,6 +202,24 @@
         IsoTrain.setNextTrainGolden(true);
       }
     });
+    // UGC custom sprite registration
+    window.buddy.onUGCSpriteAdded((config) => {
+      console.log(`[UGC] Custom sprite registered: ${config.id}`);
+      if (typeof AssetManager !== 'undefined') {
+        AssetManager.registerDynamic(config.id, {
+          src: config.path,
+          frameW: config.width,
+          frameH: config.height,
+          frames: config.frames,
+          category: config.category,
+        });
+      }
+    });
+    window.buddy.onUGCSpriteRemoved((spriteId) => {
+      console.log(`[UGC] Custom sprite removed: ${spriteId}`);
+      // AssetManager doesn't have remove — just log for now
+    });
+
     window.buddy.onSpritesReload((data) => {
       console.log(`[Sprites] Hot-reload triggered by: ${data.trigger}`);
       if (typeof SpriteManager !== 'undefined') {
@@ -332,6 +360,10 @@
       }
       return; // prevent E from falling through to handleKey (which would close the shop)
     }
+    // Trade UI (consumes keys when open)
+    if (typeof TradeUI !== 'undefined' && TradeUI.isOpen()) {
+      if (TradeUI.handleKey(e.key, tick)) return;
+    }
     // Cooking UI (consumes keys when open)
     if (typeof CookingSystem !== 'undefined' && CookingSystem.isOpen()) {
       if (CookingSystem.handleKey(e.key, tick)) return;
@@ -360,8 +392,19 @@
     if (typeof ShopUI !== 'undefined' && ShopUI.isOpen()) {
       if (ShopUI.handleKey(e.key, tick)) return;
     }
-    // [T] key — token burn simulator for construction testing
+    // [T] key — trade with nearby player, or token burn simulator
     if ((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.shiftKey) {
+      // Trade UI consumes key when open
+      if (typeof TradeUI !== 'undefined' && TradeUI.isOpen()) {
+        TradeUI.handleKey(e.key, tick);
+        return;
+      }
+      // Try to open trade with nearby player
+      if (typeof TradeUI !== 'undefined' && TradeUI.getNearbyPlayer()) {
+        TradeUI.requestTrade();
+        return;
+      }
+      // Fallback: token burn simulator for construction testing
       if (typeof ConstructionManager !== 'undefined' && !modalLock) {
         ConstructionManager.setSimulating(true);
       }
@@ -518,7 +561,8 @@
       || (typeof ShopUI !== 'undefined' && ShopUI.isOpen())
       || (typeof CollectionUI !== 'undefined' && CollectionUI.isOpen())
       || (typeof QuestBoard !== 'undefined' && QuestBoard.isOpen())
-      || (typeof CookingSystem !== 'undefined' && (CookingSystem.isOpen() || CookingSystem.isCooking()));
+      || (typeof CookingSystem !== 'undefined' && (CookingSystem.isOpen() || CookingSystem.isCooking()))
+      || (typeof TradeUI !== 'undefined' && TradeUI.isOpen());
     if (typeof Player !== 'undefined') {
       // Initialize player at farm center (offset by home chunk in mega-map)
       if (!playerInited) {
@@ -639,6 +683,11 @@
       // Update NPC AI (historical session characters)
       if (typeof NPCManager !== 'undefined') {
         NPCManager.update(tick);
+      }
+
+      // Update oracle effects (gold rain, announcements)
+      if (typeof OracleEffects !== 'undefined') {
+        OracleEffects.update(tick);
       }
 
       // Update network client (ghost player interpolation)
@@ -797,6 +846,17 @@
         NetworkClient.draw(ctx, tick);
       }
 
+      // Oracle effects overlay (gold rain tint, announcement banner, crystal HUD)
+      if (typeof OracleEffects !== 'undefined') {
+        OracleEffects.draw(ctx, canvas.width, canvas.height);
+      }
+
+      // Trade prompt (when near ghost player)
+      if (typeof TradeUI !== 'undefined') {
+        TradeUI.update();
+        TradeUI.drawPrompt(ctx, canvas.width, canvas.height);
+      }
+
       // Shop prompt (when near tool shed)
       if (typeof ShopUI !== 'undefined') {
         ShopUI.drawShopPrompt(ctx, canvas.width, canvas.height);
@@ -828,6 +888,11 @@
       // Quest board modal overlay
       if (typeof QuestBoard !== 'undefined' && QuestBoard.isOpen()) {
         QuestBoard.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
+      // Trade UI modal overlay
+      if (typeof TradeUI !== 'undefined' && TradeUI.isOpen()) {
+        TradeUI.draw(ctx, canvas.width, canvas.height, tick);
       }
     } else {
       // Interior: draw room name label

@@ -7,6 +7,7 @@ const EventParser = require('./watcher/event-parser');
 const FarmState = require('./farm/farm-state');
 const UsageTracker = require('./watcher/usage-tracker');
 const DataExporter = require('./watcher/data-exporter');
+const UGCImporter = require('./watcher/ugc-importer');
 
 let win = null;
 let tray = null;
@@ -14,6 +15,7 @@ const sessionFinder = new SessionFinder();
 const farm = new FarmState();
 const usage = new UsageTracker();
 const exporter = new DataExporter();
+const ugcImporter = new UGCImporter();
 
 // Per-buddy slot width: must equal scene.js SLOT_W (40) * PX (3)
 const SLOT_W_PX = 40 * 3; // 120 screen pixels
@@ -392,6 +394,19 @@ app.whenReady().then(() => {
     }, 5000, 6 * 60 * 60 * 1000);
     // Watch sprites/ for hot-reload
     startSpriteWatcher();
+    // Start UGC custom asset importer
+    ugcImporter.start(
+      (config) => {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('ugc-sprite-added', config);
+        }
+      },
+      (spriteId) => {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('ugc-sprite-removed', spriteId);
+        }
+      }
+    );
   });
 });
 
@@ -435,6 +450,7 @@ app.on('before-quit', () => {
   farm.close(); // saves + closes SQLite
   usage.stop();
   sessionFinder.stop();
+  ugcImporter.stop();
   if (spriteWatcher) { spriteWatcher.close(); spriteWatcher = null; }
   for (const [, b] of buddies) b.tailer.stop();
 });

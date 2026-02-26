@@ -147,6 +147,27 @@ const NetworkClient = (() => {
             { color: '#FFF', life: 120, rise: 0.2 });
         }
         break;
+
+      case 'oracle_event':
+        // Forward to OracleEffects via EventBus
+        if (typeof EventBus !== 'undefined') {
+          EventBus.emit('ORACLE_EVENT', msg);
+        } else if (typeof OracleEffects !== 'undefined') {
+          OracleEffects.onOracleEvent(msg);
+        }
+        break;
+
+      // Trade protocol messages
+      case 'trade_request':
+      case 'trade_accept':
+      case 'trade_reject':
+      case 'trade_offer':
+      case 'trade_confirm':
+      case 'trade_cancel':
+        if (typeof EventBus !== 'undefined') {
+          EventBus.emit('TRADE_MESSAGE', msg);
+        }
+        break;
     }
   }
 
@@ -171,6 +192,11 @@ const NetworkClient = (() => {
   function sendChat(text) {
     if (!connected || !ws) return;
     ws.send(JSON.stringify({ type: 'chat', text }));
+  }
+
+  function sendTrade(msg) {
+    if (!connected || !ws) return;
+    ws.send(JSON.stringify(msg));
   }
 
   // ===== Game loop integration =====
@@ -258,6 +284,7 @@ const NetworkClient = (() => {
     disconnect,
     sendPosition,
     sendChat,
+    sendTrade,
     update,
     draw,
     isConnected,

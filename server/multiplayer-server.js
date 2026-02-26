@@ -17,6 +17,7 @@
  *     { type: "player_left", id: "abc123" }
  *     { type: "player_chat", id: "abc123", text: "Hello!" }
  */
+const http = require('http');
 const { WebSocketServer } = require('ws');
 
 const PORT = parseInt(process.argv[2], 10) || 9876;
@@ -29,9 +30,87 @@ function generateId() {
   return `p${nextId++}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-const wss = new WebSocketServer({ port: PORT });
+// ===== HTTP server (webhook API + upgrade to WS) =====
 
-console.log(`[AIFarm Server] Listening on ws://localhost:${PORT}`);
+const httpServer = http.createServer((req, res) => {
+  // CORS headers for local dev
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  // POST /api/webhook — receive external events
+  if (req.method === 'POST' && req.url === '/api/webhook') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const payload = JSON.parse(body);
+        handleWebhook(payload);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, event: payload.event }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'Invalid JSON' }));
+      }
+    });
+    return;
+  }
+
+  // GET /api/status — server info
+  if (req.method === 'GET' && req.url === '/api/status') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      players: players.size,
+      uptime: process.uptime(),
+    }));
+    return;
+  }
+
+  // 404 for everything else
+  res.writeHead(404);
+  res.end('Not Found');
+});
+
+const wss = new WebSocketServer({ server: httpServer });
+
+httpServer.listen(PORT, () => {
+  console.log(`[AIFarm Server] HTTP + WebSocket on port ${PORT}`);
+  console.log(`  Webhook:  POST http://localhost:${PORT}/api/webhook`);
+  console.log(`  Status:   GET  http://localhost:${PORT}/api/status`);
+  console.log(`  WS:       ws://localhost:${PORT}`);
+});
+
+// ===== Webhook handler =====
+
+/**
+ * Process incoming webhook events and broadcast to all clients.
+ *
+ * Payload format:
+ *   { event: "gold_rain" | "data_crystal" | "announcement",
+ *     source: "quant-system" | "ci-cd" | "custom",
+ *     message: "Optional text",
+ *     data: { ... optional extra data } }
+ */
+function handleWebhook(payload) {
+  const event = payload.event || 'unknown';
+  console.log(`[Webhook] Received: ${event} from ${payload.source || 'unknown'}`);
+
+  // Broadcast oracle event to all connected clients
+  broadcastAll({
+    type: 'oracle_event',
+    event,
+    source: String(payload.source || 'external').slice(0, 50),
+    message: String(payload.message || '').slice(0, 200),
+    data: payload.data || {},
+    timestamp: Date.now(),
+  });
+}
 
 wss.on('connection', (ws) => {
   const playerId = generateId();
@@ -97,6 +176,18 @@ wss.on('connection', (ws) => {
             text: String(msg.text || '').slice(0, 200),
           }, ws);
           break;
+
+        // Trade protocol: relay trade messages between two players
+        case 'trade_request':
+        case 'trade_accept':
+        case 'trade_reject':
+        case 'trade_offer':
+        case 'trade_confirm':
+        case 'trade_cancel':
+          relayToPlayer(msg.targetId, {
+            ...msg, fromId: p.id, fromName: p.name,
+          });
+          break;
       }
     } catch (err) {
       // Ignore malformed messages
@@ -124,6 +215,30 @@ function broadcast(msg, exclude) {
   const data = JSON.stringify(msg);
   for (const [ws] of players) {
     if (ws !== exclude && ws.readyState === 1) {
+      ws.send(data);
+    }
+  }
+}
+
+/**
+ * Relay a message to a specific player by ID.
+ */
+function relayToPlayer(targetId, msg) {
+  for (const [ws, p] of players) {
+    if (p.id === targetId && ws.readyState === 1) {
+      ws.send(JSON.stringify(msg));
+      return;
+    }
+  }
+}
+
+/**
+ * Broadcast a message to ALL connected clients (no exclusion).
+ */
+function broadcastAll(msg) {
+  const data = JSON.stringify(msg);
+  for (const [ws] of players) {
+    if (ws.readyState === 1) {
       ws.send(data);
     }
   }

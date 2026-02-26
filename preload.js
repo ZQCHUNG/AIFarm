@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('buddy', {
   onPrestigeEvent: (cb) => ipcRenderer.on('prestige-event', (_e, data) => cb(data)),
   onVibeUpdate: (cb) => ipcRenderer.on('vibe-update', (_e, data) => cb(data)),
   onSpritesReload: (cb) => ipcRenderer.on('sprites-reload', (_e, data) => cb(data)),
+  onUGCSpriteAdded: (cb) => ipcRenderer.on('ugc-sprite-added', (_e, config) => cb(config)),
+  onUGCSpriteRemoved: (cb) => ipcRenderer.on('ugc-sprite-removed', (_e, id) => cb(id)),
   setIgnoreMouseEvents: (ignore, opts) => ipcRenderer.send('set-ignore-mouse', ignore, opts),
   saveSkills: (state) => ipcRenderer.send('save-skills', state),
   saveConstruction: (state) => ipcRenderer.send('save-construction', state),
