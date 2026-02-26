@@ -343,7 +343,8 @@ Sprint 30 最終平衡調整：
 | ✅ | P0 | 空白畫面 Bug 根因修復 | Claude | render loop 無 try-catch → 啟動 race condition 永久殺死 rAF 鏈 (fbe1d8b) |
 | ✅ | P0 | 視窗找不到 Bug 修復 | Claude | skipTaskbar=false + ensureOnScreen + Ctrl+Shift+F12 強制顯示 (fbe1d8b) |
 | ✅ | P0 | Token 燃燒脈動指示器 | Claude | Energy 條旁脈動火焰 + rate + 浮動 "+X" 文字 (fbe1d8b) |
-| ⬜ | P0 | 韌性測試套件 | Claude | tests/resilience.test.js — 啟動煙霧測試 + loop 壓力測試 + IPC 故障容錯 |
+| ✅ | P0 | 韌性測試套件 (67 tests) | Claude | Jest 50 單元測試 + CDP 17 整合測試。發現並修復 Player null keys + Camera NaN corruption (f0b1abd) |
+| ✅ | P0 | 大螢幕走路速度修復 | Claude | zoom 隨 canvas 高度比例縮放 (baseline 351px→1.8x) (89caf00) |
 | ⬜ | P0 | CTO 靜默故障審查 | CTO | 已發現 3 類問題：IPC async 陷阱、AssetManager null 崩潰、SceneManager race condition |
 | ⬜ | P1 | F3 Dashboard 錯誤視覺化 | Claude | Debug 面板顯示被 try-catch 攔截的錯誤 |
 | ⬜ | P1 | NPC 失蹤修復 | Claude | sessionHistory 為空，需加 REQUEST_INITIAL_DATA IPC |
@@ -369,6 +370,8 @@ Sprint 30 最終平衡調整：
 
 | 日期 | 任務 | Commit |
 |------|------|--------|
+| 2026-02-26 | 韌性測試套件 67 tests + Player null fix + Camera NaN guard | f0b1abd |
+| 2026-02-26 | 大螢幕走路速度修復（zoom 比例縮放） | 89caf00 |
 | 2026-02-26 | 空白畫面根因修復 + 視窗找不到修復 + Token 燃燒指示器 | fbe1d8b |
 | 2026-02-26 | README TODO 追蹤區塊 | db3c58e |
 | 2026-02-26 | Buddy 大小閃爍 + 隱形牆壁 + Corner-Assist 碰撞 | 3e18bcb |
