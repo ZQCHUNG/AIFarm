@@ -125,6 +125,15 @@ Web Audio API 合成 8-bit 音效：UI 點擊、收穫彈出、錯誤蜂鳴、�
 - AI 夥伴自動前往工地敲打（最多 2 人）
 - [T] 鍵測試用 token 模擬器
 
+### SQLite 狀態儲存
+從 JSON 檔案遷移至 SQLite（WAL 模式），支援增量寫入。首次啟動自動從 farm-state.json 遷移，後續只更新變動的資料列。
+
+### 動態資源管理器
+外部 JSON manifest 定義精靈圖資源，支援懶加載（首次繪製時載入）、重試機制、併發佇列。為未來 UGC 建築/角色做準備。
+
+### 多人連線原型
+輕量 WebSocket 伺服器 + 客戶端。6 Hz 位置廣播，lerp 插值平滑移動。遠端玩家以半透明「幽靈」渲染，帶團隊名稱標籤。
+
 ## 操作方式
 
 | 輸入 | 動作 |
@@ -181,6 +190,7 @@ Web Audio API 合成 8-bit 音效：UI 點擊、收穫彈出、錯誤蜂鳴、�
 | 22 | 大修復與無限家園 | 確定性巨型地圖（256x256）、Z-Sorting 深度重構、室內轉場系統、實體動畫校準 |
 | 23 | 大師之路與廚藝 | 技能系統（農/礦/釣 + 特技樹 + UI）、烹飪系統（3 食譜 + buff）、音效引擎（Web Audio 合成） |
 | 24 | 建築師覺醒 | 漸進式建造系統（8 藍圖 + 4 階段視覺）、AI Builder NPC（錘子動畫 + 木屑火花粒子） |
+| 25 | 多人基建與引擎優化 | SQLite 狀態儲存遷移、動態資源管理器、WebSocket 多人連線原型 |
 
 ### 待辦（路線圖）
 
@@ -213,7 +223,8 @@ claude-buddy/
   preload.js           # 主程序與渲染程序的橋接
   farm/
     farm-config.js     # 常數：能量值、作物、動物、里程碑
-    farm-state.js      # 農場狀態管理、成長邏輯、持久化
+    farm-state.js      # 農場狀態管理、成長邏輯、持久化（SQLite）
+    database-adapter.js  # SQLite 資料庫適配器（WAL 模式）
     achievement-manager.js  # 成就追蹤與解鎖邏輯
   renderer/
     iso-engine.js      # 瓷磚式渲染引擎、鏡頭、粒子
@@ -248,6 +259,8 @@ claude-buddy/
     cooking-system.js  # 烹飪系統（食譜、buff 狀態機）
     audio-manager.js   # Web Audio API 合成 8-bit 音效
     construction-manager.js  # 漸進式建造系統（4 階段視覺）
+    asset-manager.js   # 動態資源管理器（懶加載、JSON manifest）
+    network-client.js  # WebSocket 多人連線客戶端
     farm.js            # 渲染端共享農場狀態
     sprite-manager.js  # PNG 精靈圖載入與程序化回退
     character.js       # 8 色帽 T 角色精靈圖
@@ -257,6 +270,8 @@ claude-buddy/
     state-machine.js   # 活動狀態機
     train.js           # 經典 2D 火車
     renderer.js        # 主渲染迴圈、輸入處理、視角管理
+  server/
+    multiplayer-server.js  # WebSocket 多人伺服器（本地測試用）
   watcher/
     data-exporter.js   # JSONL 匯出工具
   scripts/
