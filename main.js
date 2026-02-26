@@ -309,6 +309,10 @@ ipcMain.on('set-ignore-mouse', (e, ignore, opts) => {
   if (w) w.setIgnoreMouseEvents(ignore, opts || {});
 });
 
+ipcMain.on('focus-window', () => {
+  if (win && !win.isDestroyed()) win.focus();
+});
+
 ipcMain.on('set-weather', (e, condition) => {
   // Rain gives +50% crop growth rate
   if (condition === 'rain') {
@@ -365,6 +369,7 @@ app.whenReady().then(() => {
   screen.on('display-metrics-changed', () => {
     resizeWindow(buddies.size);
   });
+
 
   // Wait for renderer to finish loading before starting watchers,
   // otherwise IPC messages are dropped silently.

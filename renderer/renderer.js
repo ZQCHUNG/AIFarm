@@ -386,6 +386,8 @@
   }
 
   function topdownClickHandler(e) {
+    // Ensure window has keyboard focus on click
+    if (window.buddy && window.buddy.focusWindow) window.buddy.focusWindow();
     // Unlock audio on first click
     if (typeof AudioManager !== 'undefined') AudioManager.unlock();
     if (viewMode !== 'iso' || typeof IsoEngine === 'undefined') return;

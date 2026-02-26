@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('buddy', {
   onUGCSpriteAdded: (cb) => ipcRenderer.on('ugc-sprite-added', (_e, config) => cb(config)),
   onUGCSpriteRemoved: (cb) => ipcRenderer.on('ugc-sprite-removed', (_e, id) => cb(id)),
   setIgnoreMouseEvents: (ignore, opts) => ipcRenderer.send('set-ignore-mouse', ignore, opts),
+  focusWindow: () => ipcRenderer.send('focus-window'),
   saveSkills: (state) => ipcRenderer.send('save-skills', state),
   saveConstruction: (state) => ipcRenderer.send('save-construction', state),
   saveTechTree: (state) => ipcRenderer.send('save-tech-tree', state),
