@@ -20,6 +20,8 @@
   let savedPlayerPos = null; // { x, y } from farm state for position resume
   let farmStateReceived = false; // wait for farm state before player init
   let _lastCollisionLog = 0; // throttle collision debug logs
+  let _blockedTile = null; // { col, row, time } — flash-highlight the tile that blocks the player
+  let _blockedTileExpiry = 0;
 
   // Load sprites (async, graceful fallback to procedural rendering)
   let spritesLoaded = false;
@@ -967,10 +969,14 @@
               return tile === 'stone' || tile === null;
             }
             const blocked = Player.SOLID_TILES.has(tile);
-            // Debug: log collision hits (throttled to avoid spam)
-            if (blocked && (Date.now() - _lastCollisionLog > 500)) {
-              _lastCollisionLog = Date.now();
-              console.log(`[Collision] Blocked at (${col},${row}) tile=${tile}`);
+            // Debug: log collision hits and flash the blocking tile
+            if (blocked) {
+              _blockedTile = { col, row };
+              _blockedTileExpiry = Date.now() + 800; // highlight for 800ms
+              if (Date.now() - _lastCollisionLog > 500) {
+                _lastCollisionLog = Date.now();
+                console.log(`[Collision] Blocked at (${col},${row}) tile=${tile}`);
+              }
             }
             return blocked;
           },
@@ -981,8 +987,18 @@
           },
         });
         // Restore saved position if available (resume from last session)
+        // Validate: only restore if within reasonable distance of farm
         if (savedPlayerPos && savedPlayerPos.x && savedPlayerPos.y) {
-          Player.setPosition(savedPlayerPos.x, savedPlayerPos.y);
+          const ho = (typeof ChunkManager !== 'undefined' && ChunkManager.getHomeOffset)
+            ? ChunkManager.getHomeOffset() : { col: 0, row: 0 };
+          const dx = Math.abs(savedPlayerPos.x - (ho.col + 10));
+          const dy = Math.abs(savedPlayerPos.y - (ho.row + 9));
+          // Only restore if within 30 tiles of farm center (prevent spawning in mountains)
+          if (dx < 30 && dy < 30) {
+            Player.setPosition(savedPlayerPos.x, savedPlayerPos.y);
+          } else {
+            console.log('[Player] Saved position too far from farm (' + dx + ',' + dy + '), using default spawn');
+          }
         }
         // Bump feedback: screen shake + dust particles + thud sound on wall collision
         Player.setBumpFn((wx, wy, dx, dy) => {
@@ -1249,6 +1265,25 @@
 
     // Render tile map + entities
     IsoEngine.drawMap(ctx, canvas.width, canvas.height, tick);
+
+    // Debug: flash-highlight the tile that blocked the player (bright red border)
+    if (_blockedTile && Date.now() < _blockedTileExpiry) {
+      const z = IsoEngine.getZoom();
+      const cam = IsoEngine.getCameraState();
+      const bx = Math.round(_blockedTile.col * IsoEngine.TILE_W + cam.x);
+      const by = Math.round(_blockedTile.row * IsoEngine.TILE_H + cam.y);
+      ctx.save();
+      ctx.scale(z, z);
+      const alpha = 0.4 + 0.3 * Math.sin(Date.now() * 0.01); // pulse
+      ctx.strokeStyle = `rgba(255,0,0,${alpha.toFixed(2)})`;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(bx + 1, by + 1, IsoEngine.TILE_W - 2, IsoEngine.TILE_H - 2);
+      ctx.fillStyle = `rgba(255,0,0,${(alpha * 0.3).toFixed(2)})`;
+      ctx.fillRect(bx, by, IsoEngine.TILE_W, IsoEngine.TILE_H);
+      ctx.restore();
+    } else {
+      _blockedTile = null;
+    }
 
     // Overworld-only render passes
     if (isOW) {

@@ -61,9 +61,8 @@ const Player = (() => {
   // Reference to collision checker
   let collisionFn = null;
 
-  // Solid tile types (null/undefined are NOT solid — the fence perimeter
-  // and ChunkManager's 'mountain' out-of-world-bounds handle boundaries)
-  const SOLID_TILES = new Set(['water', 'fence', 'tree', 'mountain', 'empty']);
+  // Solid tile types — tree is NOT solid (walkable scenery, prevents invisible walls)
+  const SOLID_TILES = new Set(['water', 'fence', 'mountain', 'empty']);
 
   // ===== Public API =====
 

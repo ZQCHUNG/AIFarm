@@ -28,6 +28,9 @@ const IsoEngine = (() => {
   const ZOOM_MAX = 5.0;
   const ZOOM_SPEED = 0.15;
 
+  // Debug: show tile type labels on every tile (toggle with IsoEngine.toggleTileLabels())
+  let debugTileLabels = false;
+
   // Hover state for mouse picking
   let hoverCol = -1;
   let hoverRow = -1;
@@ -47,7 +50,7 @@ const IsoEngine = (() => {
     sand:     { top: '#E8D89C', border: '#D0C488', dark: '#C8BC80' },
     path:     { top: '#D8C8A0', border: '#C0B088', dark: '#B8A880' },
     fence:    { top: '#C8A060', border: '#A88040', dark: '#906830' },
-    tree:     { top: '#5A9E40', border: '#4A8E30', dark: '#4A9035' },  // darker green base (tree drawn on top)
+    tree:     { top: '#6EBF4E', border: '#5AAE3D', dark: '#5BA83E' },  // bright grass base (same as grass — tree sprite drawn on top)
     mountain: { top: '#6B5B4B', border: '#5A4A3A', dark: '#4A3A2A' },
     empty:    { top: null, border: null, dark: null },
   };
@@ -645,14 +648,42 @@ const IsoEngine = (() => {
         drawTile(ctx, item.x, item.y, tileType, tick);
         drawSoilDetail(ctx, item.x, item.y, tileType, tick);
         drawTileTransitions(ctx, item.x, item.y, item.col, item.row);
-        // Tree tiles: draw visible tree sprite on top of grass base
+        // Tree tiles: forest floor texture + tree sprite
         if (tileType === 'tree') {
-          drawIsoTree(ctx, item.x + TILE_W / 2, item.y + TILE_H / 2, tick);
-          // DEBUG: bright red dot on tree tiles (remove after fixing)
-          ctx.fillStyle = '#FF0000';
-          ctx.beginPath();
-          ctx.arc(item.x + TILE_W / 2, item.y + TILE_H / 2, 4, 0, Math.PI * 2);
-          ctx.fill();
+          // Forest floor: darker patches and leaf litter so it looks different from plain grass
+          const tx = item.x, ty = item.y;
+          ctx.fillStyle = 'rgba(40,80,20,0.25)';  // dark green overlay
+          ctx.fillRect(tx + 2, ty + 2, TILE_W - 4, TILE_H - 4);
+          // Small root/undergrowth spots
+          ctx.fillStyle = 'rgba(60,100,30,0.4)';
+          const seed = (item.col * 31 + item.row * 17) & 0xFF;
+          for (let i = 0; i < 5; i++) {
+            const rx = tx + 4 + ((seed + i * 47) % (TILE_W - 8));
+            const ry = ty + 4 + ((seed + i * 29) % (TILE_H - 8));
+            ctx.beginPath();
+            ctx.arc(rx, ry, 2 + (i % 2), 0, Math.PI * 2);
+            ctx.fill();
+          }
+          drawIsoTree(ctx, tx + TILE_W / 2, ty + TILE_H / 2, tick);
+        }
+        // DEBUG: tile type label on every tile (remove after debugging)
+        if (debugTileLabels) {
+          ctx.save();
+          ctx.font = '7px monospace';
+          ctx.textAlign = 'center';
+          // Background for readability
+          const label = tileType || 'null';
+          const lw = ctx.measureText(label).width + 4;
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(item.x + TILE_W / 2 - lw / 2, item.y + TILE_H - 10, lw, 9);
+          // Color-code by type
+          ctx.fillStyle = tileType === 'tree' ? '#FF4444' :
+                          tileType === 'water' ? '#44AAFF' :
+                          tileType === 'mountain' ? '#FF8800' :
+                          tileType === 'grass' ? '#88FF88' :
+                          '#FFFFFF';
+          ctx.fillText(label, item.x + TILE_W / 2, item.y + TILE_H - 3);
+          ctx.restore();
         }
         // Impassable tile indicator: subtle diagonal stripes
         if (tileType === 'mountain' || tileType === 'empty') {
@@ -841,21 +872,30 @@ const IsoEngine = (() => {
     // Get seasonal palette (falls back to summer defaults)
     const pal = (typeof IsoSeasons !== 'undefined') ? IsoSeasons.getTreePalette() : null;
     const trunk = pal ? pal.trunk : '#8B6B3E';
-    const c0 = pal ? pal.canopy[0] : '#3A8A2A';
-    const c1 = pal ? pal.canopy[1] : '#4EAA3A';
-    const c2 = pal ? pal.canopy[2] : '#5CBC48';
+    let c0 = pal ? pal.canopy[0] : '#3A8A2A';
+    let c1 = pal ? pal.canopy[1] : '#4EAA3A';
+    let c2 = pal ? pal.canopy[2] : '#5CBC48';
 
-    // Winter: smaller canopy (sparse leaves)
+    // Winter: smaller canopy (sparse leaves) but keep minimum green tint for visibility
     const season = (typeof IsoWeather !== 'undefined') ? IsoWeather.getSeason() : 'summer';
-    const canopyScale = season === 'winter' ? 0.75 : 1.0;
+    const canopyScale = season === 'winter' ? 0.85 : 1.0;
+    // Winter canopy: blend towards green so trees are visible on any terrain
+    if (season === 'winter') {
+      c0 = '#4A7A4A';  // muted green (instead of pure grey)
+      c1 = '#5A8A5A';
+      c2 = '#6A9A6A';
+    }
 
     // Shadow on ground
-    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
     ctx.beginPath();
-    ctx.ellipse(sx + 2, sy + 5, 11, 7, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx + 2, sy + 5, 12, 8, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Trunk
-    ctx.fillStyle = trunk;
+    // Dark outline ring around trunk base for contrast
+    ctx.fillStyle = '#2A1A0A';
+    ctx.fillRect(sx - 4, sy - 11, 8, 18);
+    // Trunk (bright brown for contrast)
+    ctx.fillStyle = '#A0784A';
     ctx.fillRect(sx - 3, sy - 10, 6, 16);
     // Canopy layers (darker below, lighter above)
     ctx.fillStyle = c0;
@@ -1547,5 +1587,6 @@ const IsoEngine = (() => {
     drawMatureGlow,
     getHomeOffset,
     enterInteriorMode, exitInteriorMode, isInteriorMode,
+    toggleTileLabels: () => { debugTileLabels = !debugTileLabels; return debugTileLabels; },
   };
 })();
