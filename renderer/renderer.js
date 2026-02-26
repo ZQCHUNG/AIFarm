@@ -417,8 +417,13 @@
     move(dir, ms) {
       const key = KEY_MAP[dir];
       if (!key) return `Unknown dir: ${dir}. Use left/right/up/down`;
+      // Directly set keys AND dispatch event for redundancy
       keys[key] = true;
-      setTimeout(() => { keys[key] = false; }, ms || 300);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      setTimeout(() => {
+        keys[key] = false;
+        document.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+      }, ms || 300);
       return `Moving ${dir} for ${ms || 300}ms`;
     },
     // Press a key (for menus). e.g. remotePlay.press('r')
@@ -429,18 +434,23 @@
       }, 50);
       return `Pressed ${key}`;
     },
-    // Get player position
+    // Get player position (tile coords)
     pos() {
       if (typeof Player !== 'undefined') return Player.getPosition();
       return null;
     },
-    // Take screenshot
-    screenshot() {
-      if (window.buddy && window.buddy.captureToFile) {
-        window.buddy.captureToFile('D:\\Mine\\claude-buddy\\Images\\screenshot-remote.png');
-        return 'Screenshot saved';
+    // Get player tile
+    tile() {
+      if (typeof Player !== 'undefined') return Player.getTile();
+      return null;
+    },
+    // Teleport player to tile (col, row)
+    tp(col, row) {
+      if (typeof Player !== 'undefined') {
+        Player.setPosition(col * 32 + 16, row * 32 + 16);
+        return `Teleported to (${col}, ${row})`;
       }
-      return 'No capture API';
+      return 'No Player';
     },
   };
 

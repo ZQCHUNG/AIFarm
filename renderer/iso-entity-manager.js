@@ -325,13 +325,15 @@ const IsoEntityManager = (() => {
       if (ent.entityType === TYPE.STATIC) {
         // Static entities: use draw function or spriteId
         // baseRow = gridY (ground contact — trees sort by trunk base)
+        // NPCs use static type but need character-like depth sorting
+        const isNPC = ent.isNPC === true;
         IsoEngine.addEntity({
           col: ent.gridX,
           row: ent.gridY,
           z: totalZ,
           baseRow: ent.gridY,
           baseCol: ent.gridX,
-          isStatic: true,
+          isStatic: !isNPC,
           spriteId: ent.spriteId,
           direction: ent.direction,
           frame: ent.frame,

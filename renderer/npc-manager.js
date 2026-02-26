@@ -205,11 +205,14 @@ const NPCManager = (() => {
     const prof = npc.profile;
     const ai = npc.ai;
 
-    return IsoEntityManager.add(IsoEntityManager.createStatic(
-      Math.floor(ai.col), Math.floor(ai.row),
+    const entity = IsoEntityManager.add(IsoEntityManager.createStatic(
+      ai.col, ai.row,
       (ctx, sx, sy, tick) => drawNPC(ctx, sx, sy, tick, npc),
       { z: 0 }
     ));
+    // Mark as NPC so syncToEngine uses character-like depth sorting (not static)
+    entity.isNPC = true;
+    return entity;
   }
 
   /** Draw NPC character with tier-specific visual modifiers. */
@@ -398,10 +401,10 @@ const NPCManager = (() => {
   function update(tick) {
     for (const npc of npcs) {
       updateAI(npc, tick);
-      // Sync entity position
+      // Sync entity position (must use gridX/gridY — syncToEngine reads these)
       if (npc.entity) {
-        npc.entity.col = npc.ai.col;
-        npc.entity.row = npc.ai.row;
+        npc.entity.gridX = npc.ai.col;
+        npc.entity.gridY = npc.ai.row;
       }
     }
   }

@@ -271,23 +271,31 @@ ipcMain.on('toggle-fullscreen', () => {
     win.setAlwaysOnTop(false);
     win.setSkipTaskbar(false);
     win.setIgnoreMouseEvents(false);
+    isIgnoring = false;
     win.setFullScreen(true);
     const { width, height } = screen.getPrimaryDisplay().workAreaSize;
     win.webContents.send('resize-canvas', width, height);
     isFullscreen = true;
     console.log('[Claude Buddy] Fullscreen ON');
   } else {
-    // Restore desktop companion mode
+    // Restore desktop companion mode — wait for fullscreen exit before restoring bounds
     win.setFullScreen(false);
-    win.setAlwaysOnTop(true);
-    win.setSkipTaskbar(true);
-    win.setIgnoreMouseEvents(true, { forward: true });
-    if (savedBounds) {
-      win.setBounds(savedBounds);
-      win.webContents.send('resize-canvas', savedBounds.width, savedBounds.height);
-    }
     isFullscreen = false;
-    console.log('[Claude Buddy] Fullscreen OFF');
+    // Delay restoration so fullscreen exit completes first
+    setTimeout(() => {
+      if (!win || win.isDestroyed()) return;
+      win.setAlwaysOnTop(true);
+      win.setSkipTaskbar(true);
+      win.setIgnoreMouseEvents(true, { forward: true });
+      isIgnoring = true;
+      if (savedBounds) {
+        win.setBounds(savedBounds);
+        win.webContents.send('resize-canvas', savedBounds.width, savedBounds.height);
+      }
+      // Make window visible again by toggling show
+      win.show();
+      console.log('[Claude Buddy] Fullscreen OFF, window restored');
+    }, 500);
   }
 });
 
