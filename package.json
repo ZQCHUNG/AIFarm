@@ -4,10 +4,13 @@
   "description": "Desktop pixel art buddy for Claude Code",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "test": "jest --verbose",
+    "test:resilience": "node tests/resilience-cdp.js"
   },
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.0.0",
+    "jest": "^30.2.0"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.2",

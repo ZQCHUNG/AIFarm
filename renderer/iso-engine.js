@@ -684,9 +684,15 @@ const IsoEngine = (() => {
   let lastCanvasH = 500;
   const CAM_MARGIN = 128; // allow panning past the map edge for tall buildings
 
-  function setCamera(x, y) { camX = x; camY = y; clampCamera(); }
+  function setCamera(x, y) {
+    if (!isFinite(x) || !isFinite(y)) return; // Reject NaN/Infinity
+    camX = x; camY = y; clampCamera();
+  }
 
-  function moveCamera(dx, dy) { camX += dx; camY += dy; clampCamera(); }
+  function moveCamera(dx, dy) {
+    if (!isFinite(dx) || !isFinite(dy)) return;
+    camX += dx; camY += dy; clampCamera();
+  }
 
   function centerOnTile(col, row, canvasW, canvasH) {
     if (canvasW) lastCanvasW = canvasW;
@@ -754,6 +760,7 @@ const IsoEngine = (() => {
    * @param {number} lerp — interpolation factor (0..1, higher = snappier). Default 0.08.
    */
   function smoothFollow(worldX, worldY, lerp) {
+    if (!isFinite(worldX) || !isFinite(worldY)) return; // Reject NaN/Infinity
     const t = lerp || 0.08;
     const vw = lastCanvasW / camZoom;
     const vh = lastCanvasH / camZoom;

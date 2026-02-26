@@ -83,6 +83,7 @@ const Player = (() => {
    * @param {Object} keys — map of key names to booleans
    */
   function update(keys) {
+    if (!keys) keys = {};
     // Gather input direction
     let ix = 0;
     let iy = 0;
