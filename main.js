@@ -304,9 +304,17 @@ ipcMain.on('capture-to-file', async (e, filePath) => {
   }
 });
 
-ipcMain.on('set-ignore-mouse', (e, ignore, opts) => {
-  const w = BrowserWindow.fromWebContents(e.sender);
-  if (w) w.setIgnoreMouseEvents(ignore, opts || {});
+let isIgnoring = true; // tracks current ignore state to prevent jitter
+ipcMain.on('set-ignore-mouse', (e, ignore) => {
+  if (isIgnoring === ignore) return; // state unchanged — skip to prevent flicker
+  isIgnoring = ignore;
+  if (win && !win.isDestroyed()) {
+    win.setIgnoreMouseEvents(ignore, { forward: true });
+    if (!ignore) {
+      // When no longer click-through, grab keyboard focus (fixes Bug A)
+      win.focus();
+    }
+  }
 });
 
 ipcMain.on('focus-window', () => {

@@ -346,10 +346,11 @@
 
     canvas.addEventListener('mousemove', (e) => {
       const pixel = ctx.getImageData(e.offsetX, e.offsetY, 1, 1).data;
-      window.buddy.setIgnoreMouseEvents(pixel[3] < 10, { forward: true });
+      // Use alpha threshold of 20 to avoid edge jitter (Bug B fix)
+      window.buddy.setIgnoreMouseEvents(pixel[3] < 20);
     });
     canvas.addEventListener('mouseleave', () => {
-      window.buddy.setIgnoreMouseEvents(true, { forward: true });
+      window.buddy.setIgnoreMouseEvents(true);
       if (typeof IsoEngine !== 'undefined') IsoEngine.setHoverTile(-1, -1);
     });
 
