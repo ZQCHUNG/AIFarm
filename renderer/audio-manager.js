@@ -1,5 +1,5 @@
 /**
- * audio-manager.js — Procedural 8-bit Audio Engine (Sprint 23 P2).
+ * audio-manager.js — Procedural 8-bit Audio Engine (Sprint 23 P2, expanded Sprint 24).
  *
  * Pure Web Audio API synthesis — no external audio files.
  * AudioContext unlocked on first user interaction (click/keydown).
@@ -11,6 +11,13 @@
  *   playErrorBuzzer()  — low buzz for failures/denials
  *   playLevelUp()      — celebratory arpeggio for skill level-ups
  *   playCookDone()     — warm completion chime for cooking
+ *   playBuildHammer()  — sawtooth percussive hit for construction
+ *   playWoodChop()     — sharp chop for tree felling
+ *   playSell()         — descending coin jingle for selling resources
+ *   playBump()         — soft thud for wall collision
+ *   playFootstep()     — subtle tick for player movement (rate-limited)
+ *   playDiscovery()    — mysterious rising chime for exploration
+ *   playPlant()        — soft plop for seed planting
  */
 const AudioManager = (() => {
   let ctx = null;         // AudioContext (lazy init)
@@ -153,6 +160,96 @@ const AudioManager = (() => {
     }, 100);
   }
 
+  /** Percussive sawtooth hit — construction / building progress. */
+  function playBuildHammer() {
+    playTone(220, 'sawtooth', 0.08, 0.14, {
+      attack: 0.002,
+      decay: 0.01,
+      sustain: 0.3,
+      release: 0.03,
+      freqEnd: 110,
+    });
+  }
+
+  /** Sharp chop — tree felling. */
+  function playWoodChop() {
+    playTone(300, 'square', 0.06, 0.16, {
+      attack: 0.002,
+      decay: 0.01,
+      sustain: 0.2,
+      release: 0.02,
+      freqEnd: 150,
+    });
+  }
+
+  /** Descending coin jingle — selling resources. */
+  function playSell() {
+    if (!ctx || !unlocked || muted) return;
+    const notes = [880, 784, 659]; // A5 G5 E5 — descending
+    notes.forEach((freq, i) => {
+      const now = ctx.currentTime + i * 0.06;
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.12, now + 0.005);
+      gain.gain.linearRampToValueAtTime(0, now + 0.1);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.11);
+    });
+  }
+
+  /** Soft thud — wall collision bump. */
+  function playBump() {
+    playTone(100, 'sine', 0.08, 0.1, {
+      attack: 0.002,
+      decay: 0.02,
+      sustain: 0.2,
+      release: 0.03,
+      freqEnd: 60,
+    });
+  }
+
+  /** Subtle tick — player footstep (rate-limited externally). */
+  function playFootstep() {
+    playTone(500, 'triangle', 0.03, 0.06, {
+      attack: 0.001,
+      release: 0.01,
+    });
+  }
+
+  /** Mysterious rising chime — landmark / chunk discovery. */
+  function playDiscovery() {
+    if (!ctx || !unlocked || muted) return;
+    const notes = [392, 494, 587, 784]; // G4 B4 D5 G5 — rising
+    notes.forEach((freq, i) => {
+      const now = ctx.currentTime + i * 0.1;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.14, now + 0.02);
+      gain.gain.linearRampToValueAtTime(0, now + 0.25);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.26);
+    });
+  }
+
+  /** Soft plop — planting seed. */
+  function playPlant() {
+    playTone(350, 'sine', 0.1, 0.12, {
+      attack: 0.003,
+      release: 0.04,
+      freqEnd: 250,
+    });
+  }
+
   // ===== EventBus integration =====
 
   function setupListeners() {
@@ -166,6 +263,22 @@ const AudioManager = (() => {
 
     // Level-up fanfare
     EventBus.on('SKILL_LEVELUP', playLevelUp);
+
+    // Construction
+    EventBus.on('CONSTRUCTION_PROGRESS', playBuildHammer);
+    EventBus.on('BUILDING_CONSTRUCTED', playDiscovery);
+
+    // Resource gathering
+    EventBus.on('TREE_CHOPPED', playWoodChop);
+    EventBus.on('RESOURCE_SOLD', playSell);
+
+    // Exploration
+    EventBus.on('LANDMARK_DISCOVERED', playDiscovery);
+    EventBus.on('CHUNK_UNLOCKED', playDiscovery);
+
+    // Quests / achievements
+    EventBus.on('QUEST_COMPLETED', playLevelUp);
+    EventBus.on('SEASON_CHANGED', playDiscovery);
   }
 
   // ===== Volume control =====
@@ -192,6 +305,13 @@ const AudioManager = (() => {
     playErrorBuzzer,
     playLevelUp,
     playCookDone,
+    playBuildHammer,
+    playWoodChop,
+    playSell,
+    playBump,
+    playFootstep,
+    playDiscovery,
+    playPlant,
     setupListeners,
     setVolume,
     toggleMute,

@@ -953,7 +953,7 @@
             }
           },
         });
-        // Bump feedback: screen shake + dust particles on wall collision
+        // Bump feedback: screen shake + dust particles + thud sound on wall collision
         Player.setBumpFn((wx, wy, dx, dy) => {
           if (typeof IsoEngine !== 'undefined' && IsoEngine.shake) {
             IsoEngine.shake(2.5);
@@ -961,6 +961,7 @@
           if (typeof IsoEngine !== 'undefined' && IsoEngine.spawnBumpParticles) {
             IsoEngine.spawnBumpParticles(wx, wy, dx, dy);
           }
+          if (typeof AudioManager !== 'undefined') AudioManager.playBump();
         });
         playerInited = true;
       }
@@ -970,6 +971,11 @@
           || keys['w'] || keys['W'] || keys['s'] || keys['S'];
         if (anyMove && IsoFarm.interruptAutoPan) IsoFarm.interruptAutoPan();
         Player.update(keys);
+        // Footstep sounds (rate-limited: every 12 frames while walking, 8 while sprinting)
+        if (Player.isMoving() && typeof AudioManager !== 'undefined') {
+          const stepInterval = Player.isSprinting() ? 8 : 12;
+          if (tick % stepInterval === 0) AudioManager.playFootstep();
+        }
       }
       // Camera smoothly follows player (after startup animation finishes)
       if (!IsoFarm.isStartupAnimating()) {

@@ -1960,6 +1960,11 @@ const IsoFarm = (() => {
     fish: '\u{1F41F}',        // 🐟
   };
 
+  // Lerp state for smooth HUD bars
+  let lerpEnergyProgress = 0;   // smoothed energy bar fill
+  let lerpVibeScore = 0;        // smoothed vibe bar fill
+  const HUD_LERP = 0.08;        // interpolation speed per frame
+
   // Bounce animations for resource changes
   let resourceBounces = {}; // { resourceId: { startTick, delta } }
 
@@ -2200,15 +2205,18 @@ const IsoFarm = (() => {
 
     const ms = findMilestone(energy);
     const milestoneEnergies = [50, 150, 300, 500, 800, 1200, 1800, 2500, 3500, 5000, 7500, 10000];
-    let progress = 0;
+    let targetProgress = 0;
     if (ms) {
       const idx = milestoneEnergies.indexOf(ms.energy);
       const nextE = milestoneEnergies[idx + 1] || ms.energy * 1.5;
-      progress = Math.min(1, (energy - ms.energy) / (nextE - ms.energy));
+      targetProgress = Math.min(1, (energy - ms.energy) / (nextE - ms.energy));
     } else {
-      progress = Math.min(1, energy / 50);
+      targetProgress = Math.min(1, energy / 50);
     }
-    const fillW = Math.max(2, (barW - 22) * progress);
+    // Lerp interpolation for smooth bar fill
+    lerpEnergyProgress += (targetProgress - lerpEnergyProgress) * HUD_LERP;
+    if (Math.abs(lerpEnergyProgress - targetProgress) < 0.002) lerpEnergyProgress = targetProgress;
+    const fillW = Math.max(2, (barW - 22) * lerpEnergyProgress);
     const barColor = energy >= 5000 ? '#FFD700' : energy >= 2500 ? '#6AB04C' : energy >= 800 ? '#4A90D9' : '#E8734A';
     ctx.fillStyle = barColor;
     roundRect(ctx, barX + 1, barY + 1, fillW, barH - 4, 2);
@@ -2254,11 +2262,14 @@ const IsoFarm = (() => {
     ctx.fillText(`${emoji} ${vibe.mood}`, x + 4, y + 10);
 
     const score = vibe.vibeScore || 0;
+    // Lerp interpolation for smooth vibe bar
+    lerpVibeScore += (score - lerpVibeScore) * HUD_LERP;
+    if (Math.abs(lerpVibeScore - score) < 0.002) lerpVibeScore = score;
     const barColor = score >= 0.75 ? '#FFD700' : score >= 0.5 ? '#6AB04C' : '#4A90D9';
     ctx.fillStyle = '#333';
     ctx.fillRect(x + 70, y + 5, 26, 6);
     ctx.fillStyle = barColor;
-    ctx.fillRect(x + 70, y + 5, Math.floor(26 * score), 6);
+    ctx.fillRect(x + 70, y + 5, Math.floor(26 * lerpVibeScore), 6);
   }
 
   function roundRect(ctx, x, y, w, h, r) {
