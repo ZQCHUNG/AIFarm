@@ -998,15 +998,20 @@
                 continue;
               }
 
-              // Sub-tile circular collision for tree/water
+              // Sub-tile elliptical collision for tree/water
               const cx = c * TW + TW / 2;
-              const cy = r * TH + TH / 2;
+              // Tree collision center shifted UP 6px to match canopy visual
+              const cy = r * TH + TH / 2 + (tile === 'tree' ? -6 : 0);
               const dx = wx - cx;
               const dy = wy - cy;
-              const distSq = dx * dx + dy * dy;
-              const radiusSq = tile === 'water' ? WATER_R2 : TREE_R2;
+              // Elliptical check: wider horizontally (rx), taller vertically (ry)
+              // tree: rx=12.5, ry=14 (taller to cover canopy above+shadow below)
+              // water: rx=14, ry=14 (circular)
+              const rxSq = tile === 'water' ? WATER_R2 : TREE_R2;
+              const rySq = tile === 'tree' ? (14 * 14) : WATER_R2;
+              const normDist = (dx * dx) / rxSq + (dy * dy) / rySq;
 
-              if (distSq < radiusSq) {
+              if (normDist < 1.0) {
                 _blockedTile = { col: c, row: r };
                 _blockedTileExpiry = Date.now() + 800;
                 if (Date.now() - _lastCollisionLog > 500) {
