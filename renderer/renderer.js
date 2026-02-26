@@ -95,6 +95,16 @@
     GamepadInput.init();
   }
 
+  // Initialize tutorial manager (new player onboarding)
+  if (typeof TutorialManager !== 'undefined') {
+    TutorialManager.setupListeners();
+  }
+
+  // Initialize ambient audio (procedural environmental sounds)
+  if (typeof AmbientAudio !== 'undefined') {
+    AmbientAudio.init();
+  }
+
   // Initialize player accessories event listeners
   if (typeof PlayerAccessories !== 'undefined') {
     PlayerAccessories.setupListeners();
@@ -140,6 +150,7 @@
     EventBus.on('RESOURCE_SOLD', () => BuddyAI.addContext('sell', tick));
   }
 
+
   let prevMilestone = 0;  // track for SnapshotV2 milestone detection
 
   if (window.buddy) {
@@ -159,6 +170,10 @@
       // Initialize construction from persisted state
       if (typeof ConstructionManager !== 'undefined') {
         ConstructionManager.init(state && state.construction || null);
+      }
+      // Initialize tutorial from persisted state
+      if (typeof TutorialManager !== 'undefined') {
+        TutorialManager.init(state && state.tutorial || null);
       }
       // Check passive chunk unlock based on cumulative tokens
       if (state && state.energy && typeof ChunkManager !== 'undefined') {
@@ -351,6 +366,16 @@
     if (typeof GamepadInput !== 'undefined') GamepadInput.onKeyboardInput();
     // Unlock audio on first user interaction
     if (typeof AudioManager !== 'undefined') AudioManager.unlock();
+    if (typeof AmbientAudio !== 'undefined') AmbientAudio.unlock();
+    // Tutorial consumes certain keys when active
+    if (typeof TutorialManager !== 'undefined' && TutorialManager.isActive()) {
+      if (TutorialManager.handleKey(e.key)) return;
+    }
+    // Post-processing filter cycle (F9)
+    if (e.key === 'F9') {
+      if (typeof PostProcessing !== 'undefined') PostProcessing.cycleFilter();
+      return;
+    }
     // Shop/sell action (E key) — scene manager takes priority, then shop
     if ((e.key === 'e' || e.key === 'E') && !e.ctrlKey && !e.shiftKey) {
       // Scene transition (door enter/exit) takes top priority
@@ -367,6 +392,8 @@
         IsoFishing.startFishing();
       } else if (typeof LandmarkGenerator !== 'undefined' && LandmarkGenerator.getNearbyLandmark()) {
         LandmarkGenerator.handleAction();
+      } else if (typeof WorldEvents !== 'undefined' && WorldEvents.hasActiveEvent()) {
+        WorldEvents.tryInteract();
       } else if (typeof IsoFarm !== 'undefined' && IsoFarm.sellAllCrops) {
         IsoFarm.sellAllCrops(tick);
       }
@@ -723,6 +750,21 @@
         MarketEconomy.update(tick);
       }
 
+      // Update world events (meteor, merchant, fairy ring)
+      if (typeof WorldEvents !== 'undefined') {
+        WorldEvents.update(tick);
+      }
+
+      // Update tutorial manager
+      if (typeof TutorialManager !== 'undefined') {
+        TutorialManager.update(tick);
+      }
+
+      // Update ambient audio (crossfade layers based on environment)
+      if (typeof AmbientAudio !== 'undefined') {
+        AmbientAudio.update(tick);
+      }
+
       // Update network client (ghost player interpolation)
       if (typeof NetworkClient !== 'undefined') {
         NetworkClient.update(tick);
@@ -888,6 +930,11 @@
         ctx.restore();
       }
 
+      // World events (meteor, merchant, fairy ring — in zoomed space)
+      if (typeof WorldEvents !== 'undefined') {
+        WorldEvents.draw(ctx, tick);
+      }
+
       // Oracle effects overlay (gold rain tint, announcement banner, crystal HUD)
       if (typeof OracleEffects !== 'undefined') {
         OracleEffects.draw(ctx, canvas.width, canvas.height);
@@ -936,6 +983,11 @@
       if (typeof TradeUI !== 'undefined' && TradeUI.isOpen()) {
         TradeUI.draw(ctx, canvas.width, canvas.height, tick);
       }
+
+      // Tutorial overlay (dialog box + bouncing arrows, on top of modals)
+      if (typeof TutorialManager !== 'undefined') {
+        TutorialManager.draw(ctx, canvas.width, canvas.height, tick);
+      }
     } else {
       // Interior: draw room name label
       if (typeof SceneManager !== 'undefined') {
@@ -964,6 +1016,11 @@
     // Milestone snapshot theater (cinematic bars, on top of everything)
     if (typeof SnapshotV2 !== 'undefined') {
       SnapshotV2.drawTheater(ctx, canvas.width, canvas.height, tick);
+    }
+
+    // Post-processing filter (CRT scanlines, warm sunset — absolute last layer)
+    if (typeof PostProcessing !== 'undefined') {
+      PostProcessing.draw(ctx, canvas.width, canvas.height, tick);
     }
 
     // Clear gamepad-injected keys after frame (they're re-polled next frame)
