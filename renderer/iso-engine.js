@@ -333,35 +333,45 @@ const IsoEngine = (() => {
 
     let topColor = def.top;
 
-    // Water: full-tile water pool (collision = visual = full 32x32)
+    // Water: pond with sandy shore (sub-tile collision handles walkability)
     if (type === 'water') {
-      // Water fills entire tile so players can see the boundary clearly
-      ctx.fillStyle = '#3070B0';
+      const pad = 4; // shore width in pixels
+
+      // 1. Grass base (matches surrounding terrain)
+      ctx.fillStyle = '#6EBF4E';
       ctx.fillRect(sx, sy, TILE_W, TILE_H);
 
-      // Animated wave lines
+      // 2. Sandy shore ring
+      ctx.fillStyle = '#D4B878';
+      ctx.fillRect(sx + pad - 2, sy + pad - 2, TILE_W - (pad - 2) * 2, TILE_H - (pad - 2) * 2);
+
+      // 3. Water pool in center
+      ctx.fillStyle = '#3070B0';
+      ctx.fillRect(sx + pad, sy + pad, TILE_W - pad * 2, TILE_H - pad * 2);
+
+      // 4. Animated wave lines inside pool
       const t = tick || 0;
       ctx.save();
       ctx.beginPath();
-      ctx.rect(sx, sy, TILE_W, TILE_H);
+      ctx.rect(sx + pad, sy + pad, TILE_W - pad * 2, TILE_H - pad * 2);
       ctx.clip();
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
       ctx.lineWidth = 1;
-      for (let wy = 4; wy < TILE_H; wy += 6) {
+      for (let wy = pad + 4; wy < TILE_H - pad; wy += 6) {
         ctx.beginPath();
-        for (let wx = 0; wx <= TILE_W; wx += 2) {
+        for (let wx = pad; wx <= TILE_W - pad; wx += 2) {
           const waveY = sy + wy + Math.sin(t * 0.08 + wx * 0.3 + sy * 0.1) * 1.5;
-          if (wx === 0) ctx.moveTo(sx + wx, waveY);
+          if (wx === pad) ctx.moveTo(sx + wx, waveY);
           else ctx.lineTo(sx + wx, waveY);
         }
         ctx.stroke();
       }
       ctx.restore();
 
-      // Thin dark border for depth
+      // 5. Dark water edge for depth
       ctx.strokeStyle = '#1A4A80';
       ctx.lineWidth = 1;
-      ctx.strokeRect(sx + 0.5, sy + 0.5, TILE_W - 1, TILE_H - 1);
+      ctx.strokeRect(sx + pad + 0.5, sy + pad + 0.5, TILE_W - pad * 2 - 1, TILE_H - pad * 2 - 1);
 
       return;
     }
@@ -874,29 +884,28 @@ const IsoEngine = (() => {
       c2 = '#6A9A6A';
     }
 
-    // Shadow on ground — fills tile width
+    // Shadow on ground
     ctx.fillStyle = 'rgba(0,0,0,0.2)';
     ctx.beginPath();
-    ctx.ellipse(sx + 1, sy + 4, 15, 10, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx + 2, sy + 5, 12, 8, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Trunk (brown, slightly wider)
+    // Trunk
     ctx.fillStyle = '#2A1A0A';
-    ctx.fillRect(sx - 4, sy - 10, 8, 16);
+    ctx.fillRect(sx - 4, sy - 11, 8, 18);
     ctx.fillStyle = '#A0784A';
-    ctx.fillRect(sx - 3, sy - 9, 6, 14);
-    // Canopy layers — sized to fill the 32x32 tile
-    // Base layer: rx=16 covers full tile width (32px diameter)
+    ctx.fillRect(sx - 3, sy - 10, 6, 16);
+    // Canopy layers (original proportions — sub-tile collision handles the rest)
     ctx.fillStyle = c0;
     ctx.beginPath();
-    ctx.ellipse(sx + sway, sy - 8, 16 * canopyScale, 14 * canopyScale, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx + sway, sy - 14, 14 * canopyScale, 11 * canopyScale, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = c1;
     ctx.beginPath();
-    ctx.ellipse(sx + sway, sy - 10, 13 * canopyScale, 11 * canopyScale, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx + sway, sy - 16, 11 * canopyScale, 8 * canopyScale, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = c2;
     ctx.beginPath();
-    ctx.ellipse(sx + sway + 1, sy - 12, 8 * canopyScale, 7 * canopyScale, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx + sway + 1, sy - 18, 7 * canopyScale, 5 * canopyScale, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Seasonal accent (blossom spots in spring, red leaves in autumn, snow in winter)
@@ -907,8 +916,8 @@ const IsoEngine = (() => {
         ctx.fillStyle = pal.accent;
         // 3-4 small accent dots on the canopy
         for (let i = 0; i < 4; i++) {
-          const ax = sx + sway + Math.sin(seed + i * 2.1) * 10 * canopyScale;
-          const ay = sy - 9 + Math.cos(seed + i * 3.3) * 8 * canopyScale;
+          const ax = sx + sway + Math.sin(seed + i * 2.1) * 8 * canopyScale;
+          const ay = sy - 15 + Math.cos(seed + i * 3.3) * 6 * canopyScale;
           const ar = 1.5 + (i % 2);
           ctx.beginPath();
           ctx.arc(ax, ay, ar, 0, Math.PI * 2);

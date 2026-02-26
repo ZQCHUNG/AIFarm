@@ -961,24 +961,62 @@
           ? ChunkManager.getHomeOffset() : { col: 0, row: 0 };
         Player.init(homeOff.col + 9, homeOff.row + 7, {
           collisionFn: (wx, wy) => {
-            const col = Math.floor(wx / IsoEngine.TILE_W);
-            const row = Math.floor(wy / IsoEngine.TILE_H);
-            const tile = IsoEngine.getTile(col, row);
-            // In interior mode, stone tiles are walls
+            // Sub-tile circular collision: tree/water use radius-based checks
+            // so players can walk along tile edges without hitting invisible walls.
+            // Mountain/fence/empty keep full-tile collision.
+            const TW = IsoEngine.TILE_W;
+            const TH = IsoEngine.TILE_H;
+            const col = Math.floor(wx / TW);
+            const row = Math.floor(wy / TH);
+
+            // In interior mode, stone tiles are walls (full-tile)
             if (typeof IsoEngine !== 'undefined' && IsoEngine.isInteriorMode()) {
+              const tile = IsoEngine.getTile(col, row);
               return tile === 'stone' || tile === null;
             }
-            const blocked = Player.SOLID_TILES.has(tile);
-            // Debug: log collision hits and flash the blocking tile
-            if (blocked) {
-              _blockedTile = { col, row };
-              _blockedTileExpiry = Date.now() + 800; // highlight for 800ms
-              if (Date.now() - _lastCollisionLog > 500) {
-                _lastCollisionLog = Date.now();
-                console.log(`[Collision] Blocked at (${col},${row}) tile=${tile}`);
+
+            // Collision radii for sub-tile types (squared for fast comparison)
+            const TREE_R2 = 10 * 10;   // 10px radius
+            const WATER_R2 = 14 * 14;  // 14px radius
+
+            // Check current tile + 4 neighbors (radius can extend across tile borders)
+            const offsets = [[0,0], [-1,0], [1,0], [0,-1], [0,1]];
+            for (let i = 0; i < offsets.length; i++) {
+              const c = col + offsets[i][0];
+              const r = row + offsets[i][1];
+              const tile = IsoEngine.getTile(c, r);
+              if (!Player.SOLID_TILES.has(tile)) continue;
+
+              // Full-tile collision for mountain/fence/empty/null
+              if (tile === 'mountain' || tile === 'fence' || tile === 'empty' || tile === null) {
+                // Only block if (wx, wy) is actually inside this tile
+                if (c === col && r === row) {
+                  _blockedTile = { col: c, row: r };
+                  _blockedTileExpiry = Date.now() + 800;
+                  return true;
+                }
+                continue;
+              }
+
+              // Sub-tile circular collision for tree/water
+              const cx = c * TW + TW / 2;
+              const cy = r * TH + TH / 2;
+              const dx = wx - cx;
+              const dy = wy - cy;
+              const distSq = dx * dx + dy * dy;
+              const radiusSq = tile === 'water' ? WATER_R2 : TREE_R2;
+
+              if (distSq < radiusSq) {
+                _blockedTile = { col: c, row: r };
+                _blockedTileExpiry = Date.now() + 800;
+                if (Date.now() - _lastCollisionLog > 500) {
+                  _lastCollisionLog = Date.now();
+                  console.log(`[Collision] Blocked at (${c},${r}) tile=${tile} dist=${Math.sqrt(distSq).toFixed(1)}`);
+                }
+                return true;
               }
             }
-            return blocked;
+            return false;
           },
           dirtParticleFn: (col, row, speed) => {
             if (typeof IsoEffects !== 'undefined') {
