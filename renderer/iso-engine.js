@@ -333,45 +333,35 @@ const IsoEngine = (() => {
 
     let topColor = def.top;
 
-    // Water: pond with sandy shore (collision is full tile, visual shows shore)
+    // Water: full-tile water pool (collision = visual = full 32x32)
     if (type === 'water') {
-      const pad = 4; // shore width in pixels
-
-      // 1. Grass base (matches surrounding terrain)
-      ctx.fillStyle = '#6EBF4E';
+      // Water fills entire tile so players can see the boundary clearly
+      ctx.fillStyle = '#3070B0';
       ctx.fillRect(sx, sy, TILE_W, TILE_H);
 
-      // 2. Sandy shore ring
-      ctx.fillStyle = '#D4B878';
-      ctx.fillRect(sx + pad - 2, sy + pad - 2, TILE_W - (pad - 2) * 2, TILE_H - (pad - 2) * 2);
-
-      // 3. Water pool in center
-      ctx.fillStyle = '#3070B0';
-      ctx.fillRect(sx + pad, sy + pad, TILE_W - pad * 2, TILE_H - pad * 2);
-
-      // 4. Animated wave lines inside pool
+      // Animated wave lines
       const t = tick || 0;
       ctx.save();
       ctx.beginPath();
-      ctx.rect(sx + pad, sy + pad, TILE_W - pad * 2, TILE_H - pad * 2);
+      ctx.rect(sx, sy, TILE_W, TILE_H);
       ctx.clip();
-      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
       ctx.lineWidth = 1;
-      for (let wy = pad + 4; wy < TILE_H - pad; wy += 6) {
+      for (let wy = 4; wy < TILE_H; wy += 6) {
         ctx.beginPath();
-        for (let wx = pad; wx <= TILE_W - pad; wx += 2) {
+        for (let wx = 0; wx <= TILE_W; wx += 2) {
           const waveY = sy + wy + Math.sin(t * 0.08 + wx * 0.3 + sy * 0.1) * 1.5;
-          if (wx === pad) ctx.moveTo(sx + wx, waveY);
+          if (wx === 0) ctx.moveTo(sx + wx, waveY);
           else ctx.lineTo(sx + wx, waveY);
         }
         ctx.stroke();
       }
       ctx.restore();
 
-      // 5. Dark water edge for depth
+      // Thin dark border for depth
       ctx.strokeStyle = '#1A4A80';
       ctx.lineWidth = 1;
-      ctx.strokeRect(sx + pad + 0.5, sy + pad + 0.5, TILE_W - pad * 2 - 1, TILE_H - pad * 2 - 1);
+      ctx.strokeRect(sx + 0.5, sy + 0.5, TILE_W - 1, TILE_H - 1);
 
       return;
     }
