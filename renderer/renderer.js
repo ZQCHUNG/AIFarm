@@ -708,15 +708,31 @@
     return ((tick / ANIM_SPEED) | 0) % 4;
   }
 
-  function loop() {
+  // ---------- Separated logic / render architecture ----------
+  // Logic runs on setInterval (guaranteed 60Hz even when rAF pauses).
+  // Render runs on requestAnimationFrame (smooth drawing, can pause safely).
+  let lastRenderTick = 0;
+
+  function logicTick() {
     tick++;
     if (viewMode === 'iso') {
-      loopTopDown();
+      logicTopDown();
+    }
+    // Classic mode has minimal logic — handled inline in render
+  }
+
+  function loop() {
+    if (viewMode === 'iso') {
+      renderTopDown();
     } else {
       loopClassic();
     }
+    lastRenderTick = tick;
     requestAnimationFrame(loop);
   }
+
+  // Start logic at ~60Hz via setInterval (immune to rAF throttling)
+  setInterval(logicTick, 1000 / 60);
 
   // ===== Classic 2D side-view rendering =====
 
@@ -773,9 +789,9 @@
 
   // ===== Top-Down 3/4 rendering (Harvest Moon style) =====
 
-  function loopTopDown() {
+  // ===== logicTopDown — game state updates (runs via setInterval, immune to rAF pause) =====
+  function logicTopDown() {
     if (typeof IsoFarm === 'undefined' || typeof IsoEngine === 'undefined' || typeof IsoEntityManager === 'undefined') {
-      loopClassic();
       return;
     }
 
@@ -814,13 +830,11 @@
       // Process gamepad button presses as keyboard events
       const presses = GamepadInput.popPresses();
       for (const key of presses) {
-        // Simulate keydown dispatch for menu/modal handling
-        const fakeEvent = { key, ctrlKey: false, shiftKey: false, preventDefault: () => {} };
         document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
       }
     }
 
-    // Player control + camera follow (replaces manual arrow-key panning)
+    // Player control + camera follow
     const sceneLock = (typeof SceneManager !== 'undefined' && SceneManager.isInputLocked());
     const modalLock = (typeof IsoUI !== 'undefined' && IsoUI.isOpen())
       || (typeof ShopUI !== 'undefined' && ShopUI.isOpen())
@@ -900,7 +914,6 @@
     // Overworld-only game systems
     if (isOW) {
       // Auto-pan idle camera tour — disabled when player character exists
-      // (camera always follows player; auto-pan conflicts with player control)
       if (typeof Player === 'undefined' && IsoFarm.updateAutoPan) {
         IsoFarm.updateAutoPan();
       }
@@ -928,7 +941,6 @@
       // Update pet dog AI
       if (typeof PetAI !== 'undefined') {
         PetAI.update(tick);
-        // Add pet entity for rendering
         const petEntity = PetAI.getEntity();
         if (petEntity) {
           IsoEngine.setPet(petEntity);
@@ -1018,7 +1030,6 @@
       // Update network client (ghost player interpolation)
       if (typeof NetworkClient !== 'undefined') {
         NetworkClient.update(tick);
-        // Send local player position at throttled rate
         if (NetworkClient.isConnected() && NetworkClient.shouldSend(tick)) {
           if (typeof Player !== 'undefined') {
             const pp = Player.getPosition();
@@ -1049,6 +1060,24 @@
     // Update entity manager (always — manages interior furniture too)
     IsoEntityManager.update(tick);
     IsoEntityManager.syncToEngine();
+
+    // Clear gamepad-injected keys after logic tick
+    if (typeof GamepadInput !== 'undefined') {
+      const gpKeys = GamepadInput.getKeys();
+      for (const k of Object.keys(gpKeys)) {
+        delete keys[k];
+      }
+    }
+  }
+
+  // ===== renderTopDown — drawing only (runs via rAF, can pause without breaking game state) =====
+  function renderTopDown() {
+    if (typeof IsoFarm === 'undefined' || typeof IsoEngine === 'undefined' || typeof IsoEntityManager === 'undefined') {
+      loopClassic();
+      return;
+    }
+
+    const isOW = typeof SceneManager === 'undefined' || SceneManager.isOverworld();
 
     // Clear canvas background
     if (isOW) {
@@ -1323,13 +1352,6 @@
       CreditsScreen.draw(ctx, canvas.width, canvas.height, tick);
     }
 
-    // Clear gamepad-injected keys after frame (they're re-polled next frame)
-    if (typeof GamepadInput !== 'undefined') {
-      const gpKeys = GamepadInput.getKeys();
-      for (const k of Object.keys(gpKeys)) {
-        delete keys[k];
-      }
-    }
   }
 
   requestAnimationFrame(loop);
