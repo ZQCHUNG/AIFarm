@@ -2288,6 +2288,13 @@ const IsoFarm = (() => {
     return buddyEntities.get(sessionId) || null;
   }
 
+  /** Re-initialize the overworld map after returning from interior scene. */
+  function reloadMap() {
+    initialized = false;
+    init();
+    syncState();
+  }
+
   return {
     MAP_W, MAP_H,
     FIELD, PASTURE_ZONE, EXTENSION_ZONE,
@@ -2296,6 +2303,6 @@ const IsoFarm = (() => {
     getBuddyEntity, getCropStage, updateStartupAnimation,
     isStartupAnimating: () => !!startupAnim,
     updateAutoPan, interruptAutoPan, resetAutoPan,
-    sellAllCrops,
+    sellAllCrops, reloadMap,
   };
 })();

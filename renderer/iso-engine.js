@@ -14,6 +14,12 @@ const IsoEngine = (() => {
   let homeOffsetCol = 0;
   let homeOffsetRow = 0;
 
+  // Interior scene mode: when set, drawMap uses interiorTiles instead of ChunkManager
+  let sceneMode = 'overworld'; // 'overworld' | 'interior'
+  let interiorTiles = null;
+  let interiorW = 0;
+  let interiorH = 0;
+
   // Camera offset (screen pixels)
   let camX = 0;
   let camY = 0;
@@ -120,6 +126,13 @@ const IsoEngine = (() => {
   }
 
   function setTile(col, row, type) {
+    // Interior mode: write to interior tile array
+    if (sceneMode === 'interior' && interiorTiles) {
+      if (row >= 0 && row < interiorH && col >= 0 && col < interiorW) {
+        interiorTiles[row][col] = type;
+      }
+      return;
+    }
     // Delegate to ChunkManager for infinite map support
     if (typeof ChunkManager !== 'undefined') {
       ChunkManager.setTile(col, row, type);
@@ -137,6 +150,13 @@ const IsoEngine = (() => {
   }
 
   function getTile(col, row) {
+    // Interior mode: read from local interior tile array
+    if (sceneMode === 'interior' && interiorTiles) {
+      if (row >= 0 && row < interiorH && col >= 0 && col < interiorW) {
+        return interiorTiles[row][col];
+      }
+      return null;
+    }
     // Delegate to ChunkManager for infinite map support
     if (typeof ChunkManager !== 'undefined') {
       return ChunkManager.getTile(col, row);
@@ -151,6 +171,24 @@ const IsoEngine = (() => {
   function getHomeOffset() {
     return { col: homeOffsetCol, row: homeOffsetRow };
   }
+
+  /** Switch to interior render mode with a custom tile array. */
+  function enterInteriorMode(tiles, w, h) {
+    sceneMode = 'interior';
+    interiorTiles = tiles;
+    interiorW = w;
+    interiorH = h;
+  }
+
+  /** Return to overworld render mode. */
+  function exitInteriorMode() {
+    sceneMode = 'overworld';
+    interiorTiles = null;
+    interiorW = 0;
+    interiorH = 0;
+  }
+
+  function isInteriorMode() { return sceneMode === 'interior'; }
 
   // Tile groups for transition detection
   const TILE_GROUPS = {
@@ -382,7 +420,7 @@ const IsoEngine = (() => {
   // ===== Main rendering =====
 
   function drawMap(ctx, canvasW, canvasH, tick) {
-    if (!tileMap && typeof ChunkManager === 'undefined') return;
+    if (!tileMap && typeof ChunkManager === 'undefined' && !(sceneMode === 'interior' && interiorTiles)) return;
 
     // Track canvas size for camera clamping
     lastCanvasW = canvasW;
@@ -397,7 +435,12 @@ const IsoEngine = (() => {
 
     // Determine tile iteration range
     let rMin, rMax, cMin, cMax;
-    if (typeof ChunkManager !== 'undefined') {
+    if (sceneMode === 'interior' && interiorTiles) {
+      rMin = 0;
+      rMax = interiorH - 1;
+      cMin = 0;
+      cMax = interiorW - 1;
+    } else if (typeof ChunkManager !== 'undefined') {
       const wb = ChunkManager.getWorldBounds();
       rMin = wb.minRow;
       rMax = wb.maxRow;
@@ -419,8 +462,8 @@ const IsoEngine = (() => {
         const { x, y } = gridToScreen(c, r);
         // Frustum culling
         if (x + TILE_W < 0 || x > cullW || y + TILE_H < 0 || y > cullH) continue;
-        // Skip fog-of-war tiles
-        if (typeof ChunkManager !== 'undefined' && ChunkManager.isFog(c, r)) continue;
+        // Skip fog-of-war tiles (overworld only)
+        if (sceneMode !== 'interior' && typeof ChunkManager !== 'undefined' && ChunkManager.isFog(c, r)) continue;
         renderList.push({
           depth: depthKey(c, r, 0, 0),
           type: 'tile',
@@ -532,12 +575,17 @@ const IsoEngine = (() => {
 
   /** Clamp camera so the map stays mostly on-screen. */
   function clampCamera() {
-    if (!tileMap && typeof ChunkManager === 'undefined') return;
+    if (!tileMap && typeof ChunkManager === 'undefined' && sceneMode !== 'interior') return;
     const vw = lastCanvasW / camZoom;
     const vh = lastCanvasH / camZoom;
 
     let worldW, worldH, offsetX, offsetY;
-    if (typeof ChunkManager !== 'undefined') {
+    if (sceneMode === 'interior' && interiorTiles) {
+      worldW = interiorW * TILE_W;
+      worldH = interiorH * TILE_H;
+      offsetX = 0;
+      offsetY = 0;
+    } else if (typeof ChunkManager !== 'undefined') {
       // Use full world bounds for camera clamping (not just loaded chunks)
       const wb = ChunkManager.getFullWorldBounds
         ? ChunkManager.getFullWorldBounds()
@@ -1288,5 +1336,6 @@ const IsoEngine = (() => {
     spawnHarvestParticles, updateParticles, drawParticles,
     drawMatureGlow,
     getHomeOffset,
+    enterInteriorMode, exitInteriorMode, isInteriorMode,
   };
 })();

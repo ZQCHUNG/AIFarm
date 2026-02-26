@@ -303,6 +303,7 @@ const Player = (() => {
     ctx.restore();
   }
 
+  function setPosition(x, y) { wx = x; wy = y; vx = 0; vy = 0; }
   function getPosition() { return { x: wx, y: wy }; }
   function getTile() {
     return { col: Math.floor(wx / 32), row: Math.floor(wy / 32) };
@@ -315,6 +316,7 @@ const Player = (() => {
 
   return {
     init,
+    setPosition,
     setCollisionFn,
     setDirtParticleFn,
     update,

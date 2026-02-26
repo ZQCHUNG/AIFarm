@@ -274,8 +274,12 @@
   const keys = {};
   document.addEventListener('keydown', (e) => {
     keys[e.key] = true;
-    // Shop/sell action (E key) — shop takes priority over shipping bin
+    // Shop/sell action (E key) — scene manager takes priority, then shop
     if ((e.key === 'e' || e.key === 'E') && !e.ctrlKey && !e.shiftKey) {
+      // Scene transition (door enter/exit) takes top priority
+      if (typeof SceneManager !== 'undefined' && SceneManager.handleAction()) {
+        return;
+      }
       if (typeof ShopUI !== 'undefined' && ShopUI.isOpen()) {
         ShopUI.handleKey(e.key, tick);
       } else if (typeof ShopUI !== 'undefined' && ShopUI.isNearShop()) {
@@ -430,23 +434,33 @@
       return;
     }
 
-    // Initialize farm world
-    IsoFarm.init();
-    IsoFarm.syncState();
+    // Overworld-only: farm init, buddy sync, startup camera
+    const isOW = typeof SceneManager === 'undefined' || SceneManager.isOverworld();
+    if (isOW) {
+      // Initialize farm world
+      IsoFarm.init();
+      IsoFarm.syncState();
 
-    // Sync buddies
-    for (const [id, buddy] of buddyMap) {
-      IsoFarm.syncBuddy(id, buddy.project, buddy.colorIndex || 0, buddy.sm.state);
-      // Notify BuddyAI of state changes
-      if (typeof BuddyAI !== 'undefined') {
-        BuddyAI.onStateChange(id, buddy.sm.state);
+      // Sync buddies
+      for (const [id, buddy] of buddyMap) {
+        IsoFarm.syncBuddy(id, buddy.project, buddy.colorIndex || 0, buddy.sm.state);
+        // Notify BuddyAI of state changes
+        if (typeof BuddyAI !== 'undefined') {
+          BuddyAI.onStateChange(id, buddy.sm.state);
+        }
       }
+
+      // Startup camera animation (train station → farm center pan)
+      IsoFarm.updateStartupAnimation();
     }
 
-    // Startup camera animation (train station → farm center pan)
-    IsoFarm.updateStartupAnimation();
+    // Update scene manager (fade transitions)
+    if (typeof SceneManager !== 'undefined') {
+      SceneManager.update(tick);
+    }
 
     // Player control + camera follow (replaces manual arrow-key panning)
+    const sceneLock = (typeof SceneManager !== 'undefined' && SceneManager.isInputLocked());
     const modalLock = (typeof IsoUI !== 'undefined' && IsoUI.isOpen())
       || (typeof ShopUI !== 'undefined' && ShopUI.isOpen())
       || (typeof CollectionUI !== 'undefined' && CollectionUI.isOpen())
@@ -461,6 +475,10 @@
             const col = Math.floor(wx / IsoEngine.TILE_W);
             const row = Math.floor(wy / IsoEngine.TILE_H);
             const tile = IsoEngine.getTile(col, row);
+            // In interior mode, stone tiles are walls
+            if (typeof IsoEngine !== 'undefined' && IsoEngine.isInteriorMode()) {
+              return tile === 'stone' || tile === null;
+            }
             return Player.SOLID_TILES.has(tile);
           },
           dirtParticleFn: (col, row, speed) => {
@@ -471,7 +489,7 @@
         });
         playerInited = true;
       }
-      if (!modalLock) {
+      if (!modalLock && !sceneLock) {
         const anyMove = keys['ArrowLeft'] || keys['ArrowRight'] || keys['ArrowUp'] || keys['ArrowDown']
           || keys['a'] || keys['A'] || keys['d'] || keys['D']
           || keys['w'] || keys['W'] || keys['s'] || keys['S'];
@@ -484,8 +502,8 @@
         IsoEngine.smoothFollow(pp.x, pp.y, 0.08);
       }
 
-      // Update chunk loading based on player position
-      if (typeof ChunkManager !== 'undefined') {
+      // Update chunk loading based on player position (overworld only)
+      if (isOW && typeof ChunkManager !== 'undefined') {
         const pt = Player.getTile();
         ChunkManager.updatePlayerPosition(pt.col, pt.row);
       }
@@ -505,92 +523,102 @@
       }
     }
 
-    // Auto-pan idle camera tour (only when player is not moving)
-    if (typeof Player !== 'undefined' && Player.isMoving()) {
-      // Player is moving — don't auto-pan
-    } else if (IsoFarm.updateAutoPan) {
-      IsoFarm.updateAutoPan();
-    }
+    // Overworld-only game systems
+    if (isOW) {
+      // Auto-pan idle camera tour (only when player is not moving)
+      if (typeof Player !== 'undefined' && Player.isMoving()) {
+        // Player is moving — don't auto-pan
+      } else if (IsoFarm.updateAutoPan) {
+        IsoFarm.updateAutoPan();
+      }
 
-    // Update processing buildings (mill, workshop, barn feed)
-    if (typeof Processing !== 'undefined') {
-      Processing.update();
-    }
+      // Update processing buildings (mill, workshop, barn feed)
+      if (typeof Processing !== 'undefined') {
+        Processing.update();
+      }
 
-    // Update fishing mini-game
-    if (typeof IsoFishing !== 'undefined') {
-      IsoFishing.update(tick);
-    }
+      // Update fishing mini-game
+      if (typeof IsoFishing !== 'undefined') {
+        IsoFishing.update(tick);
+      }
 
-    // Update wilderness landmarks
-    if (typeof LandmarkGenerator !== 'undefined') {
-      LandmarkGenerator.update(tick);
-    }
+      // Update wilderness landmarks
+      if (typeof LandmarkGenerator !== 'undefined') {
+        LandmarkGenerator.update(tick);
+      }
 
-    // Update automation (sprinklers, auto-collector)
-    if (typeof Automation !== 'undefined') {
-      Automation.update(tick);
-    }
+      // Update automation (sprinklers, auto-collector)
+      if (typeof Automation !== 'undefined') {
+        Automation.update(tick);
+      }
 
-    // Update pet dog AI
-    if (typeof PetAI !== 'undefined') {
-      PetAI.update(tick);
-      // Add pet entity for rendering
-      const petEntity = PetAI.getEntity();
-      if (petEntity) {
-        IsoEngine.setPet(petEntity);
+      // Update pet dog AI
+      if (typeof PetAI !== 'undefined') {
+        PetAI.update(tick);
+        // Add pet entity for rendering
+        const petEntity = PetAI.getEntity();
+        if (petEntity) {
+          IsoEngine.setPet(petEntity);
+        }
+      }
+
+      // Update monument v2 (stage calculation)
+      if (typeof MonumentV2 !== 'undefined') {
+        MonumentV2.update(tick);
+      }
+
+      // Update milestone snapshot theater
+      if (typeof SnapshotV2 !== 'undefined') {
+        SnapshotV2.update(tick);
+      }
+
+      // Update buddy AI (farming/tending behavior)
+      if (typeof BuddyAI !== 'undefined') {
+        BuddyAI.update(tick);
+      }
+
+      // Update NPC AI (historical session characters)
+      if (typeof NPCManager !== 'undefined') {
+        NPCManager.update(tick);
       }
     }
 
-    // Update monument v2 (stage calculation)
-    if (typeof MonumentV2 !== 'undefined') {
-      MonumentV2.update(tick);
-    }
-
-    // Update milestone snapshot theater
-    if (typeof SnapshotV2 !== 'undefined') {
-      SnapshotV2.update(tick);
-    }
-
-    // Update buddy AI (farming/tending behavior)
-    if (typeof BuddyAI !== 'undefined') {
-      BuddyAI.update(tick);
-    }
-
-    // Update NPC AI (historical session characters)
-    if (typeof NPCManager !== 'undefined') {
-      NPCManager.update(tick);
-    }
-
-    // Update quest board proximity
-    if (typeof QuestBoard !== 'undefined') {
+    // Overworld-only: quest board proximity
+    if (isOW && typeof QuestBoard !== 'undefined') {
       QuestBoard.update(tick);
     }
 
-    // Update entity manager
+    // Update entity manager (always — manages interior furniture too)
     IsoEntityManager.update(tick);
     IsoEntityManager.syncToEngine();
 
-    // Clear canvas with seasonal sky gradient
-    const sky = (typeof IsoWeather !== 'undefined') ? IsoWeather.getSkyGradient() : {};
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    skyGrad.addColorStop(0, sky.skyTop || '#87CEEB');
-    skyGrad.addColorStop(0.3, sky.skyMid || '#B8E0F0');
-    skyGrad.addColorStop(0.5, sky.grassTop || '#6EBF4E');
-    skyGrad.addColorStop(1, sky.grassBot || '#4E9E38');
-    ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Clear canvas background
+    if (isOW) {
+      // Seasonal sky gradient (overworld)
+      const sky = (typeof IsoWeather !== 'undefined') ? IsoWeather.getSkyGradient() : {};
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      skyGrad.addColorStop(0, sky.skyTop || '#87CEEB');
+      skyGrad.addColorStop(0.3, sky.skyMid || '#B8E0F0');
+      skyGrad.addColorStop(0.5, sky.grassTop || '#6EBF4E');
+      skyGrad.addColorStop(1, sky.grassBot || '#4E9E38');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Weather particles (behind tiles)
-    if (typeof IsoWeather !== 'undefined') {
-      const vibe = (typeof Farm !== 'undefined') ? Farm.getVibe() : null;
-      if (vibe) IsoWeather.setMood(vibe.mood, vibe.vibeScore || 0);
-      IsoWeather.update(tick, canvas.width, canvas.height);
-    }
+      // Weather particles (behind tiles)
+      if (typeof IsoWeather !== 'undefined') {
+        const vibe = (typeof Farm !== 'undefined') ? Farm.getVibe() : null;
+        if (vibe) IsoWeather.setMood(vibe.mood, vibe.vibeScore || 0);
+        IsoWeather.update(tick, canvas.width, canvas.height);
+      }
 
-    // Seasons system (fireflies, snow, tree palette updates)
-    if (typeof IsoSeasons !== 'undefined') {
-      IsoSeasons.update(tick, canvas.width, canvas.height);
+      // Seasons system (fireflies, snow, tree palette updates)
+      if (typeof IsoSeasons !== 'undefined') {
+        IsoSeasons.update(tick, canvas.width, canvas.height);
+      }
+    } else {
+      // Interior: dark wooden floor background
+      ctx.fillStyle = '#2A1F14';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     // Update particles
@@ -599,14 +627,17 @@
     // Render tile map + entities
     IsoEngine.drawMap(ctx, canvas.width, canvas.height, tick);
 
-    // Seasonal ground tint overlay (after tiles, before particles)
-    if (typeof IsoWeather !== 'undefined') {
-      IsoWeather.drawGroundTint(ctx, canvas.width, canvas.height);
-    }
+    // Overworld-only render passes
+    if (isOW) {
+      // Seasonal ground tint overlay (after tiles, before particles)
+      if (typeof IsoWeather !== 'undefined') {
+        IsoWeather.drawGroundTint(ctx, canvas.width, canvas.height);
+      }
 
-    // Winter snow overlay on ground
-    if (typeof IsoSeasons !== 'undefined') {
-      IsoSeasons.drawSnowOverlay(ctx, canvas.width, canvas.height, tick);
+      // Winter snow overlay on ground
+      if (typeof IsoSeasons !== 'undefined') {
+        IsoSeasons.drawSnowOverlay(ctx, canvas.width, canvas.height, tick);
+      }
     }
 
     // Draw particles + floating effects (in zoomed space)
@@ -620,93 +651,113 @@
     }
     ctx.restore();
 
-    // Weather overlay
-    if (typeof IsoWeather !== 'undefined') {
-      IsoWeather.draw(ctx, canvas.width, canvas.height, tick);
-      // Dynamic weather effects (rain, fog, lightning)
-      IsoWeather.drawWeatherEffects(ctx, canvas.width, canvas.height, tick);
-      // Dynamic lighting replaces simple night overlay when available
-      if (typeof IsoLighting !== 'undefined') {
-        IsoLighting.draw(ctx, canvas.width, canvas.height, tick);
-      } else {
-        IsoWeather.drawNightOverlay(ctx, canvas.width, canvas.height, tick);
+    if (isOW) {
+      // Weather overlay
+      if (typeof IsoWeather !== 'undefined') {
+        IsoWeather.draw(ctx, canvas.width, canvas.height, tick);
+        // Dynamic weather effects (rain, fog, lightning)
+        IsoWeather.drawWeatherEffects(ctx, canvas.width, canvas.height, tick);
+        // Dynamic lighting replaces simple night overlay when available
+        if (typeof IsoLighting !== 'undefined') {
+          IsoLighting.draw(ctx, canvas.width, canvas.height, tick);
+        } else {
+          IsoWeather.drawNightOverlay(ctx, canvas.width, canvas.height, tick);
+        }
+      }
+
+      // Summer fireflies (after night overlay, glow on top of darkness)
+      if (typeof IsoSeasons !== 'undefined') {
+        IsoSeasons.drawFireflies(ctx, canvas.width, canvas.height, tick);
+      }
+
+      // Entity tooltips
+      if (typeof IsoTooltip !== 'undefined') {
+        IsoTooltip.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
+      // Fishing visuals (bobber, line, "!" indicator)
+      if (typeof IsoFishing !== 'undefined') {
+        IsoFishing.draw(ctx, tick);
+        IsoFishing.drawPrompt(ctx, canvas.width, canvas.height);
+      }
+
+      // Wilderness landmark visuals + prompt
+      if (typeof LandmarkGenerator !== 'undefined') {
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.scale(IsoEngine.getZoom(), IsoEngine.getZoom());
+        LandmarkGenerator.draw(ctx, tick);
+        ctx.restore();
+        LandmarkGenerator.drawPrompt(ctx, canvas.width, canvas.height);
+      }
+
+      // Automation device visuals (sprinklers, collector)
+      if (typeof Automation !== 'undefined') {
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.scale(IsoEngine.getZoom(), IsoEngine.getZoom());
+        Automation.draw(ctx, tick);
+        ctx.restore();
+      }
+
+      // HUD (Harvest Moon style)
+      IsoFarm.drawHUD(ctx, canvas.width, canvas.height, tick);
+
+      // NPC info popup (when clicked)
+      if (typeof NPCManager !== 'undefined') {
+        NPCManager.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
+      // Shop prompt (when near tool shed)
+      if (typeof ShopUI !== 'undefined') {
+        ShopUI.drawShopPrompt(ctx, canvas.width, canvas.height);
+      }
+
+      // Quest board prompt (when near board)
+      if (typeof QuestBoard !== 'undefined') {
+        QuestBoard.drawPrompt(ctx, canvas.width, canvas.height);
+      }
+
+      // Modal overlay (bulletin board daily summary)
+      if (typeof IsoUI !== 'undefined') {
+        IsoUI.update();
+        IsoUI.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
+      // Shop modal overlay
+      if (typeof ShopUI !== 'undefined') {
+        ShopUI.update();
+        ShopUI.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
+      // Collection UI modal overlay
+      if (typeof CollectionUI !== 'undefined') {
+        CollectionUI.update();
+        CollectionUI.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
+      // Quest board modal overlay
+      if (typeof QuestBoard !== 'undefined' && QuestBoard.isOpen()) {
+        QuestBoard.draw(ctx, canvas.width, canvas.height, tick);
+      }
+    } else {
+      // Interior: draw room name label
+      if (typeof SceneManager !== 'undefined') {
+        const ai = SceneManager.getActiveInterior();
+        if (ai) {
+          ctx.font = 'bold 10px monospace';
+          ctx.fillStyle = 'rgba(255,255,255,0.7)';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillText(ai.name, canvas.width / 2, 8);
+        }
       }
     }
 
-    // Summer fireflies (after night overlay, glow on top of darkness)
-    if (typeof IsoSeasons !== 'undefined') {
-      IsoSeasons.drawFireflies(ctx, canvas.width, canvas.height, tick);
-    }
-
-    // Entity tooltips
-    if (typeof IsoTooltip !== 'undefined') {
-      IsoTooltip.draw(ctx, canvas.width, canvas.height, tick);
-    }
-
-    // Fishing visuals (bobber, line, "!" indicator)
-    if (typeof IsoFishing !== 'undefined') {
-      IsoFishing.draw(ctx, tick);
-      IsoFishing.drawPrompt(ctx, canvas.width, canvas.height);
-    }
-
-    // Wilderness landmark visuals + prompt
-    if (typeof LandmarkGenerator !== 'undefined') {
-      ctx.save();
-      ctx.imageSmoothingEnabled = false;
-      ctx.scale(IsoEngine.getZoom(), IsoEngine.getZoom());
-      LandmarkGenerator.draw(ctx, tick);
-      ctx.restore();
-      LandmarkGenerator.drawPrompt(ctx, canvas.width, canvas.height);
-    }
-
-    // Automation device visuals (sprinklers, collector)
-    if (typeof Automation !== 'undefined') {
-      ctx.save();
-      ctx.imageSmoothingEnabled = false;
-      ctx.scale(IsoEngine.getZoom(), IsoEngine.getZoom());
-      Automation.draw(ctx, tick);
-      ctx.restore();
-    }
-
-    // HUD (Harvest Moon style)
-    IsoFarm.drawHUD(ctx, canvas.width, canvas.height, tick);
-
-    // NPC info popup (when clicked)
-    if (typeof NPCManager !== 'undefined') {
-      NPCManager.draw(ctx, canvas.width, canvas.height, tick);
-    }
-
-    // Shop prompt (when near tool shed)
-    if (typeof ShopUI !== 'undefined') {
-      ShopUI.drawShopPrompt(ctx, canvas.width, canvas.height);
-    }
-
-    // Quest board prompt (when near board)
-    if (typeof QuestBoard !== 'undefined') {
-      QuestBoard.drawPrompt(ctx, canvas.width, canvas.height);
-    }
-
-    // Modal overlay (bulletin board daily summary)
-    if (typeof IsoUI !== 'undefined') {
-      IsoUI.update();
-      IsoUI.draw(ctx, canvas.width, canvas.height, tick);
-    }
-
-    // Shop modal overlay
-    if (typeof ShopUI !== 'undefined') {
-      ShopUI.update();
-      ShopUI.draw(ctx, canvas.width, canvas.height, tick);
-    }
-
-    // Collection UI modal overlay
-    if (typeof CollectionUI !== 'undefined') {
-      CollectionUI.update();
-      CollectionUI.draw(ctx, canvas.width, canvas.height, tick);
-    }
-
-    // Quest board modal overlay
-    if (typeof QuestBoard !== 'undefined' && QuestBoard.isOpen()) {
-      QuestBoard.draw(ctx, canvas.width, canvas.height, tick);
+    // Scene manager: door prompt + fade overlay (on top of everything)
+    if (typeof SceneManager !== 'undefined') {
+      SceneManager.drawPrompt(ctx, canvas.width, canvas.height);
+      SceneManager.drawFade(ctx, canvas.width, canvas.height);
     }
 
     // Milestone snapshot theater (cinematic bars, on top of everything)
