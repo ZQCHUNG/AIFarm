@@ -255,6 +255,40 @@ function createTray() {
   tray.on('click', () => { if (win) win.isVisible() ? win.hide() : win.show(); });
 }
 
+// ---------- Fullscreen toggle (F11) ----------
+
+let isFullscreen = false;
+let savedBounds = null;
+
+ipcMain.on('toggle-fullscreen', () => {
+  if (!win || win.isDestroyed()) return;
+  if (!isFullscreen) {
+    // Save current state
+    savedBounds = win.getBounds();
+    // Switch to fullscreen mode
+    win.setAlwaysOnTop(false);
+    win.setSkipTaskbar(false);
+    win.setIgnoreMouseEvents(false);
+    win.setFullScreen(true);
+    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+    win.webContents.send('resize-canvas', width, height);
+    isFullscreen = true;
+    console.log('[Claude Buddy] Fullscreen ON');
+  } else {
+    // Restore desktop companion mode
+    win.setFullScreen(false);
+    win.setAlwaysOnTop(true);
+    win.setSkipTaskbar(true);
+    win.setIgnoreMouseEvents(true, { forward: true });
+    if (savedBounds) {
+      win.setBounds(savedBounds);
+      win.webContents.send('resize-canvas', savedBounds.width, savedBounds.height);
+    }
+    isFullscreen = false;
+    console.log('[Claude Buddy] Fullscreen OFF');
+  }
+});
+
 // ---------- IPC ----------
 
 ipcMain.on('set-ignore-mouse', (e, ignore, opts) => {

@@ -315,6 +315,13 @@
     if (typeof ShopUI !== 'undefined' && ShopUI.isOpen()) {
       if (ShopUI.handleKey(e.key, tick)) return;
     }
+    // Fullscreen toggle (F11)
+    if (e.key === 'F11') {
+      if (window.buddy && window.buddy.toggleFullscreen) {
+        window.buddy.toggleFullscreen();
+      }
+      return;
+    }
     if (e.ctrlKey && e.shiftKey && e.key === 'D') {
       const active = Viewport.toggleDebugPan();
       console.log('[Viewport] Debug pan:', active ? 'ON' : 'OFF');
