@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('buddy', {
   saveTutorial: (state) => ipcRenderer.send('save-tutorial', state),
   saveFriendship: (state) => ipcRenderer.send('save-friendship', state),
   saveVictory: (state) => ipcRenderer.send('save-victory', state),
+  onToggleDebugDashboard: (cb) => ipcRenderer.on('toggle-debug-dashboard', () => cb()),
   requestFarmSync: () => ipcRenderer.send('request-farm-sync'),
   unlockBuilding: (id) => ipcRenderer.send('unlock-building', id),
   setWeather: (condition) => ipcRenderer.send('set-weather', condition),

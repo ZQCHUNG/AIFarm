@@ -18,6 +18,8 @@
   let playerInited = false;
   let cameraSnappedToPlayer = false;
   let savedPlayerPos = null; // { x, y } from farm state for position resume
+  let farmStateReceived = false; // wait for farm state before player init
+  let _lastCollisionLog = 0; // throttle collision debug logs
 
   // Load sprites (async, graceful fallback to procedural rendering)
   let spritesLoaded = false;
@@ -223,10 +225,11 @@
         TradeDiplomacy.init(state && state.tradeDiplo || null);
         if (!TradeDiplomacy._listenersReady) { TradeDiplomacy.setupListeners(); TradeDiplomacy._listenersReady = true; }
       }
-      // Restore saved player position (only before player init)
-      if (state && state.playerPosition && !playerInited) {
+      // Restore saved player position (before player init)
+      if (state && state.playerPosition) {
         savedPlayerPos = state.playerPosition;
       }
+      farmStateReceived = true;
       // Check passive chunk unlock based on cumulative tokens
       if (state && state.energy && typeof ChunkManager !== 'undefined') {
         ChunkManager.checkPassiveUnlock(state.energy);
@@ -309,6 +312,12 @@
         });
       }
     });
+    // F3 debug dashboard toggle via global shortcut (bypasses Chromium)
+    if (window.buddy.onToggleDebugDashboard) {
+      window.buddy.onToggleDebugDashboard(() => {
+        if (typeof DebugDashboard !== 'undefined') DebugDashboard.toggle();
+      });
+    }
     window.buddy.onPrestigeEvent((data) => {
       console.log(`[Prestige] Gen ${data.fromGen} → ${data.toGen}: ${data.label}`);
       Viewport.setWorldWidth(data.worldWidth);
@@ -944,7 +953,8 @@
       || (typeof TradeDiplomacy !== 'undefined' && TradeDiplomacy.isOpen());
     if (typeof Player !== 'undefined') {
       // Initialize player at farm center (offset by home chunk in mega-map)
-      if (!playerInited) {
+      // Wait for farm state so we can restore saved position
+      if (!playerInited && farmStateReceived) {
         const homeOff = (typeof ChunkManager !== 'undefined' && ChunkManager.getHomeOffset)
           ? ChunkManager.getHomeOffset() : { col: 0, row: 0 };
         Player.init(homeOff.col + 9, homeOff.row + 7, {
@@ -956,7 +966,13 @@
             if (typeof IsoEngine !== 'undefined' && IsoEngine.isInteriorMode()) {
               return tile === 'stone' || tile === null;
             }
-            return Player.SOLID_TILES.has(tile);
+            const blocked = Player.SOLID_TILES.has(tile);
+            // Debug: log collision hits (throttled to avoid spam)
+            if (blocked && (Date.now() - _lastCollisionLog > 500)) {
+              _lastCollisionLog = Date.now();
+              console.log(`[Collision] Blocked at (${col},${row}) tile=${tile}`);
+            }
+            return blocked;
           },
           dirtParticleFn: (col, row, speed) => {
             if (typeof IsoEffects !== 'undefined') {

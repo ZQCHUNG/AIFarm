@@ -92,6 +92,11 @@ function ensureWindow() {
   // by Chromium's built-in shortcuts (Find, Reload)
   win.setMenu(null);
 
+  // Forward renderer console to main process stdout (for debugging)
+  win.webContents.on('console-message', (e, level, msg) => {
+    if (msg.startsWith('[Collision]')) console.log(msg);
+  });
+
   // Intercept close — hide instead of destroy (so tray can re-show)
   win.on('close', (e) => {
     if (!app.isQuitting) {
@@ -458,6 +463,7 @@ app.whenReady().then(() => {
 
   // Global shortcut: Ctrl+Shift+F12 to force-show window (rescue from off-screen/hidden)
   globalShortcut.register('CommandOrControl+Shift+F12', forceShowWindow);
+
 
   // Re-adapt window when display changes (plug/unplug external monitor)
   screen.on('display-metrics-changed', () => {

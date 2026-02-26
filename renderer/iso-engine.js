@@ -47,7 +47,7 @@ const IsoEngine = (() => {
     sand:     { top: '#E8D89C', border: '#D0C488', dark: '#C8BC80' },
     path:     { top: '#D8C8A0', border: '#C0B088', dark: '#B8A880' },
     fence:    { top: '#C8A060', border: '#A88040', dark: '#906830' },
-    tree:     { top: '#6EBF4E', border: '#5AAE3D', dark: '#5BA83E' },  // grass base (tree drawn on top)
+    tree:     { top: '#5A9E40', border: '#4A8E30', dark: '#4A9035' },  // darker green base (tree drawn on top)
     mountain: { top: '#6B5B4B', border: '#5A4A3A', dark: '#4A3A2A' },
     empty:    { top: null, border: null, dark: null },
   };
@@ -648,6 +648,11 @@ const IsoEngine = (() => {
         // Tree tiles: draw visible tree sprite on top of grass base
         if (tileType === 'tree') {
           drawIsoTree(ctx, item.x + TILE_W / 2, item.y + TILE_H / 2, tick);
+          // DEBUG: bright red dot on tree tiles (remove after fixing)
+          ctx.fillStyle = '#FF0000';
+          ctx.beginPath();
+          ctx.arc(item.x + TILE_W / 2, item.y + TILE_H / 2, 4, 0, Math.PI * 2);
+          ctx.fill();
         }
         // Impassable tile indicator: subtle diagonal stripes
         if (tileType === 'mountain' || tileType === 'empty') {
