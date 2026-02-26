@@ -17,8 +17,8 @@ const Player = (() => {
   const WALK_SPEED = 3.2;      // pixels/frame cap (walk)
   const SPRINT_SPEED = 5.5;    // pixels/frame cap (sprint)
   const EXHAUSTED_SPEED = 1.6; // pixels/frame cap (exhausted)
-  const HITBOX_W = 12;
-  const HITBOX_H = 8;
+  const HITBOX_W = 14;
+  const HITBOX_H = 10;
 
   // Zoom-based speed compensation (set by renderer when zoom is capped)
   let zoomSpeedMult = 1.0;

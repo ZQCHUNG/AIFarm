@@ -849,15 +849,8 @@ const IsoEngine = (() => {
 
   // ===== Top-down sprite helpers =====
 
-  /**
-   * Draw full tree tile — the tree canopy fills the entire 32x32 tile
-   * so players can clearly see it's impassable.
-   */
+  /** Draw tree tile — tree sprite on grass base. */
   function drawTreeTile(ctx, tx, ty, col, row, tick) {
-    // Dark forest floor overlay
-    ctx.fillStyle = 'rgba(30,65,15,0.3)';
-    ctx.fillRect(tx, ty, TILE_W, TILE_H);
-    // Tree sprite with full-tile canopy
     drawIsoTree(ctx, tx + TILE_W / 2, ty + TILE_H / 2, tick);
   }
 

@@ -976,8 +976,8 @@
             }
 
             // Collision radii for sub-tile types (squared for fast comparison)
-            const TREE_R2 = 10 * 10;   // 10px radius
-            const WATER_R2 = 14 * 14;  // 14px radius
+            const TREE_R2 = 12.5 * 12.5; // 12.5px radius
+            const WATER_R2 = 14 * 14;    // 14px radius
 
             // Check current tile + 4 neighbors (radius can extend across tile borders)
             const offsets = [[0,0], [-1,0], [1,0], [0,-1], [0,1]];
