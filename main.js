@@ -432,8 +432,7 @@ app.on('before-quit', () => {
   stopAchievementFlush();
   exporter.flush();
   exporter.stop();
-  farm.stopAutoSave();
-  farm.save();
+  farm.close(); // saves + closes SQLite
   usage.stop();
   sessionFinder.stop();
   if (spriteWatcher) { spriteWatcher.close(); spriteWatcher = null; }

@@ -1,0 +1,36 @@
+{
+  "basePath": "sprites",
+  "version": 1,
+  "assets": [
+    { "id": "char_blue",   "src": "char_blue_sheet.png",   "frameWidth": 48, "frameHeight": 64, "directions": 4, "framesPerDir": 3, "offsetY": -24 },
+    { "id": "char_red",    "src": "char_red_sheet.png",    "frameWidth": 48, "frameHeight": 64, "directions": 4, "framesPerDir": 3, "offsetY": -24 },
+    { "id": "char_green",  "src": "char_green_sheet.png",  "frameWidth": 48, "frameHeight": 64, "directions": 4, "framesPerDir": 3, "offsetY": -24 },
+    { "id": "char_purple", "src": "char_purple_sheet.png", "frameWidth": 48, "frameHeight": 64, "directions": 4, "framesPerDir": 3, "offsetY": -24 },
+    { "id": "char_orange", "src": "char_orange_sheet.png", "frameWidth": 48, "frameHeight": 64, "directions": 4, "framesPerDir": 3, "offsetY": -24 },
+    { "id": "char_teal",   "src": "char_teal_sheet.png",   "frameWidth": 48, "frameHeight": 64, "directions": 4, "framesPerDir": 3, "offsetY": -24 },
+    { "id": "char_pink",   "src": "char_pink_sheet.png",   "frameWidth": 48, "frameHeight": 64, "directions": 4, "framesPerDir": 3, "offsetY": -24 },
+    { "id": "char_yellow", "src": "char_yellow_sheet.png", "frameWidth": 48, "frameHeight": 64, "directions": 4, "framesPerDir": 3, "offsetY": -24 },
+
+    { "id": "animal_chicken", "src": "animal_chicken_sheet.png", "frameWidth": 48, "frameHeight": 48, "directions": 4, "framesPerDir": 2, "offsetY": -12 },
+    { "id": "animal_cow",     "src": "animal_cow_sheet.png",     "frameWidth": 48, "frameHeight": 48, "directions": 4, "framesPerDir": 2, "offsetY": -12 },
+    { "id": "animal_pig",     "src": "animal_pig_sheet.png",     "frameWidth": 48, "frameHeight": 48, "directions": 4, "framesPerDir": 2, "offsetY": -12 },
+    { "id": "animal_sheep",   "src": "animal_sheep_sheet.png",   "frameWidth": 48, "frameHeight": 48, "directions": 4, "framesPerDir": 2, "offsetY": -12 },
+    { "id": "animal_cat",     "src": "animal_cat_sheet.png",     "frameWidth": 48, "frameHeight": 48, "directions": 4, "framesPerDir": 2, "offsetY": -12 },
+    { "id": "animal_dog",     "src": "animal_dog_sheet.png",     "frameWidth": 48, "frameHeight": 48, "directions": 4, "framesPerDir": 2, "offsetY": -12 },
+
+    { "id": "crop_carrot",     "src": "crop_carrot_sheet.png",     "frameWidth": 32, "frameHeight": 32, "directions": 1, "framesPerDir": 4 },
+    { "id": "crop_sunflower",  "src": "crop_sunflower_sheet.png",  "frameWidth": 32, "frameHeight": 32, "directions": 1, "framesPerDir": 4 },
+    { "id": "crop_watermelon", "src": "crop_watermelon_sheet.png", "frameWidth": 32, "frameHeight": 32, "directions": 1, "framesPerDir": 4 },
+    { "id": "crop_tomato",     "src": "crop_tomato_sheet.png",     "frameWidth": 32, "frameHeight": 32, "directions": 1, "framesPerDir": 4 },
+    { "id": "crop_corn",       "src": "crop_corn_sheet.png",       "frameWidth": 32, "frameHeight": 32, "directions": 1, "framesPerDir": 4 },
+    { "id": "crop_pumpkin",    "src": "crop_pumpkin_sheet.png",    "frameWidth": 32, "frameHeight": 32, "directions": 1, "framesPerDir": 4 },
+
+    { "id": "building_well",     "src": "building_well.png",     "frameWidth": 96,  "frameHeight": 96,  "directions": 1, "framesPerDir": 1 },
+    { "id": "building_barn",     "src": "building_barn.png",     "frameWidth": 192, "frameHeight": 160, "directions": 1, "framesPerDir": 1 },
+    { "id": "building_windmill", "src": "building_windmill.png", "frameWidth": 160, "frameHeight": 192, "directions": 1, "framesPerDir": 1 },
+    { "id": "building_market",   "src": "building_market.png",   "frameWidth": 192, "frameHeight": 128, "directions": 1, "framesPerDir": 1 },
+    { "id": "building_clock",    "src": "building_clock.png",    "frameWidth": 96,  "frameHeight": 192, "directions": 1, "framesPerDir": 1 },
+    { "id": "building_townhall", "src": "building_townhall.png", "frameWidth": 192, "frameHeight": 160, "directions": 1, "framesPerDir": 1 },
+    { "id": "building_statue",   "src": "building_statue.png",   "frameWidth": 96,  "frameHeight": 128, "directions": 1, "framesPerDir": 1 }
+  ]
+}

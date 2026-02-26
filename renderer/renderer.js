@@ -31,6 +31,11 @@
     });
   }
 
+  // Initialize Asset Manager (lazy loading + manifest support)
+  if (typeof AssetManager !== 'undefined') {
+    AssetManager.init({ basePath: '.', manifestUrl: 'sprites/sprites.json' });
+  }
+
   // Buddy registry
   const buddyMap = new Map();
   let buddyOrder = [];
@@ -635,6 +640,21 @@
       if (typeof NPCManager !== 'undefined') {
         NPCManager.update(tick);
       }
+
+      // Update network client (ghost player interpolation)
+      if (typeof NetworkClient !== 'undefined') {
+        NetworkClient.update(tick);
+        // Send local player position at throttled rate
+        if (NetworkClient.isConnected() && NetworkClient.shouldSend(tick)) {
+          if (typeof Player !== 'undefined') {
+            const pp = Player.getPosition();
+            const pd = Player.getDirection ? Player.getDirection() : 'down';
+            const pf = Player.getFrame ? Player.getFrame() : 0;
+            const ps = Player.isSprinting && Player.isSprinting() ? 'sprint' : 'walk';
+            NetworkClient.sendPosition(pp.x, pp.y, pd, pf, ps);
+          }
+        }
+      }
     }
 
     // Overworld-only: quest board proximity
@@ -770,6 +790,11 @@
       // NPC info popup (when clicked)
       if (typeof NPCManager !== 'undefined') {
         NPCManager.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
+      // Ghost players (network multiplayer)
+      if (typeof NetworkClient !== 'undefined') {
+        NetworkClient.draw(ctx, tick);
       }
 
       // Shop prompt (when near tool shed)

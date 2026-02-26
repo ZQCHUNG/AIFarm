@@ -10,6 +10,8 @@
     "electron": "^33.0.0"
   },
   "dependencies": {
-    "write-file-atomic": "^7.0.0"
+    "better-sqlite3": "^12.6.2",
+    "write-file-atomic": "^7.0.0",
+    "ws": "^8.19.0"
   }
 }

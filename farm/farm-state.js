@@ -1,8 +1,9 @@
 // Farm state manager — energy tracking, growth, milestones, persistence.
+// Uses SQLite via DatabaseAdapter (migrates from JSON on first run).
 const fs = require('fs');
-const writeFileAtomic = require('write-file-atomic');
 const cfg = require('./farm-config');
 const AchievementManager = require('./achievement-manager');
+const DatabaseAdapter = require('./database-adapter');
 
 class FarmState {
   constructor() {
@@ -12,6 +13,7 @@ class FarmState {
     this._currentSeason = 'summer';
     this.state = this._defaultState();
     this.achievements = new AchievementManager();
+    this._db = new DatabaseAdapter();
   }
 
   setWeatherMultiplier(m) {
@@ -45,10 +47,14 @@ class FarmState {
 
   load() {
     try {
-      if (fs.existsSync(cfg.SAVE_PATH)) {
-        const raw = fs.readFileSync(cfg.SAVE_PATH, 'utf8');
-        const saved = JSON.parse(raw);
-        // Merge saved over defaults (handles new fields gracefully)
+      this._db.open();
+
+      // Migrate from JSON if this is the first SQLite run
+      this._db.migrateFromJson(cfg.SAVE_PATH);
+
+      // Load state from SQLite
+      const saved = this._db.loadState();
+      if (saved && saved.totalEnergy > 0) {
         this.state = { ...this._defaultState(), ...saved };
         // Ensure plots array has correct length
         while (this.state.plots.length < cfg.TOTAL_PLOTS) {
@@ -56,9 +62,23 @@ class FarmState {
         }
         // Load achievements
         this.achievements.load(this.state.achievements || null);
-        console.log(`[Farm] Loaded: ${this.state.totalEnergy} energy, milestone ${this.state.milestoneReached}`);
+        console.log(`[Farm] Loaded from SQLite: ${this.state.totalEnergy} energy, milestone ${this.state.milestoneReached}`);
       } else {
-        console.log('[Farm] No save file, starting fresh');
+        // Try legacy JSON as fallback
+        if (fs.existsSync(cfg.SAVE_PATH)) {
+          const raw = fs.readFileSync(cfg.SAVE_PATH, 'utf8');
+          const jsonState = JSON.parse(raw);
+          this.state = { ...this._defaultState(), ...jsonState };
+          while (this.state.plots.length < cfg.TOTAL_PLOTS) {
+            this.state.plots.push({ crop: null, stage: 0, growthProgress: 0 });
+          }
+          this.achievements.load(this.state.achievements || null);
+          // Save to SQLite immediately
+          this._db.saveFullState(this.state);
+          console.log(`[Farm] Migrated from JSON: ${this.state.totalEnergy} energy`);
+        } else {
+          console.log('[Farm] No save data, starting fresh');
+        }
       }
     } catch (err) {
       console.error('[Farm] Load error, starting fresh:', err.message);
@@ -70,7 +90,10 @@ class FarmState {
     try {
       this.state.lastSaved = new Date().toISOString();
       this.state.achievements = this.achievements.getSaveState();
-      writeFileAtomic.sync(cfg.SAVE_PATH, JSON.stringify(this.state, null, 2), 'utf8');
+      // Save to SQLite (full state for now — partial saves used by individual setters)
+      if (this._db && this._db.db) {
+        this._db.saveFullState(this.state);
+      }
       this._dirty = false;
     } catch (err) {
       console.error('[Farm] Save error:', err.message);
@@ -88,6 +111,12 @@ class FarmState {
       clearInterval(this._timer);
       this._timer = null;
     }
+  }
+
+  close() {
+    this.stopAutoSave();
+    if (this._dirty) this.save();
+    if (this._db) this._db.close();
   }
 
   // Add energy from a Claude Code event. Returns the energy delta.
@@ -298,6 +327,10 @@ class FarmState {
     // Cap at 50 most recent sessions
     if (this.state.sessionHistory.length > 50) {
       this.state.sessionHistory = this.state.sessionHistory.slice(-50);
+    }
+    // Incremental SQLite write
+    if (this._db && this._db.db) {
+      this._db.saveSession(sessionData);
     }
     this._dirty = true;
   }
