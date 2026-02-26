@@ -54,9 +54,10 @@ const IsoEngine = (() => {
   // ===== Coordinate conversions =====
 
   // Grid (col, row) → screen (px, py) — simple rectangular projection
+  // Coordinates are rounded to integers at render time to prevent sub-pixel blurring.
   function gridToScreen(col, row, z) {
-    const sx = col * TILE_W + camX;
-    const sy = row * TILE_H + camY - (z || 0) * TILE_H;
+    const sx = Math.round(col * TILE_W + camX);
+    const sy = Math.round(row * TILE_H + camY - (z || 0) * TILE_H);
     return { x: sx, y: sy };
   }
 
@@ -663,7 +664,9 @@ const IsoEngine = (() => {
   // Tree (viewed from above — circular canopy with trunk visible below)
   // Seasonal palette from IsoSeasons (spring blossoms, autumn orange, winter bare)
   function drawIsoTree(ctx, sx, sy, tick) {
-    const sway = Math.sin(tick * 0.02 + sx) * 0.7;
+    sx = Math.round(sx);
+    sy = Math.round(sy);
+    const sway = Math.round(Math.sin(tick * 0.02 + sx) * 0.7);
     // Get seasonal palette (falls back to summer defaults)
     const pal = (typeof IsoSeasons !== 'undefined') ? IsoSeasons.getTreePalette() : null;
     const trunk = pal ? pal.trunk : '#8B6B3E';
@@ -718,7 +721,10 @@ const IsoEngine = (() => {
 
   // Character (top-down chibi — big head, small body)
   function drawIsoCharacter(ctx, sx, sy, dir, frame, hoodieColor, tick) {
-    const bob = Math.sin(tick * 0.15 + frame) * 1.2;
+    // Round to avoid sub-pixel blurring on pixel art
+    sx = Math.round(sx);
+    sy = Math.round(sy);
+    const bob = Math.round(Math.sin(tick * 0.15 + frame) * 1.2);
     const bodyY = sy - 14 + bob;
 
     // Shadow
@@ -798,6 +804,10 @@ const IsoEngine = (() => {
   // Crop rendering — type-specific, 2 plants per tile for dense row look
   function drawIsoCrop(ctx, sx, sy, stage, cropType, tick) {
     if (stage === 0) return;
+
+    // Round to prevent sub-pixel blurring
+    sx = Math.round(sx);
+    sy = Math.round(sy);
 
     // Per-tile random offset to break grid feel (seeded by position)
     const seed = (sx * 7 + sy * 13) & 0xFFFF;
@@ -1108,6 +1118,8 @@ const IsoEngine = (() => {
 
   // Fence post (top-down)
   function drawFencePost(ctx, sx, sy, horizontal) {
+    sx = Math.round(sx);
+    sy = Math.round(sy);
     ctx.fillStyle = '#A88040';
     if (horizontal) {
       ctx.fillRect(sx - TILE_W / 2, sy - 2, TILE_W, 4);
@@ -1125,6 +1137,8 @@ const IsoEngine = (() => {
 
   // Animal (top-down chibi style — scaled for 32px tiles)
   function drawAnimal(ctx, sx, sy, type, frame, tick) {
+    sx = Math.round(sx);
+    sy = Math.round(sy);
     const bob = frame % 2 === 0 ? 0 : -1;
     const ay = sy + bob;
 

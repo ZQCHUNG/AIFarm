@@ -174,9 +174,10 @@ const NPCManager = (() => {
           ai.dir = dy < 0 ? 3 : 0;
         }
 
-        // Walk animation
+        // Walk animation — speed proportional to movement velocity
+        const animRate = Math.max(4, Math.round(0.15 / (speed + 0.001)));
         ai.frameTick++;
-        if (ai.frameTick >= (prof.tier === 'sage' ? 12 : 8)) {
+        if (ai.frameTick >= animRate) {
           ai.frameTick = 0;
           ai.frame = (ai.frame + 1) % 3;
         }

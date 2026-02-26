@@ -75,11 +75,13 @@ const AnimalAI = (() => {
     // Clamp position
     animal.x = Math.max(animal.worldMinX, Math.min(animal.worldMaxX, animal.x));
 
-    // Animation frame (based on movement)
+    // Animation frame — speed proportional to actual movement
     if (animal.state === STATE.WANDER || (animal.state === STATE.REACT && animal.reactBehavior === 'play')) {
-      animal.frame = ((tick / 14) | 0) % 2;
+      const animalSpeed = traits.speed * vibeEffect.speedMod;
+      const ticksPerFrame = Math.max(5, Math.round(0.5 / (animalSpeed + 0.01)));
+      animal.frame = ((tick / ticksPerFrame) | 0) % 2;
     } else {
-      animal.frame = 0;
+      animal.frame = 0;  // Force standing frame when idle/resting
     }
   }
 

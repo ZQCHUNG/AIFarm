@@ -181,8 +181,11 @@ const Player = (() => {
       }
     }
 
-    // Animate walk cycle (faster when sprinting)
-    const animSpeed = sprinting ? ANIM_SPEED_SPRINT : ANIM_SPEED_WALK;
+    // Animate walk cycle — speed proportional to velocity
+    const currentSpeed = Math.sqrt(vx * vx + vy * vy);
+    // Map speed to anim ticks: faster movement = fewer ticks between frames
+    // At WALK_SPEED (3.2) → ~8 ticks, at SPRINT_SPEED (5.5) → ~5 ticks
+    const animSpeed = moving ? Math.max(3, Math.round(25 / (currentSpeed + 0.1))) : ANIM_SPEED_WALK;
     if (moving) {
       animTimer++;
       if (animTimer >= animSpeed) {
@@ -190,7 +193,7 @@ const Player = (() => {
         animFrame = (animFrame + 1) % 3;
       }
     } else {
-      animFrame = 0;
+      animFrame = 0;  // Force standing frame when idle (no mid-stride freeze)
       animTimer = 0;
     }
 

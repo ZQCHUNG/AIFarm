@@ -383,8 +383,10 @@ const BuddyAI = (() => {
       ent.direction = dy > 0 ? 'down' : 'up';
     }
 
-    // Walking animation frame
-    ent.frame = ((tick / 8) | 0) % 4;
+    // Walking animation frame — speed proportional to movement
+    // At WALK_SPEED 0.06, step ≈ 0.06 → ticksPerFrame ≈ 5
+    const ticksPerFrame = Math.max(3, Math.round(0.3 / (step + 0.01)));
+    ent.frame = ((tick / ticksPerFrame) | 0) % 4;
 
     // Dust puffs at feet while walking
     if (tick % 12 === 0 && typeof IsoEngine !== 'undefined') {
@@ -666,7 +668,8 @@ const BuddyAI = (() => {
       } else {
         ent.direction = dy > 0 ? 'down' : 'up';
       }
-      ent.frame = ((tick / 6) | 0) % 4; // faster walk animation
+      const shelterTicksPerFrame = Math.max(3, Math.round(0.3 / (step + 0.01)));
+      ent.frame = ((tick / shelterTicksPerFrame) | 0) % 4;
     } else {
       // Arrived at shelter — huddle animation
       ent.z = 0;
