@@ -134,6 +134,22 @@ Web Audio API 合成 8-bit 音效：UI 點擊、收穫彈出、錯誤蜂鳴、�
 ### 多人連線原型
 輕量 WebSocket 伺服器 + 客戶端。6 Hz 位置廣播，lerp 插值平滑移動。遠端玩家以半透明「幽靈」渲染，帶團隊名稱標籤。
 
+### Webhook 神諭系統
+外部系統透過 HTTP POST `/api/webhook` 發送事件，伺服器廣播至所有連線玩家：
+- **金雨**：10 秒金色粒子雨 + 金幣 emoji + 畫面金色濾鏡 + 50 能量獎勵
+- **資料水晶**：紀念碑區域閃爍水晶 + 100 金幣獎勵
+- **公告橫幅**：5 秒淡入淡出金色邊框橫幅
+
+### 玩家交易系統
+走近遠端幽靈玩家按 [T] 開啟交易：
+- 木框羊皮紙風格交易面板
+- 雙欄顯示：我方出價 vs 對方出價
+- 方向鍵選擇資源與數量，Enter 確認
+- 雙方確認後原子交換資源
+
+### UGC 資產匯入
+自動監控 `renderer/assets/custom/` 資料夾。PNG 檔名慣例自動解析精靈圖元資料（如 `character-ninja_32x32_4f.png`），即時註冊到 AssetManager 供遊戲使用。
+
 ## 操作方式
 
 | 輸入 | 動作 |
@@ -148,7 +164,7 @@ Web Audio API 合成 8-bit 音效：UI 點擊、收穫彈出、錯誤蜂鳴、�
 | 點擊 NPC | 查看工作階段資訊 |
 | 點擊佈告欄 | 開啟每日摘要 |
 | 點擊相機按鈕 | 儲存農場截圖 |
-| T (按住) | 模擬 token 燃燒（建造測試用） |
+| T | 與附近幽靈玩家交易（或按住模擬 token 燃燒） |
 | F11 | 全螢幕模式切換 |
 | Ctrl+Shift+I | 切換等距/經典視角 |
 | Ctrl+Shift+D | 切換 debug 平移 |
@@ -191,6 +207,7 @@ Web Audio API 合成 8-bit 音效：UI 點擊、收穫彈出、錯誤蜂鳴、�
 | 23 | 大師之路與廚藝 | 技能系統（農/礦/釣 + 特技樹 + UI）、烹飪系統（3 食譜 + buff）、音效引擎（Web Audio 合成） |
 | 24 | 建築師覺醒 | 漸進式建造系統（8 藍圖 + 4 階段視覺）、AI Builder NPC（錘子動畫 + 木屑火花粒子） |
 | 25 | 多人基建與引擎優化 | SQLite 狀態儲存遷移、動態資源管理器、WebSocket 多人連線原型 |
+| 26 | 神諭與市集 | HTTP Webhook API（外部事件觸發視覺效果）、玩家對玩家交易系統、UGC 資產匯入器 |
 
 ### 待辦（路線圖）
 
@@ -261,6 +278,8 @@ claude-buddy/
     construction-manager.js  # 漸進式建造系統（4 階段視覺）
     asset-manager.js   # 動態資源管理器（懶加載、JSON manifest）
     network-client.js  # WebSocket 多人連線客戶端
+    oracle-effects.js  # Webhook 神諭視覺效果（金雨、水晶、公告）
+    trade-ui.js        # 玩家對玩家交易 UI（木框面板、資源交換）
     farm.js            # 渲染端共享農場狀態
     sprite-manager.js  # PNG 精靈圖載入與程序化回退
     character.js       # 8 色帽 T 角色精靈圖
@@ -271,9 +290,10 @@ claude-buddy/
     train.js           # 經典 2D 火車
     renderer.js        # 主渲染迴圈、輸入處理、視角管理
   server/
-    multiplayer-server.js  # WebSocket 多人伺服器（本地測試用）
+    multiplayer-server.js  # WebSocket+HTTP 多人伺服器（含 Webhook API）
   watcher/
     data-exporter.js   # JSONL 匯出工具
+    ugc-importer.js    # UGC 自定義資產匯入器（資料夾監控）
   scripts/
     recolor_sprites.py # 精靈圖 HSV 色相偏移重新上色
 ```
