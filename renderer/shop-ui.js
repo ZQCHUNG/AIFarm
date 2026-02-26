@@ -326,10 +326,23 @@ const ShopUI = (() => {
       ctx.fillText(item.price + 'g', px + pw - MARGIN - 4, iy + 6);
       ctx.textAlign = 'left';
 
-      // Description
-      ctx.fillStyle = '#888';
+      // Description (with season indicator for seeds)
       ctx.font = '7px monospace';
-      ctx.fillText(item.description, LEFT + 12, iy + 16);
+      let desc = item.description;
+      let descColor = '#888';
+      if (item.type === 'seed' && typeof IsoSeasons !== 'undefined') {
+        const cropId = item.id.replace('seed_', '');
+        const info = IsoSeasons.getCropSeasonInfo(cropId);
+        if (info.inSeason) {
+          desc += ' \u{2705}in season';
+          descColor = '#5A8A40';
+        } else {
+          desc += ' \u{26A0}\u{FE0F}slow';
+          descColor = '#C88';
+        }
+      }
+      ctx.fillStyle = descColor;
+      ctx.fillText(desc, LEFT + 12, iy + 16);
     }
 
     // Controls hint

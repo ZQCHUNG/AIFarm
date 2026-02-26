@@ -271,6 +271,10 @@ ipcMain.on('set-weather', (e, condition) => {
   }
 });
 
+ipcMain.on('set-season', (e, season) => {
+  if (farm.setSeason) farm.setSeason(season);
+});
+
 ipcMain.on('unlock-building', (e, id) => {
   if (!farm.state.buildings[id]) {
     farm.state.buildings[id] = true;

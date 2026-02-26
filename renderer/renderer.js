@@ -70,6 +70,16 @@
     PetAI.init();
   }
 
+  // Initialize quest board
+  if (typeof QuestBoard !== 'undefined') {
+    QuestBoard.init();
+  }
+
+  // Initialize milestone snapshot v2
+  if (typeof SnapshotV2 !== 'undefined') {
+    SnapshotV2.init();
+  }
+
   // Initialize resource popup sprites (fly-to-HUD on harvest)
   if (typeof IsoEffects !== 'undefined' && IsoEffects.setupResourceListeners) {
     IsoEffects.setupResourceListeners();
@@ -90,6 +100,8 @@
     EventBus.on('RESOURCE_SOLD', () => BuddyAI.addContext('sell', tick));
   }
 
+  let prevMilestone = 0;  // track for SnapshotV2 milestone detection
+
   if (window.buddy) {
     window.buddy.onFarmUpdate((state) => {
       Farm.setState(state);
@@ -107,6 +119,31 @@
       // Sync cumulative energy to landmark generator for rarity scaling
       if (state && state.energy && typeof LandmarkGenerator !== 'undefined') {
         LandmarkGenerator.setCumulativeEnergy(state.energy);
+      }
+      // Detect new milestone for auto-snapshot
+      if (state && state.milestoneReached && state.milestoneReached > prevMilestone) {
+        if (prevMilestone > 0 && typeof EventBus !== 'undefined') {
+          // Find matching milestone info from MILESTONES config
+          const MILESTONES = [
+            { energy: 50, emoji: '\u{1F955}', label: 'First Seed' },
+            { energy: 150, emoji: '\u{1F33B}', label: 'Gardener' },
+            { energy: 300, emoji: '\u{1F349}', label: 'Green Thumb' },
+            { energy: 500, emoji: '\u{1F345}', label: 'Farmer' },
+            { energy: 800, emoji: '\u{1F33D}', label: 'Rancher' },
+            { energy: 1200, emoji: '\u{1F383}', label: 'Pioneer' },
+            { energy: 1800, emoji: '\u{1F411}', label: 'Villager' },
+            { energy: 2500, emoji: '\u{1F431}', label: 'Town Founder' },
+            { energy: 3500, emoji: '\u{1F415}', label: 'Thriving Town' },
+            { energy: 5000, emoji: '\u{1F550}', label: 'Prosperous Village' },
+            { energy: 7500, emoji: '\u{1F3DB}', label: 'Metropolis' },
+            { energy: 10000, emoji: '\u{1F5FF}', label: 'Legend' },
+          ];
+          const ms = MILESTONES.find(m => m.energy === state.milestoneReached);
+          if (ms) {
+            EventBus.emit('MILESTONE_UNLOCKED', ms);
+          }
+        }
+        prevMilestone = state.milestoneReached;
       }
     });
     window.buddy.onFarmEnergyTick((pts) => { /* could add flash animation */ });
@@ -264,6 +301,16 @@
         return;
       }
     }
+    // Quest board (Q key)
+    if (typeof QuestBoard !== 'undefined' && QuestBoard.isOpen()) {
+      if (QuestBoard.handleKey(e.key, tick)) return;
+    }
+    if ((e.key === 'q' || e.key === 'Q') && !e.ctrlKey && !e.shiftKey) {
+      if (typeof QuestBoard !== 'undefined' && QuestBoard.isNearBoard()) {
+        QuestBoard.toggle();
+        return;
+      }
+    }
     // Forward other keys to shop modal when open
     if (typeof ShopUI !== 'undefined' && ShopUI.isOpen()) {
       if (ShopUI.handleKey(e.key, tick)) return;
@@ -388,7 +435,8 @@
     // Player control + camera follow (replaces manual arrow-key panning)
     const modalLock = (typeof IsoUI !== 'undefined' && IsoUI.isOpen())
       || (typeof ShopUI !== 'undefined' && ShopUI.isOpen())
-      || (typeof CollectionUI !== 'undefined' && CollectionUI.isOpen());
+      || (typeof CollectionUI !== 'undefined' && CollectionUI.isOpen())
+      || (typeof QuestBoard !== 'undefined' && QuestBoard.isOpen());
     if (typeof Player !== 'undefined') {
       // Initialize player once at farm center (col 9, row 7)
       if (!playerInited) {
@@ -483,6 +531,11 @@
       MonumentV2.update(tick);
     }
 
+    // Update milestone snapshot theater
+    if (typeof SnapshotV2 !== 'undefined') {
+      SnapshotV2.update(tick);
+    }
+
     // Update buddy AI (farming/tending behavior)
     if (typeof BuddyAI !== 'undefined') {
       BuddyAI.update(tick);
@@ -491,6 +544,11 @@
     // Update NPC AI (historical session characters)
     if (typeof NPCManager !== 'undefined') {
       NPCManager.update(tick);
+    }
+
+    // Update quest board proximity
+    if (typeof QuestBoard !== 'undefined') {
+      QuestBoard.update(tick);
     }
 
     // Update entity manager
@@ -514,6 +572,11 @@
       IsoWeather.update(tick, canvas.width, canvas.height);
     }
 
+    // Seasons system (fireflies, snow, tree palette updates)
+    if (typeof IsoSeasons !== 'undefined') {
+      IsoSeasons.update(tick, canvas.width, canvas.height);
+    }
+
     // Update particles
     IsoEngine.updateParticles();
 
@@ -523,6 +586,11 @@
     // Seasonal ground tint overlay (after tiles, before particles)
     if (typeof IsoWeather !== 'undefined') {
       IsoWeather.drawGroundTint(ctx, canvas.width, canvas.height);
+    }
+
+    // Winter snow overlay on ground
+    if (typeof IsoSeasons !== 'undefined') {
+      IsoSeasons.drawSnowOverlay(ctx, canvas.width, canvas.height, tick);
     }
 
     // Draw particles + floating effects (in zoomed space)
@@ -547,6 +615,11 @@
       } else {
         IsoWeather.drawNightOverlay(ctx, canvas.width, canvas.height, tick);
       }
+    }
+
+    // Summer fireflies (after night overlay, glow on top of darkness)
+    if (typeof IsoSeasons !== 'undefined') {
+      IsoSeasons.drawFireflies(ctx, canvas.width, canvas.height, tick);
     }
 
     // Entity tooltips
@@ -592,6 +665,11 @@
       ShopUI.drawShopPrompt(ctx, canvas.width, canvas.height);
     }
 
+    // Quest board prompt (when near board)
+    if (typeof QuestBoard !== 'undefined') {
+      QuestBoard.drawPrompt(ctx, canvas.width, canvas.height);
+    }
+
     // Modal overlay (bulletin board daily summary)
     if (typeof IsoUI !== 'undefined') {
       IsoUI.update();
@@ -608,6 +686,16 @@
     if (typeof CollectionUI !== 'undefined') {
       CollectionUI.update();
       CollectionUI.draw(ctx, canvas.width, canvas.height, tick);
+    }
+
+    // Quest board modal overlay
+    if (typeof QuestBoard !== 'undefined' && QuestBoard.isOpen()) {
+      QuestBoard.draw(ctx, canvas.width, canvas.height, tick);
+    }
+
+    // Milestone snapshot theater (cinematic bars, on top of everything)
+    if (typeof SnapshotV2 !== 'undefined') {
+      SnapshotV2.drawTheater(ctx, canvas.width, canvas.height, tick);
     }
   }
 

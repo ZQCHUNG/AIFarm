@@ -9,12 +9,17 @@ class FarmState {
     this._dirty = false;
     this._timer = null;
     this._weatherMultiplier = 1.0;
+    this._currentSeason = 'summer';
     this.state = this._defaultState();
     this.achievements = new AchievementManager();
   }
 
   setWeatherMultiplier(m) {
     this._weatherMultiplier = m;
+  }
+
+  setSeason(s) {
+    this._currentSeason = s || 'summer';
   }
 
   _defaultState() {
@@ -205,7 +210,9 @@ class FarmState {
       const cropDef = cfg.CROPS.find(c => c.id === plot.crop);
       if (!cropDef) continue;
 
-      plot.growthProgress += perPlot;
+      // Apply per-crop seasonal growth multiplier
+      const seasonMult = this._getCropSeasonMultiplier(plot.crop);
+      plot.growthProgress += Math.max(1, Math.floor(perPlot * seasonMult));
 
       // Check for stage advancement
       while (plot.growthProgress >= cropDef.growCost && plot.stage < cfg.GROWTH_STAGES - 1) {
@@ -220,6 +227,25 @@ class FarmState {
     }
 
     this.state.pendingGrowth = 0;
+  }
+
+  // Crop season affinity — matches IsoSeasons.CROP_SEASONS
+  _getCropSeasonMultiplier(cropId) {
+    const CROP_SEASONS = {
+      carrot:     { best: ['spring', 'autumn'], penalty: 0.5 },
+      sunflower:  { best: ['summer'],           penalty: 0.4 },
+      watermelon: { best: ['summer'],           penalty: 0.3 },
+      tomato:     { best: ['summer', 'autumn'], penalty: 0.5 },
+      corn:       { best: ['summer', 'autumn'], penalty: 0.5 },
+      pumpkin:    { best: ['autumn'],           penalty: 0.4 },
+      strawberry: { best: ['spring', 'summer'], penalty: 0.5 },
+      wheat:      { best: ['autumn', 'spring'], penalty: 0.6 },
+    };
+    const info = CROP_SEASONS[cropId];
+    if (!info) return 1.0;
+    if (info.best.includes(this._currentSeason)) return 1.2;
+    if (this._currentSeason === 'winter') return info.penalty * 0.7;
+    return info.penalty;
   }
 
   _tryPlantEmptyPlots() {

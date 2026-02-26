@@ -38,7 +38,7 @@ const IsoWeather = (() => {
     },
     summer: {
       skyTop: '#5DADE2', skyMid: '#AED6F1', grassTop: '#5AAE45', grassBot: '#3D8B2F',
-      particle: null, particleColors: [],
+      particle: null, particleColors: [],  // fireflies handled by IsoSeasons
       spawnRate: 0, groundTint: null,
     },
     autumn: {

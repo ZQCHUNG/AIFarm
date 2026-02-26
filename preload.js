@@ -14,4 +14,5 @@ contextBridge.exposeInMainWorld('buddy', {
   setIgnoreMouseEvents: (ignore, opts) => ipcRenderer.send('set-ignore-mouse', ignore, opts),
   unlockBuilding: (id) => ipcRenderer.send('unlock-building', id),
   setWeather: (condition) => ipcRenderer.send('set-weather', condition),
+  setSeason: (season) => ipcRenderer.send('set-season', season),
 });

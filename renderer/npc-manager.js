@@ -402,6 +402,7 @@ const NPCManager = (() => {
   }
 
   function getNPCCount() { return npcs.length; }
+  function getNPCs() { return npcs; }
 
   return {
     init,
@@ -410,6 +411,7 @@ const NPCManager = (() => {
     checkHover,
     handleClick,
     getNPCCount,
+    getNPCs,
     getTier,
   };
 })();

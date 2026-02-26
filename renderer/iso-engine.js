@@ -555,29 +555,59 @@ const IsoEngine = (() => {
   // ===== Top-down sprite helpers =====
 
   // Tree (viewed from above — circular canopy with trunk visible below)
+  // Seasonal palette from IsoSeasons (spring blossoms, autumn orange, winter bare)
   function drawIsoTree(ctx, sx, sy, tick) {
     const sway = Math.sin(tick * 0.02 + sx) * 0.7;
+    // Get seasonal palette (falls back to summer defaults)
+    const pal = (typeof IsoSeasons !== 'undefined') ? IsoSeasons.getTreePalette() : null;
+    const trunk = pal ? pal.trunk : '#8B6B3E';
+    const c0 = pal ? pal.canopy[0] : '#3A8A2A';
+    const c1 = pal ? pal.canopy[1] : '#4EAA3A';
+    const c2 = pal ? pal.canopy[2] : '#5CBC48';
+
+    // Winter: smaller canopy (sparse leaves)
+    const season = (typeof IsoWeather !== 'undefined') ? IsoWeather.getSeason() : 'summer';
+    const canopyScale = season === 'winter' ? 0.75 : 1.0;
+
     // Shadow on ground
     ctx.fillStyle = 'rgba(0,0,0,0.15)';
     ctx.beginPath();
     ctx.ellipse(sx + 2, sy + 5, 11, 7, 0, 0, Math.PI * 2);
     ctx.fill();
     // Trunk
-    ctx.fillStyle = '#8B6B3E';
+    ctx.fillStyle = trunk;
     ctx.fillRect(sx - 3, sy - 10, 6, 16);
     // Canopy layers (darker below, lighter above)
-    ctx.fillStyle = '#3A8A2A';
+    ctx.fillStyle = c0;
     ctx.beginPath();
-    ctx.ellipse(sx + sway, sy - 14, 14, 11, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx + sway, sy - 14, 14 * canopyScale, 11 * canopyScale, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#4EAA3A';
+    ctx.fillStyle = c1;
     ctx.beginPath();
-    ctx.ellipse(sx + sway, sy - 16, 11, 8, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx + sway, sy - 16, 11 * canopyScale, 8 * canopyScale, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#5CBC48';
+    ctx.fillStyle = c2;
     ctx.beginPath();
-    ctx.ellipse(sx + sway + 1, sy - 18, 7, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx + sway + 1, sy - 18, 7 * canopyScale, 5 * canopyScale, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    // Seasonal accent (blossom spots in spring, red leaves in autumn, snow in winter)
+    if (pal && pal.accent && pal.accentChance > 0) {
+      // Use deterministic seed from position so accents are stable per tree
+      const seed = Math.abs(sx * 31 + sy * 17) % 100;
+      if (seed < pal.accentChance * 100) {
+        ctx.fillStyle = pal.accent;
+        // 3-4 small accent dots on the canopy
+        for (let i = 0; i < 4; i++) {
+          const ax = sx + sway + Math.sin(seed + i * 2.1) * 8 * canopyScale;
+          const ay = sy - 15 + Math.cos(seed + i * 3.3) * 6 * canopyScale;
+          const ar = 1.5 + (i % 2);
+          ctx.beginPath();
+          ctx.arc(ax, ay, ar, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
   }
 
   // Character (top-down chibi — big head, small body)
