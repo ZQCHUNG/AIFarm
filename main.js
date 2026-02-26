@@ -88,6 +88,10 @@ function ensureWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.setIgnoreMouseEvents(true, { forward: true });
 
+  // Remove default Electron menu to prevent F3/F5 etc. from being consumed
+  // by Chromium's built-in shortcuts (Find, Reload)
+  win.setMenu(null);
+
   // Intercept close — hide instead of destroy (so tray can re-show)
   win.on('close', (e) => {
     if (!app.isQuitting) {

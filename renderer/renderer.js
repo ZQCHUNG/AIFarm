@@ -349,8 +349,13 @@
       Viewport.setViewportWidth(w);
       // Scale zoom proportionally to canvas height (baseline: 351px → 1.8x)
       if (viewMode === 'iso' && typeof IsoEngine !== 'undefined') {
-        const baseZoom = 1.8 * (h / 351);
-        IsoEngine.setZoom(Math.max(1.0, Math.min(3.0, baseZoom)));
+        const idealZoom = 1.8 * (h / 351);
+        const actualZoom = Math.max(1.0, Math.min(5.0, idealZoom));
+        IsoEngine.setZoom(actualZoom);
+        // Compensate player speed if zoom was capped
+        if (typeof Player !== 'undefined') {
+          Player.setSpeedMultiplier(idealZoom / actualZoom);
+        }
       }
     });
 
@@ -513,6 +518,7 @@
     }
     // Debug dashboard toggle (F3)
     if (e.key === 'F3') {
+      e.preventDefault(); // Prevent Chromium's "Find Next"
       if (typeof DebugDashboard !== 'undefined') DebugDashboard.toggle();
       return;
     }

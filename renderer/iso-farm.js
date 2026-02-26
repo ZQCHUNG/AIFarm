@@ -267,8 +267,13 @@ const IsoFarm = (() => {
     const c = document.getElementById('canvas') || document.getElementById('isoCanvas') || document.getElementById('farm-canvas');
     const cw = c ? c.width : 660;
     const ch = c ? c.height : 500;
-    const baseZoom = 1.8 * (ch / 351);
-    IsoEngine.setZoom(Math.max(1.0, Math.min(3.0, baseZoom)));
+    const idealZoom = 1.8 * (ch / 351);
+    const actualZoom = Math.max(1.0, Math.min(5.0, idealZoom));
+    IsoEngine.setZoom(actualZoom);
+    // Compensate player speed if zoom was capped
+    if (typeof Player !== 'undefined') {
+      Player.setSpeedMultiplier(idealZoom / actualZoom);
+    }
 
     const tutDone = typeof TutorialManager !== 'undefined' && TutorialManager.isComplete();
     if (tutDone) {

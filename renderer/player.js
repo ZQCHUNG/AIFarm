@@ -20,6 +20,9 @@ const Player = (() => {
   const HITBOX_W = 12;
   const HITBOX_H = 8;
 
+  // Zoom-based speed compensation (set by renderer when zoom is capped)
+  let zoomSpeedMult = 1.0;
+
   // Stamina tuning
   const STAMINA_MAX = 100;
   const STAMINA_DRAIN = 0.8;     // per frame while sprinting
@@ -75,12 +78,15 @@ const Player = (() => {
     state = STATE.IDLE;
     stamina = STAMINA_MAX;
     recoveryTimer = 0;
+    zoomSpeedMult = 1.0;
     if (opts && opts.collisionFn) collisionFn = opts.collisionFn;
     if (opts && opts.dirtParticleFn) dirtParticleFn = opts.dirtParticleFn;
   }
 
   function setCollisionFn(fn) { collisionFn = fn; }
   function setDirtParticleFn(fn) { dirtParticleFn = fn; }
+  function setSpeedMultiplier(m) { zoomSpeedMult = Math.max(0.5, Math.min(3.0, m)); }
+  function getSpeedMultiplier() { return zoomSpeedMult; }
   function setBumpFn(fn) { bumpFn = fn; }
 
   /**
@@ -144,10 +150,13 @@ const Player = (() => {
     if (state === STATE.SPRINT) maxSpeed = SPRINT_SPEED * speedMod;
     else if (state === STATE.EXHAUSTED) maxSpeed = EXHAUSTED_SPEED;
     else maxSpeed = WALK_SPEED * speedMod;
+    // Compensate for zoom capping so apparent screen speed stays constant
+    maxSpeed *= zoomSpeedMult;
+    const accel = ACCEL * zoomSpeedMult;
 
     // Apply acceleration
-    vx += ix * ACCEL;
-    vy += iy * ACCEL;
+    vx += ix * accel;
+    vy += iy * accel;
 
     // Clamp speed
     const speed = Math.sqrt(vx * vx + vy * vy);
@@ -361,6 +370,8 @@ const Player = (() => {
     setCollisionFn,
     setDirtParticleFn,
     setBumpFn,
+    setSpeedMultiplier,
+    getSpeedMultiplier,
     update,
     restoreStamina,
     getEntity,
@@ -374,6 +385,8 @@ const Player = (() => {
     SOLID_TILES,
     STATE,
     STAMINA_MAX,
+    WALK_SPEED,
+    SPRINT_SPEED,
   };
 })();
 

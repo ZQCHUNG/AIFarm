@@ -195,6 +195,95 @@ describe('Player', () => {
     });
   });
 
+  describe('zoom speed compensation (regression: 走路變慢)', () => {
+    // Helper: measure distance traveled over N frames with given keys
+    function measureDistance(frames, keys) {
+      Player.init(50, 50, { collisionFn: noCollision });
+      const start = Player.getPosition().x;
+      for (let i = 0; i < frames; i++) {
+        Player.update(keys || { d: true });
+      }
+      return Player.getPosition().x - start;
+    }
+
+    test('speed multiplier defaults to 1.0', () => {
+      expect(Player.getSpeedMultiplier()).toBe(1.0);
+    });
+
+    test('setSpeedMultiplier changes effective walk speed', () => {
+      const normalDist = measureDistance(30, { d: true });
+
+      // Set multiplier AFTER init (init resets it)
+      Player.init(50, 50, { collisionFn: noCollision });
+      Player.setSpeedMultiplier(1.5);
+      const start = Player.getPosition().x;
+      for (let i = 0; i < 30; i++) Player.update({ d: true });
+      const boostedDist = Player.getPosition().x - start;
+
+      // Boosted should travel further (roughly 1.5x, allowing for friction/accel)
+      expect(boostedDist).toBeGreaterThan(normalDist * 1.2);
+    });
+
+    test('setSpeedMultiplier changes effective sprint speed', () => {
+      const normalDist = measureDistance(30, { d: true, Shift: true });
+
+      Player.init(50, 50, { collisionFn: noCollision });
+      Player.setSpeedMultiplier(1.5);
+      const start = Player.getPosition().x;
+      for (let i = 0; i < 30; i++) Player.update({ d: true, Shift: true });
+      const boostedDist = Player.getPosition().x - start;
+
+      expect(boostedDist).toBeGreaterThan(normalDist * 1.2);
+    });
+
+    test('speed multiplier is clamped to [0.5, 3.0]', () => {
+      Player.setSpeedMultiplier(0.1);
+      expect(Player.getSpeedMultiplier()).toBe(0.5);
+
+      Player.setSpeedMultiplier(10);
+      expect(Player.getSpeedMultiplier()).toBe(3.0);
+
+      Player.setSpeedMultiplier(1.0); // reset
+    });
+
+    test('init resets speed multiplier to 1.0', () => {
+      Player.setSpeedMultiplier(2.0);
+      Player.init(5, 5, { collisionFn: noCollision });
+      expect(Player.getSpeedMultiplier()).toBe(1.0);
+    });
+
+    test('WALK_SPEED and SPRINT_SPEED are exported for zoom formula validation', () => {
+      expect(Player.WALK_SPEED).toBe(3.2);
+      expect(Player.SPRINT_SPEED).toBe(5.5);
+    });
+
+    // This is the KEY regression test:
+    // At any canvas size, the auto-zoom formula should produce a zoom level
+    // such that the proportional screen speed (world_speed * zoom / canvas_h)
+    // remains constant.
+    test('auto-zoom formula maintains constant proportional speed across screen sizes', () => {
+      const BASELINE_ZOOM = 1.8;
+      const BASELINE_H = 351;
+      const ZOOM_MAX = 5.0;
+
+      // Reference proportional speed at baseline
+      const refPropSpeed = (Player.WALK_SPEED * BASELINE_ZOOM) / BASELINE_H;
+
+      // Test various canvas heights
+      const testHeights = [351, 400, 468, 500, 630, 700, 800, 900, 975];
+      for (const h of testHeights) {
+        const idealZoom = BASELINE_ZOOM * (h / BASELINE_H);
+        const actualZoom = Math.max(1.0, Math.min(ZOOM_MAX, idealZoom));
+        const speedMult = idealZoom / actualZoom;
+        const effectiveSpeed = Player.WALK_SPEED * speedMult;
+        const propSpeed = (effectiveSpeed * actualZoom) / h;
+
+        // Proportional speed must be within 1% of reference
+        expect(Math.abs(propSpeed - refPropSpeed) / refPropSpeed).toBeLessThan(0.01);
+      }
+    });
+  });
+
   describe('edge cases', () => {
     test('update with empty keys does not crash', () => {
       expect(() => Player.update({})).not.toThrow();

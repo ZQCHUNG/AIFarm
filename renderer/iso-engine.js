@@ -25,7 +25,7 @@ const IsoEngine = (() => {
   let camY = 0;
   let camZoom = 1.0;
   const ZOOM_MIN = 0.5;
-  const ZOOM_MAX = 3.0;
+  const ZOOM_MAX = 5.0;
   const ZOOM_SPEED = 0.15;
 
   // Hover state for mouse picking
