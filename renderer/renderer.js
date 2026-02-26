@@ -110,6 +110,11 @@
     FriendshipSystem.setupListeners();
   }
 
+  // Apply global balance pass (speed, economy, crop values)
+  if (typeof GlobalBalance !== 'undefined') {
+    GlobalBalance.apply();
+  }
+
   // Initialize player accessories event listeners
   if (typeof PlayerAccessories !== 'undefined') {
     PlayerAccessories.setupListeners();
@@ -183,6 +188,10 @@
       // Initialize friendship system from persisted state
       if (typeof FriendshipSystem !== 'undefined') {
         FriendshipSystem.init(state && state.friendship || null);
+      }
+      // Initialize victory monument from persisted state
+      if (typeof VictoryMonument !== 'undefined') {
+        VictoryMonument.init(state && state.victory || null);
       }
       // Check passive chunk unlock based on cumulative tokens
       if (state && state.energy && typeof ChunkManager !== 'undefined') {
@@ -385,9 +394,25 @@
       if (typeof PostProcessing !== 'undefined') PostProcessing.cycleFilter();
       return;
     }
+    // Credits screen (F1)
+    if (e.key === 'F1') {
+      if (typeof CreditsScreen !== 'undefined') {
+        if (CreditsScreen.isOpen()) {
+          CreditsScreen.handleKey(e.key);
+        } else {
+          CreditsScreen.toggleCredits();
+        }
+      }
+      return;
+    }
     // Debug dashboard toggle (F3)
     if (e.key === 'F3') {
       if (typeof DebugDashboard !== 'undefined') DebugDashboard.toggle();
+      return;
+    }
+    // Save export (F4)
+    if (e.key === 'F4') {
+      if (typeof CreditsScreen !== 'undefined') CreditsScreen.exportSave();
       return;
     }
     // Gift to nearby NPC (G key)
@@ -419,6 +444,10 @@
         IsoFarm.sellAllCrops(tick);
       }
       return; // prevent E from falling through to handleKey (which would close the shop)
+    }
+    // Credits screen (consumes keys when open)
+    if (typeof CreditsScreen !== 'undefined' && CreditsScreen.isOpen()) {
+      if (CreditsScreen.handleKey(e.key)) return;
     }
     // Trade UI (consumes keys when open)
     if (typeof TradeUI !== 'undefined' && TradeUI.isOpen()) {
@@ -638,7 +667,8 @@
       || (typeof CollectionUI !== 'undefined' && CollectionUI.isOpen())
       || (typeof QuestBoard !== 'undefined' && QuestBoard.isOpen())
       || (typeof CookingSystem !== 'undefined' && (CookingSystem.isOpen() || CookingSystem.isCooking()))
-      || (typeof TradeUI !== 'undefined' && TradeUI.isOpen());
+      || (typeof TradeUI !== 'undefined' && TradeUI.isOpen())
+      || (typeof CreditsScreen !== 'undefined' && CreditsScreen.isOpen());
     if (typeof Player !== 'undefined') {
       // Initialize player at farm center (offset by home chunk in mega-map)
       if (!playerInited) {
@@ -801,6 +831,11 @@
         DebugDashboard.update(tick);
       }
 
+      // Update victory monument (ascension check)
+      if (typeof VictoryMonument !== 'undefined') {
+        VictoryMonument.update(tick);
+      }
+
       // Update network client (ghost player interpolation)
       if (typeof NetworkClient !== 'undefined') {
         NetworkClient.update(tick);
@@ -820,6 +855,11 @@
     // Overworld-only: quest board proximity
     if (isOW && typeof QuestBoard !== 'undefined') {
       QuestBoard.update(tick);
+    }
+
+    // Update credits screen (splash timer)
+    if (typeof CreditsScreen !== 'undefined') {
+      CreditsScreen.update(tick);
     }
 
     // Update cooking system (buffs tick in all scenes)
@@ -1020,6 +1060,11 @@
         TradeUI.draw(ctx, canvas.width, canvas.height, tick);
       }
 
+      // Victory monument overlay (golden glow, ceremony fireworks)
+      if (typeof VictoryMonument !== 'undefined') {
+        VictoryMonument.draw(ctx, canvas.width, canvas.height, tick);
+      }
+
       // Weather hazards overlay (lightning flash, drought tint)
       if (typeof WeatherLogicV2 !== 'undefined') {
         WeatherLogicV2.draw(ctx, canvas.width, canvas.height, tick);
@@ -1072,6 +1117,11 @@
     // Debug dashboard (on top of everything, including filters)
     if (typeof DebugDashboard !== 'undefined') {
       DebugDashboard.draw(ctx, canvas.width, canvas.height, tick);
+    }
+
+    // Credits screen + startup splash (absolute final overlay)
+    if (typeof CreditsScreen !== 'undefined') {
+      CreditsScreen.draw(ctx, canvas.width, canvas.height, tick);
     }
 
     // Clear gamepad-injected keys after frame (they're re-polled next frame)
