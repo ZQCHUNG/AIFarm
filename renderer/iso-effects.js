@@ -383,8 +383,27 @@ const IsoEffects = (() => {
     dirtParticles.length = 0;
   }
 
+  /**
+   * Alias: spawn floating text using screen pixel coordinates.
+   * Many modules call this instead of spawnText (which uses grid coords).
+   */
+  function spawnFloatingText(screenX, screenY, text, color) {
+    if (floatingTexts.length >= MAX_TEXTS) return;
+    floatingTexts.push({
+      x: screenX,
+      y: screenY,
+      text,
+      color: color || '#FFD700',
+      font: 'bold 8px monospace',
+      life: 80,
+      age: 0,
+      rise: 0.6,
+    });
+  }
+
   return {
     spawnText,
+    spawnFloatingText,
     spawnHarvestReward,
     spawnMilestone,
     spawnResourcePopup,
