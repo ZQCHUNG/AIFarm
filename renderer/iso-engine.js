@@ -47,7 +47,7 @@ const IsoEngine = (() => {
     sand:     { top: '#E8D89C', border: '#D0C488', dark: '#C8BC80' },
     path:     { top: '#D8C8A0', border: '#C0B088', dark: '#B8A880' },
     fence:    { top: '#C8A060', border: '#A88040', dark: '#906830' },
-    mountain: { top: '#7A7A78', border: '#5A5A58', dark: '#4A4A48' },
+    mountain: { top: '#6B5B4B', border: '#5A4A3A', dark: '#4A3A2A' },
     empty:    { top: null, border: null, dark: null },
   };
 
@@ -242,32 +242,137 @@ const IsoEngine = (() => {
     const def = TILE_TYPES[type];
     if (!def || !def.top) return;
 
-    // Mountain tiles: tall rocky wall
+    // Mountain tiles: classic RPG mountain range (3 peaks, strong contrast)
     if (type === 'mountain') {
-      const wallH = 20; // extra height above tile
-      // Cliff face (dark)
-      ctx.fillStyle = def.dark;
-      ctx.fillRect(sx, sy - wallH, TILE_W, wallH + TILE_H);
-      // Lighter top face
-      ctx.fillStyle = def.top;
-      ctx.fillRect(sx + 2, sy - wallH, TILE_W - 4, 6);
-      // Snow cap on top
-      ctx.fillStyle = '#E8E8E0';
-      ctx.fillRect(sx + 4, sy - wallH - 2, TILE_W - 8, 4);
-      // Rock texture lines
-      ctx.strokeStyle = def.border;
-      ctx.lineWidth = 0.5;
+      // Dark base (cliff face)
+      ctx.fillStyle = '#3D2E1E';
+      ctx.fillRect(sx, sy, TILE_W, TILE_H);
+
+      // ── Three mountain peaks ──
+      // Left peak
+      ctx.fillStyle = '#6B5040';
       ctx.beginPath();
-      ctx.moveTo(sx + 4, sy - wallH + 8); ctx.lineTo(sx + TILE_W - 4, sy - wallH + 10);
-      ctx.moveTo(sx + 6, sy - wallH + 16); ctx.lineTo(sx + TILE_W - 6, sy - wallH + 14);
-      ctx.moveTo(sx + 3, sy); ctx.lineTo(sx + TILE_W - 3, sy + 2);
+      ctx.moveTo(sx, sy + TILE_H);
+      ctx.lineTo(sx + 6, sy + 2);
+      ctx.lineTo(sx + 14, sy + TILE_H);
+      ctx.closePath();
+      ctx.fill();
+      // Left peak highlight
+      ctx.fillStyle = '#8B7060';
+      ctx.beginPath();
+      ctx.moveTo(sx + 6, sy + 2);
+      ctx.lineTo(sx + 14, sy + TILE_H);
+      ctx.lineTo(sx + 10, sy + TILE_H);
+      ctx.closePath();
+      ctx.fill();
+
+      // Center peak (tallest, extends above tile)
+      ctx.fillStyle = '#6B5040';
+      ctx.beginPath();
+      ctx.moveTo(sx + 8, sy + TILE_H);
+      ctx.lineTo(sx + 16, sy - 10);
+      ctx.lineTo(sx + 24, sy + TILE_H);
+      ctx.closePath();
+      ctx.fill();
+      // Center highlight
+      ctx.fillStyle = '#8B7060';
+      ctx.beginPath();
+      ctx.moveTo(sx + 16, sy - 10);
+      ctx.lineTo(sx + 24, sy + TILE_H);
+      ctx.lineTo(sx + 20, sy + TILE_H);
+      ctx.closePath();
+      ctx.fill();
+      // Snow cap on center peak
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.moveTo(sx + 13, sy - 2);
+      ctx.lineTo(sx + 16, sy - 10);
+      ctx.lineTo(sx + 19, sy - 2);
+      ctx.closePath();
+      ctx.fill();
+
+      // Right peak
+      ctx.fillStyle = '#6B5040';
+      ctx.beginPath();
+      ctx.moveTo(sx + 18, sy + TILE_H);
+      ctx.lineTo(sx + 26, sy + 4);
+      ctx.lineTo(sx + TILE_W, sy + TILE_H);
+      ctx.closePath();
+      ctx.fill();
+      // Right highlight
+      ctx.fillStyle = '#8B7060';
+      ctx.beginPath();
+      ctx.moveTo(sx + 26, sy + 4);
+      ctx.lineTo(sx + TILE_W, sy + TILE_H);
+      ctx.lineTo(sx + 29, sy + TILE_H);
+      ctx.closePath();
+      ctx.fill();
+
+      // Thick dark outline for clear boundary
+      ctx.strokeStyle = '#1A0E00';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      // Left peak outline
+      ctx.moveTo(sx, sy + TILE_H);
+      ctx.lineTo(sx + 6, sy + 2);
+      ctx.lineTo(sx + 10, sy + 14);
+      // Center peak outline
+      ctx.lineTo(sx + 16, sy - 10);
+      ctx.lineTo(sx + 22, sy + 12);
+      // Right peak outline
+      ctx.lineTo(sx + 26, sy + 4);
+      ctx.lineTo(sx + TILE_W, sy + TILE_H);
       ctx.stroke();
+
       return;
     }
 
     let topColor = def.top;
 
-    // Water shimmer
+    // Water: pond with sandy shore (collision is full tile, visual shows shore)
+    if (type === 'water') {
+      const pad = 4; // shore width in pixels
+
+      // 1. Grass base (matches surrounding terrain)
+      ctx.fillStyle = '#6EBF4E';
+      ctx.fillRect(sx, sy, TILE_W, TILE_H);
+
+      // 2. Sandy shore ring
+      ctx.fillStyle = '#D4B878';
+      ctx.fillRect(sx + pad - 2, sy + pad - 2, TILE_W - (pad - 2) * 2, TILE_H - (pad - 2) * 2);
+
+      // 3. Water pool in center
+      ctx.fillStyle = '#3070B0';
+      ctx.fillRect(sx + pad, sy + pad, TILE_W - pad * 2, TILE_H - pad * 2);
+
+      // 4. Animated wave lines inside pool
+      const t = tick || 0;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(sx + pad, sy + pad, TILE_W - pad * 2, TILE_H - pad * 2);
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 1;
+      for (let wy = pad + 4; wy < TILE_H - pad; wy += 6) {
+        ctx.beginPath();
+        for (let wx = pad; wx <= TILE_W - pad; wx += 2) {
+          const waveY = sy + wy + Math.sin(t * 0.08 + wx * 0.3 + sy * 0.1) * 1.5;
+          if (wx === pad) ctx.moveTo(sx + wx, waveY);
+          else ctx.lineTo(sx + wx, waveY);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // 5. Dark water edge for depth
+      ctx.strokeStyle = '#1A4A80';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sx + pad + 0.5, sy + pad + 0.5, TILE_W - pad * 2 - 1, TILE_H - pad * 2 - 1);
+
+      return;
+    }
+
+    // Water shimmer (for other animated tiles)
     if (def.animated && tick) {
       const shimmer = Math.sin(tick * 0.06 + sx * 0.03 + sy * 0.02) * 12;
       topColor = adjustBrightness(def.top, shimmer);
@@ -483,20 +588,23 @@ const IsoEngine = (() => {
       const baseRow = ent.baseRow !== undefined ? ent.baseRow : ent.row;
       const baseCol = ent.baseCol !== undefined ? ent.baseCol : ent.col;
       const priority = ent.isStatic ? 0.3 : 0.5;
+      // Non-static entities (characters): push depth row +0.4 so next-row tiles don't occlude legs
+      const depthRow = ent.isStatic ? baseRow : baseRow + 0.4;
       renderList.push({
-        depth: depthKey(baseCol, baseRow, 0, priority),
+        depth: depthKey(baseCol, depthRow, 0, priority),
         type: 'entity',
         entity: ent, x, y,
       });
     }
     // Player entity (priority 0.5 — same as characters)
+    // Use row + 0.4 for depth so tiles at the next row don't occlude legs
     if (playerEntity) {
       const ez = playerEntity.z || 0;
       const { x, y } = gridToScreen(playerEntity.col, playerEntity.row, ez);
       playerEntity.screenX = x + TILE_W / 2;
       playerEntity.screenY = y;
       renderList.push({
-        depth: depthKey(playerEntity.col, playerEntity.row, 0, 0.5),
+        depth: depthKey(playerEntity.col, playerEntity.row + 0.4, 0, 0.5),
         type: 'entity',
         entity: playerEntity, x, y,
       });
@@ -524,6 +632,20 @@ const IsoEngine = (() => {
         drawTile(ctx, item.x, item.y, tileType, tick);
         drawSoilDetail(ctx, item.x, item.y, tileType, tick);
         drawTileTransitions(ctx, item.x, item.y, item.col, item.row);
+        // Impassable tile indicator: subtle diagonal stripes
+        if (tileType === 'mountain' || tileType === 'empty') {
+          ctx.save();
+          ctx.globalAlpha = 0.15;
+          ctx.strokeStyle = '#FF0000';
+          ctx.lineWidth = 1;
+          for (let d = -TILE_H; d < TILE_W; d += 6) {
+            ctx.beginPath();
+            ctx.moveTo(item.x + d, item.y);
+            ctx.lineTo(item.x + d + TILE_H, item.y + TILE_H);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
         if (item.col === hoverCol && item.row === hoverRow) {
           drawTileHighlight(ctx, item.x, item.y, tick);
         }

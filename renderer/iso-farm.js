@@ -717,7 +717,7 @@ const IsoFarm = (() => {
 
   // ===== Auto-Pan idle camera tour =====
 
-  const AUTO_PAN_IDLE_THRESHOLD = 600; // ~10 seconds at 60fps before auto-pan starts
+  const AUTO_PAN_IDLE_THRESHOLD = 3600; // ~60 seconds at 60fps before auto-pan starts
   const AUTO_PAN_MOVE_DURATION = 180;  // ~3 seconds to glide between waypoints
   const AUTO_PAN_PAUSE_DURATION = 240; // ~4 seconds pause at each waypoint
 

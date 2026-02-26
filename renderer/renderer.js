@@ -409,6 +409,41 @@
 
   // Keyboard handler
   const keys = {};
+
+  // Remote play API — allows external control via CDP/executeJavaScript
+  const KEY_MAP = { left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', down: 'ArrowDown' };
+  window.remotePlay = {
+    // Move in a direction for ms milliseconds. e.g. remotePlay.move('up', 500)
+    move(dir, ms) {
+      const key = KEY_MAP[dir];
+      if (!key) return `Unknown dir: ${dir}. Use left/right/up/down`;
+      keys[key] = true;
+      setTimeout(() => { keys[key] = false; }, ms || 300);
+      return `Moving ${dir} for ${ms || 300}ms`;
+    },
+    // Press a key (for menus). e.g. remotePlay.press('r')
+    press(key) {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      setTimeout(() => {
+        document.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+      }, 50);
+      return `Pressed ${key}`;
+    },
+    // Get player position
+    pos() {
+      if (typeof Player !== 'undefined') return Player.getPosition();
+      return null;
+    },
+    // Take screenshot
+    screenshot() {
+      if (window.buddy && window.buddy.captureToFile) {
+        window.buddy.captureToFile('D:\\Mine\\claude-buddy\\Images\\screenshot-remote.png');
+        return 'Screenshot saved';
+      }
+      return 'No capture API';
+    },
+  };
+
   document.addEventListener('keydown', (e) => {
     keys[e.key] = true;
     // Switch to keyboard mode when typing
