@@ -338,9 +338,12 @@ Sprint 30 最終平衡調整：
 
 | 狀態 | 優先級 | 任務 | 負責人 | 備註 |
 |------|--------|------|--------|------|
-| ⬜ | P0 | Token 燃燒脈動指示器 | Claude | Energy 條旁脈動核心 + "-X tokens" 浮動文字 |
+| ✅ | P0 | 空白畫面 Bug 根因修復 | Claude | render loop 無 try-catch → 啟動 race condition 永久殺死 rAF 鏈。已加 try-catch 保護。(fbe1d8b) |
+| ✅ | P0 | 視窗找不到 Bug 修復 | Claude | skipTaskbar=false + ensureOnScreen + Ctrl+Shift+F12 強制顯示 (fbe1d8b) |
+| ✅ | P0 | Token 燃燒脈動指示器 | Claude | Energy 條旁脈動火焰 + active session 數 + rate + 浮動 "+X" 文字 (fbe1d8b) |
 | ⬜ | P0 | 自動化測試套件 (Jest) | Claude | 單元測試：market-economy、tech-tree、resource-inventory |
 | ⬜ | P0 | CDP 整合測試腳本 | Claude | 碰撞邊界 5 分鐘自動行走 + 穿牆/卡住偵測 |
+| ⬜ | P0 | CTO 全面 Code Review | CTO | Joe 要求 CTO 審查整個 repo，找出所有 Bug |
 | ⬜ | P1 | 視覺回歸測試 | Claude | 濾鏡穩定度 + NPC/Buddy 動畫 pivot point 校驗 |
 | ⬜ | P1 | NPC 失蹤修復 | Claude | sessionHistory 為空，需加 REQUEST_INITIAL_DATA IPC |
 
@@ -365,7 +368,8 @@ Sprint 30 最終平衡調整：
 
 | 日期 | 任務 | Commit |
 |------|------|--------|
-| 2026-02-26 | README TODO 追蹤區塊 | 89f9b45 |
+| 2026-02-26 | 空白畫面根因修復 + 視窗找不到修復 + Token 燃燒指示器 | fbe1d8b |
+| 2026-02-26 | README TODO 追蹤區塊 | db3c58e |
 | 2026-02-26 | Buddy 大小閃爍 + 隱形牆壁 + Corner-Assist 碰撞 | 3e18bcb |
 | 2026-02-26 | 邏輯/渲染分離（rAF 凍結修復） | aa59c9f |
 | 2026-02-26 | 視窗顯示/隱藏修復 + playtest 腳本 | a14d9dc |
