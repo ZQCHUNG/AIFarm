@@ -291,6 +291,17 @@ ipcMain.on('toggle-fullscreen', () => {
 
 // ---------- IPC ----------
 
+ipcMain.on('capture-to-file', async (e, filePath) => {
+  if (!win || win.isDestroyed()) return;
+  try {
+    const img = await win.webContents.capturePage();
+    fs.writeFileSync(filePath, img.toPNG());
+    console.log(`[Claude Buddy] Screenshot saved to ${filePath}`);
+  } catch (err) {
+    console.error('[Claude Buddy] Screenshot failed:', err);
+  }
+});
+
 ipcMain.on('set-ignore-mouse', (e, ignore, opts) => {
   const w = BrowserWindow.fromWebContents(e.sender);
   if (w) w.setIgnoreMouseEvents(ignore, opts || {});

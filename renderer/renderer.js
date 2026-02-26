@@ -315,6 +315,13 @@
     if (typeof ShopUI !== 'undefined' && ShopUI.isOpen()) {
       if (ShopUI.handleKey(e.key, tick)) return;
     }
+    // Screenshot to file (F12)
+    if (e.key === 'F12') {
+      if (window.buddy && window.buddy.captureToFile) {
+        window.buddy.captureToFile('D:\\Mine\\claude-buddy\\Images\\screenshot-farm-new.png');
+      }
+      return;
+    }
     // Fullscreen toggle (F11)
     if (e.key === 'F11') {
       if (window.buddy && window.buddy.toggleFullscreen) {

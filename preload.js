@@ -16,4 +16,5 @@ contextBridge.exposeInMainWorld('buddy', {
   setWeather: (condition) => ipcRenderer.send('set-weather', condition),
   setSeason: (season) => ipcRenderer.send('set-season', season),
   toggleFullscreen: () => ipcRenderer.send('toggle-fullscreen'),
+  captureToFile: (filePath) => ipcRenderer.send('capture-to-file', filePath),
 });
