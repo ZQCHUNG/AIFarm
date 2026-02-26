@@ -204,16 +204,20 @@ const CookingSystem = (() => {
     }
     if (key === 'ArrowUp' || key === 'w' || key === 'W') {
       selectedIndex = (selectedIndex - 1 + RECIPES.length) % RECIPES.length;
+      if (typeof AudioManager !== 'undefined') AudioManager.playUIClick();
       return true;
     }
     if (key === 'ArrowDown' || key === 's' || key === 'S') {
       selectedIndex = (selectedIndex + 1) % RECIPES.length;
+      if (typeof AudioManager !== 'undefined') AudioManager.playUIClick();
       return true;
     }
     if (key === 'Enter' || key === ' ') {
       const recipe = RECIPES[selectedIndex];
       if (canCook(recipe)) {
         cook(recipe, tick);
+      } else {
+        if (typeof AudioManager !== 'undefined') AudioManager.playErrorBuzzer();
       }
       return true;
     }

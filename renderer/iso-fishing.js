@@ -141,6 +141,7 @@ const IsoFishing = (() => {
       // Pressed too early — miss
       state = STATE.MISS;
       timer = MISS_DURATION;
+      if (typeof AudioManager !== 'undefined') AudioManager.playErrorBuzzer();
       return true;
     }
     return false;
@@ -198,6 +199,7 @@ const IsoFishing = (() => {
           // Missed!
           state = STATE.MISS;
           timer = MISS_DURATION;
+          if (typeof AudioManager !== 'undefined') AudioManager.playErrorBuzzer();
         }
         break;
 

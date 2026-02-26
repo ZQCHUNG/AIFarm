@@ -60,6 +60,11 @@
     SkillSystem.setupListeners();
   }
 
+  // Initialize audio engine + EventBus listeners
+  if (typeof AudioManager !== 'undefined') {
+    AudioManager.setupListeners();
+  }
+
   // Initialize player accessories event listeners
   if (typeof PlayerAccessories !== 'undefined') {
     PlayerAccessories.setupListeners();
@@ -263,6 +268,8 @@
   }
 
   function topdownClickHandler(e) {
+    // Unlock audio on first click
+    if (typeof AudioManager !== 'undefined') AudioManager.unlock();
     if (viewMode !== 'iso' || typeof IsoEngine === 'undefined') return;
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
@@ -283,6 +290,8 @@
   const keys = {};
   document.addEventListener('keydown', (e) => {
     keys[e.key] = true;
+    // Unlock audio on first user interaction
+    if (typeof AudioManager !== 'undefined') AudioManager.unlock();
     // Shop/sell action (E key) — scene manager takes priority, then shop
     if ((e.key === 'e' || e.key === 'E') && !e.ctrlKey && !e.shiftKey) {
       // Scene transition (door enter/exit) takes top priority

@@ -132,9 +132,13 @@ const ShopUI = (() => {
     if (!item) return false;
     if (typeof ResourceInventory === 'undefined') return false;
 
-    if (!ResourceInventory.has('gold', item.price)) return false;
+    if (!ResourceInventory.has('gold', item.price)) {
+      if (typeof AudioManager !== 'undefined') AudioManager.playErrorBuzzer();
+      return false;
+    }
 
     ResourceInventory.spend('gold', item.price);
+    if (typeof AudioManager !== 'undefined') AudioManager.playHarvestPop();
     purchaseFlash = { index: selectedIndex, startTick: tick };
 
     // Apply item effect
@@ -152,10 +156,12 @@ const ShopUI = (() => {
 
     if (key === 'ArrowUp' || key === 'w' || key === 'W') {
       selectedIndex = Math.max(0, selectedIndex - 1);
+      if (typeof AudioManager !== 'undefined') AudioManager.playUIClick();
       return true;
     }
     if (key === 'ArrowDown' || key === 's' || key === 'S') {
       selectedIndex = Math.min(CATALOG.length - 1, selectedIndex + 1);
+      if (typeof AudioManager !== 'undefined') AudioManager.playUIClick();
       return true;
     }
     if (key === 'Enter' || key === ' ') {
@@ -163,6 +169,7 @@ const ShopUI = (() => {
       return true;
     }
     if (key === 'Escape' || key === 'e' || key === 'E') {
+      if (typeof AudioManager !== 'undefined') AudioManager.playUIClick();
       close();
       return true;
     }
