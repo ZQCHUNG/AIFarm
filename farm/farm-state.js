@@ -38,6 +38,7 @@ class FarmState {
       milestoneReached: 0,
       currentGeneration: 1,
       sessionHistory: [], // Historical sessions for NPC system
+      skills: null, // Skill progression state (farming/mining/fishing)
     };
   }
 
@@ -312,6 +313,7 @@ class FarmState {
       worldWidth: cfg.getGeneration(this.state.totalEnergy).worldWidth,
       totalHarvests: this.state.stats.totalHarvests,
       sessionHistory: this.state.sessionHistory || [],
+      skills: this.state.skills || null,
       achievements: this.achievements.getRendererState(),
     };
   }

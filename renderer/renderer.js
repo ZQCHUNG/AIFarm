@@ -55,6 +55,11 @@
     CollectionUI.setupListeners();
   }
 
+  // Initialize skill system + EventBus listeners
+  if (typeof SkillSystem !== 'undefined') {
+    SkillSystem.setupListeners();
+  }
+
   // Initialize player accessories event listeners
   if (typeof PlayerAccessories !== 'undefined') {
     PlayerAccessories.setupListeners();
@@ -111,6 +116,10 @@
       // Initialize NPCs from session history
       if (state && state.sessionHistory && typeof NPCManager !== 'undefined') {
         NPCManager.init(state.sessionHistory);
+      }
+      // Initialize skills from persisted state (only once)
+      if (state && state.skills && typeof SkillSystem !== 'undefined') {
+        SkillSystem.init(state.skills);
       }
       // Check passive chunk unlock based on cumulative tokens
       if (state && state.energy && typeof ChunkManager !== 'undefined') {

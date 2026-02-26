@@ -18,6 +18,7 @@ const CollectionUI = (() => {
     { id: 'fish',      label: '\u{1F41F} Fish',      icon: '\u{1F41F}' },
     { id: 'products',  label: '\u{1F3ED} Products',  icon: '\u{1F3ED}' },
     { id: 'crops',     label: '\u{1F33E} Crops',     icon: '\u{1F33E}' },
+    { id: 'skills',    label: '\u{26A1} Skills',     icon: '\u{26A1}' },
   ];
 
   // Fish catalog (matches iso-fishing.js)
@@ -225,6 +226,7 @@ const CollectionUI = (() => {
                 PRODUCT_CATALOG, discoveredProducts, 'Products'); break;
       case 3: drawCatalogTab(ctx, px + 8, contentY - scrollY, panelW - 16, tick,
                 CROP_CATALOG, discoveredCrops, 'Crops'); break;
+      case 4: drawSkillsTab(ctx, px + 8, contentY - scrollY, panelW - 16, tick); break;
     }
 
     ctx.restore();
@@ -354,6 +356,96 @@ const CollectionUI = (() => {
       }
 
       rowY += 22;
+    }
+  }
+
+  function drawSkillsTab(ctx, x, y, w, tick) {
+    if (typeof SkillSystem === 'undefined') {
+      ctx.fillStyle = '#666';
+      ctx.font = '8px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Skills not available', x + w / 2, y + 30);
+      return;
+    }
+
+    const SKILL_COLORS = { farming: '#6EBF4E', mining: '#8B8B8B', fishing: '#4FC3F7' };
+    let rowY = y + 4;
+
+    for (const [skillId, def] of Object.entries(SkillSystem.SKILLS)) {
+      const level = SkillSystem.getLevel(skillId);
+      const progress = SkillSystem.getProgress(skillId);
+      const xpToNext = SkillSystem.getXpToNext(skillId);
+      const totalXp = SkillSystem.getXp(skillId);
+      const color = SKILL_COLORS[skillId] || '#AAA';
+
+      // Skill header row
+      ctx.fillStyle = 'rgba(30, 45, 60, 0.7)';
+      ctx.fillRect(x, rowY, w, 28);
+
+      // Icon + name
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(def.icon, x + 4, rowY + 10);
+      ctx.fillStyle = '#FFF';
+      ctx.font = 'bold 8px monospace';
+      ctx.fillText(def.name, x + 18, rowY + 8);
+
+      // Level badge
+      ctx.fillStyle = color;
+      ctx.font = 'bold 7px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(`Lv.${level}`, x + w - 4, rowY + 8);
+
+      // XP progress bar
+      const barX = x + 18;
+      const barY = rowY + 17;
+      const barW = w - 26;
+      const barH = 6;
+      ctx.fillStyle = '#0A1A2A';
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = color;
+      ctx.fillRect(barX, barY, barW * progress, barH);
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(barX, barY, barW, barH);
+
+      // XP text
+      ctx.fillStyle = '#999';
+      ctx.font = '5px monospace';
+      ctx.textAlign = 'left';
+      const xpText = level >= SkillSystem.MAX_LEVEL ? `${totalXp} XP (MAX)` : `${totalXp} XP — ${xpToNext} to next`;
+      ctx.fillText(xpText, barX, barY + barH + 6);
+
+      rowY += 34;
+
+      // Perks for this skill
+      const allPerks = SkillSystem.getAllPerks(skillId);
+      for (const perk of allPerks) {
+        ctx.fillStyle = perk.unlocked ? 'rgba(40, 65, 40, 0.5)' : 'rgba(20, 20, 30, 0.4)';
+        ctx.fillRect(x + 8, rowY, w - 16, 16);
+
+        // Lock/unlock icon
+        ctx.font = '7px monospace';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = perk.unlocked ? '#5BEF5B' : '#444';
+        ctx.fillText(perk.unlocked ? '\u2713' : '\u{1F512}', x + 12, rowY + 8);
+
+        // Perk name
+        ctx.fillStyle = perk.unlocked ? '#FFF' : '#555';
+        ctx.font = '6px monospace';
+        ctx.fillText(`Lv.${perk.requiredLevel} ${perk.name}`, x + 24, rowY + 6);
+
+        // Perk description
+        ctx.fillStyle = perk.unlocked ? '#AAA' : '#444';
+        ctx.font = '5px monospace';
+        ctx.fillText(perk.desc, x + 24, rowY + 13);
+
+        rowY += 18;
+      }
+
+      rowY += 6; // gap between skills
     }
   }
 
