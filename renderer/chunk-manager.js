@@ -132,6 +132,26 @@ const ChunkManager = (() => {
       }
     }
 
+    // Path guarantee: break up dense tree clusters to prevent dead-ends.
+    // Scan for any tree tile surrounded on 3+ sides by solid tiles;
+    // if found, replace it with path to ensure walkable corridors.
+    const SOLID_BLOCK = new Set(['tree', 'water', 'mountain', 'fence']);
+    for (let ly = 1; ly < CHUNK_SIZE - 1; ly++) {
+      for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
+        if (tiles[ly][lx] !== 'tree') continue;
+        // Count solid neighbors (4-directional)
+        let solidN = 0;
+        if (SOLID_BLOCK.has(tiles[ly - 1][lx])) solidN++;
+        if (SOLID_BLOCK.has(tiles[ly + 1][lx])) solidN++;
+        if (SOLID_BLOCK.has(tiles[ly][lx - 1])) solidN++;
+        if (SOLID_BLOCK.has(tiles[ly][lx + 1])) solidN++;
+        // If surrounded on 3+ sides, this tree creates a dead-end — clear it
+        if (solidN >= 3) {
+          tiles[ly][lx] = 'grass';
+        }
+      }
+    }
+
     // Stamp landmark prefab if this chunk has one
     if (WMC) {
       const key = chunkKey(cx, cy);

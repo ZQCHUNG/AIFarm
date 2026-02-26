@@ -31,8 +31,8 @@ const WorldMapConfig = (() => {
     },
     forest: {
       name: 'Forest',
-      tiles: { darkgrass: 0.45, grass: 0.25, dirt: 0.15, path: 0.05, stone: 0.05, sand: 0.05 },
-      treeDensity: 0.35,
+      tiles: { darkgrass: 0.40, grass: 0.25, dirt: 0.15, path: 0.10, stone: 0.05, sand: 0.05 },
+      treeDensity: 0.22,
       waterChance: 0.03,
     },
     desert: {

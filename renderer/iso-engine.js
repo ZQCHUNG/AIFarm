@@ -648,23 +648,9 @@ const IsoEngine = (() => {
         drawTile(ctx, item.x, item.y, tileType, tick);
         drawSoilDetail(ctx, item.x, item.y, tileType, tick);
         drawTileTransitions(ctx, item.x, item.y, item.col, item.row);
-        // Tree tiles: forest floor texture + tree sprite
+        // Tree tiles: rich forest floor + tree sprite (fills entire 32x32 tile)
         if (tileType === 'tree') {
-          // Forest floor: darker patches and leaf litter so it looks different from plain grass
-          const tx = item.x, ty = item.y;
-          ctx.fillStyle = 'rgba(40,80,20,0.25)';  // dark green overlay
-          ctx.fillRect(tx + 2, ty + 2, TILE_W - 4, TILE_H - 4);
-          // Small root/undergrowth spots
-          ctx.fillStyle = 'rgba(60,100,30,0.4)';
-          const seed = (item.col * 31 + item.row * 17) & 0xFF;
-          for (let i = 0; i < 5; i++) {
-            const rx = tx + 4 + ((seed + i * 47) % (TILE_W - 8));
-            const ry = ty + 4 + ((seed + i * 29) % (TILE_H - 8));
-            ctx.beginPath();
-            ctx.arc(rx, ry, 2 + (i % 2), 0, Math.PI * 2);
-            ctx.fill();
-          }
-          drawIsoTree(ctx, tx + TILE_W / 2, ty + TILE_H / 2, tick);
+          drawTreeTile(ctx, item.x, item.y, item.col, item.row, tick);
         }
         // DEBUG: tile type label on every tile (remove after debugging)
         if (debugTileLabels) {
@@ -863,6 +849,18 @@ const IsoEngine = (() => {
 
   // ===== Top-down sprite helpers =====
 
+  /**
+   * Draw full tree tile — the tree canopy fills the entire 32x32 tile
+   * so players can clearly see it's impassable.
+   */
+  function drawTreeTile(ctx, tx, ty, col, row, tick) {
+    // Dark forest floor overlay
+    ctx.fillStyle = 'rgba(30,65,15,0.3)';
+    ctx.fillRect(tx, ty, TILE_W, TILE_H);
+    // Tree sprite with full-tile canopy
+    drawIsoTree(ctx, tx + TILE_W / 2, ty + TILE_H / 2, tick);
+  }
+
   // Tree (viewed from above — circular canopy with trunk visible below)
   // Seasonal palette from IsoSeasons (spring blossoms, autumn orange, winter bare)
   function drawIsoTree(ctx, sx, sy, tick) {
@@ -886,29 +884,29 @@ const IsoEngine = (() => {
       c2 = '#6A9A6A';
     }
 
-    // Shadow on ground
+    // Shadow on ground — fills tile width
     ctx.fillStyle = 'rgba(0,0,0,0.2)';
     ctx.beginPath();
-    ctx.ellipse(sx + 2, sy + 5, 12, 8, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx + 1, sy + 4, 15, 10, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Dark outline ring around trunk base for contrast
+    // Trunk (brown, slightly wider)
     ctx.fillStyle = '#2A1A0A';
-    ctx.fillRect(sx - 4, sy - 11, 8, 18);
-    // Trunk (bright brown for contrast)
+    ctx.fillRect(sx - 4, sy - 10, 8, 16);
     ctx.fillStyle = '#A0784A';
-    ctx.fillRect(sx - 3, sy - 10, 6, 16);
-    // Canopy layers (darker below, lighter above)
+    ctx.fillRect(sx - 3, sy - 9, 6, 14);
+    // Canopy layers — sized to fill the 32x32 tile
+    // Base layer: rx=16 covers full tile width (32px diameter)
     ctx.fillStyle = c0;
     ctx.beginPath();
-    ctx.ellipse(sx + sway, sy - 14, 14 * canopyScale, 11 * canopyScale, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx + sway, sy - 8, 16 * canopyScale, 14 * canopyScale, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = c1;
     ctx.beginPath();
-    ctx.ellipse(sx + sway, sy - 16, 11 * canopyScale, 8 * canopyScale, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx + sway, sy - 10, 13 * canopyScale, 11 * canopyScale, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = c2;
     ctx.beginPath();
-    ctx.ellipse(sx + sway + 1, sy - 18, 7 * canopyScale, 5 * canopyScale, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx + sway + 1, sy - 12, 8 * canopyScale, 7 * canopyScale, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Seasonal accent (blossom spots in spring, red leaves in autumn, snow in winter)
@@ -919,8 +917,8 @@ const IsoEngine = (() => {
         ctx.fillStyle = pal.accent;
         // 3-4 small accent dots on the canopy
         for (let i = 0; i < 4; i++) {
-          const ax = sx + sway + Math.sin(seed + i * 2.1) * 8 * canopyScale;
-          const ay = sy - 15 + Math.cos(seed + i * 3.3) * 6 * canopyScale;
+          const ax = sx + sway + Math.sin(seed + i * 2.1) * 10 * canopyScale;
+          const ay = sy - 9 + Math.cos(seed + i * 3.3) * 8 * canopyScale;
           const ar = 1.5 + (i % 2);
           ctx.beginPath();
           ctx.arc(ax, ay, ar, 0, Math.PI * 2);
