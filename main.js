@@ -81,6 +81,7 @@ function ensureWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      backgroundThrottling: false, // Keep game loop running when window is unfocused
     },
   });
 

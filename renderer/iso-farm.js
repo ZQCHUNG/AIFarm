@@ -253,29 +253,35 @@ const IsoFarm = (() => {
     decorEntities.push(shippingBinEnt);
 
     // Startup camera animation: start at train station, pan to farm center
+    // Skip animation if tutorial is already complete (returning player)
     IsoEngine.setZoom(1.8);
     const c = document.getElementById('canvas') || document.getElementById('isoCanvas') || document.getElementById('farm-canvas');
     const cw = c ? c.width : 660;
     const ch = c ? c.height : 500;
 
-    // Start camera at train station
-    IsoEngine.centerOnTile(14, 7, cw, ch);
-    const startCamState = IsoEngine.getCameraState();
+    const tutDone = typeof TutorialManager !== 'undefined' && TutorialManager.isComplete();
+    if (tutDone) {
+      // Returning player — skip fly-in, camera will snap to player on first frame
+      IsoEngine.centerOnTile(9, 7, cw, ch);
+      startupAnim = null;
+    } else {
+      // New player — cinematic fly-in from train station to farm center
+      IsoEngine.centerOnTile(14, 7, cw, ch);
+      const startCamState = IsoEngine.getCameraState();
 
-    // Calculate end position (farm center)
-    IsoEngine.centerOnTile(9, 7, cw, ch);
-    const endCamState = IsoEngine.getCameraState();
+      IsoEngine.centerOnTile(9, 7, cw, ch);
+      const endCamState = IsoEngine.getCameraState();
 
-    // Reset to start position and begin animation
-    IsoEngine.setCamera(startCamState.x, startCamState.y);
-    startupAnim = {
-      startX: startCamState.x,
-      startY: startCamState.y,
-      endX: endCamState.x,
-      endY: endCamState.y,
-      tick: 0,
-      duration: STARTUP_DURATION,
-    };
+      IsoEngine.setCamera(startCamState.x, startCamState.y);
+      startupAnim = {
+        startX: startCamState.x,
+        startY: startCamState.y,
+        endX: endCamState.x,
+        endY: endCamState.y,
+        tick: 0,
+        duration: STARTUP_DURATION,
+      };
+    }
   }
 
   // Draw a small rock

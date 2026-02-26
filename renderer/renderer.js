@@ -16,6 +16,7 @@
 
   // Player initialization flag
   let playerInited = false;
+  let cameraSnappedToPlayer = false;
 
   // Load sprites (async, graceful fallback to procedural rendering)
   let spritesLoaded = false;
@@ -414,17 +415,16 @@
   const KEY_MAP = { left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', down: 'ArrowDown' };
   window.remotePlay = {
     // Move in a direction for ms milliseconds. e.g. remotePlay.move('up', 500)
+    // Sets the closure `keys` object directly so the game loop's Player.update(keys) picks it up.
+    // Requires backgroundThrottling:false in main.js so rAF keeps running when unfocused.
     move(dir, ms) {
       const key = KEY_MAP[dir];
       if (!key) return `Unknown dir: ${dir}. Use left/right/up/down`;
-      // Directly set keys AND dispatch event for redundancy
+      if (typeof Player === 'undefined') return 'No Player';
+      const duration = ms || 300;
       keys[key] = true;
-      document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
-      setTimeout(() => {
-        keys[key] = false;
-        document.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
-      }, ms || 300);
-      return `Moving ${dir} for ${ms || 300}ms`;
+      setTimeout(() => { keys[key] = false; }, duration);
+      return `Moving ${dir} for ${duration}ms`;
     },
     // Press a key (for menus). e.g. remotePlay.press('r')
     press(key) {
@@ -451,6 +451,27 @@
         return `Teleported to (${col}, ${row})`;
       }
       return 'No Player';
+    },
+    // Debug: expose closure state for diagnosing movement issues
+    debug() {
+      const ml = (typeof IsoUI !== 'undefined' && IsoUI.isOpen())
+        || (typeof ShopUI !== 'undefined' && ShopUI.isOpen())
+        || (typeof CollectionUI !== 'undefined' && CollectionUI.isOpen())
+        || (typeof QuestBoard !== 'undefined' && QuestBoard.isOpen())
+        || (typeof CookingSystem !== 'undefined' && (CookingSystem.isOpen() || CookingSystem.isCooking()))
+        || (typeof TradeUI !== 'undefined' && TradeUI.isOpen())
+        || (typeof CreditsScreen !== 'undefined' && CreditsScreen.isOpen())
+        || (typeof TechTree !== 'undefined' && TechTree.isOpen())
+        || (typeof HouseCustomizer !== 'undefined' && HouseCustomizer.isOpen())
+        || (typeof AIBroadcast !== 'undefined' && AIBroadcast.isOpen());
+      const sl = (typeof SceneManager !== 'undefined' && SceneManager.isInputLocked());
+      const ta = (typeof TutorialManager !== 'undefined' && TutorialManager.isActive());
+      return {
+        modalLock: ml, sceneLock: sl, tutActive: ta,
+        activeKeys: Object.keys(keys).filter(k => keys[k]),
+        tile: typeof Player !== 'undefined' ? Player.getTile() : null,
+        pos: typeof Player !== 'undefined' ? Player.getPosition() : null,
+      };
     },
   };
 
@@ -846,7 +867,13 @@
       // Camera smoothly follows player (after startup animation finishes)
       if (!IsoFarm.isStartupAnimating()) {
         const pp = Player.getPosition();
-        IsoEngine.smoothFollow(pp.x, pp.y, 0.08);
+        // On first frame after startup anim, snap camera instantly to player
+        if (!cameraSnappedToPlayer) {
+          IsoEngine.smoothFollow(pp.x, pp.y, 1.0);
+          cameraSnappedToPlayer = true;
+        } else {
+          IsoEngine.smoothFollow(pp.x, pp.y, 0.08);
+        }
       }
 
       // Update chunk loading based on player position (overworld only)
@@ -872,10 +899,9 @@
 
     // Overworld-only game systems
     if (isOW) {
-      // Auto-pan idle camera tour (only when player is not moving)
-      if (typeof Player !== 'undefined' && Player.isMoving()) {
-        // Player is moving — don't auto-pan
-      } else if (IsoFarm.updateAutoPan) {
+      // Auto-pan idle camera tour — disabled when player character exists
+      // (camera always follows player; auto-pan conflicts with player control)
+      if (typeof Player === 'undefined' && IsoFarm.updateAutoPan) {
         IsoFarm.updateAutoPan();
       }
 

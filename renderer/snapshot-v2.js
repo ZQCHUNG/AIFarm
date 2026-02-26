@@ -251,12 +251,12 @@ const SnapshotV2 = (() => {
     sCtx.textAlign = 'center';
     sCtx.fillText('\u{1F33E} AIFarm \u2014 Claude Buddy', P + canvas.width / 2, P + 8);
 
-    // Download
-    const link = document.createElement('a');
+    // Save via IPC (avoids browser download dialog in Electron)
     const milestoneSlug = theaterInfo ? theaterInfo.label.replace(/\s+/g, '-').toLowerCase() : 'milestone';
-    link.download = `aifarm-${milestoneSlug}-${Date.now()}.png`;
-    link.href = snap.toDataURL('image/png');
-    link.click();
+    const fileName = `aifarm-${milestoneSlug}-${Date.now()}.png`;
+    if (window.buddy && window.buddy.captureToFile) {
+      window.buddy.captureToFile(`D:\\Mine\\claude-buddy\\Images\\${fileName}`);
+    }
 
     galleryCount++;
 
