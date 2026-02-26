@@ -150,9 +150,10 @@ const MarketEconomy = (() => {
     if (typeof IsoEngine === 'undefined') return;
 
     // Convert board position to screen coords
-    const sx = IsoEngine.gridToScreenX(BOARD_COL, BOARD_ROW);
-    const sy = IsoEngine.gridToScreenY(BOARD_COL, BOARD_ROW);
-    if (sx === undefined || sy === undefined) return;
+    const screenPos = IsoEngine.gridToScreen(BOARD_COL, BOARD_ROW);
+    if (!screenPos) return;
+    const sx = screenPos.x;
+    const sy = screenPos.y;
 
     ctx.save();
 

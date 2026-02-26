@@ -1332,6 +1332,8 @@ const IsoEngine = (() => {
     TILE_W, TILE_H,
     TILE_TYPES, TILE_GROUPS,
     gridToScreen, screenToGrid, mouseToGrid,
+    gridToScreenX: (col, row) => gridToScreen(col, row).x,
+    gridToScreenY: (col, row) => gridToScreen(col, row).y,
     depthKey,
     getTileBitmask,
     initMap, setTile, getTile,
