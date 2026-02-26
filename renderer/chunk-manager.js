@@ -497,6 +497,30 @@ const ChunkManager = (() => {
     }
     if (state.chunks) {
       for (const [key, data] of Object.entries(state.chunks)) {
+        // Migrate: convert 'fence' tiles to 'tree' outside the farm area.
+        // Old code used 'fence' for procedurally generated trees — these had
+        // no tree sprite, creating invisible walls. Farm fences (inside the
+        // 20x18 farm area) stay as 'fence'.
+        if (data.tiles) {
+          const [cx, cy] = key.split(',').map(Number);
+          const FARM_W = 20, FARM_H = 18;
+          for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+            if (!data.tiles[ly]) continue;
+            for (let lx = 0; lx < data.tiles[ly].length; lx++) {
+              if (data.tiles[ly][lx] === 'fence') {
+                // World coords of this tile
+                const wc = cx * CHUNK_SIZE + lx;
+                const wr = cy * CHUNK_SIZE + ly;
+                // Is it inside the farm area? Farm fences stay as 'fence'.
+                const inFarm = wc >= homeOffsetCol && wc < homeOffsetCol + FARM_W &&
+                               wr >= homeOffsetRow && wr < homeOffsetRow + FARM_H;
+                if (!inFarm) {
+                  data.tiles[ly][lx] = 'tree';
+                }
+              }
+            }
+          }
+        }
         chunks.set(key, {
           tiles: data.tiles,
           entities: [],

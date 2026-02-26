@@ -535,7 +535,11 @@ const IsoEngine = (() => {
 
     ctx.save();
     ctx.imageSmoothingEnabled = false;
+    updateShake();
     ctx.scale(camZoom, camZoom);
+    if (shakeX !== 0 || shakeY !== 0) {
+      ctx.translate(shakeX, shakeY);
+    }
 
     const cullW = canvasW / camZoom;
     const cullH = canvasH / camZoom;
@@ -688,6 +692,24 @@ const IsoEngine = (() => {
   let lastCanvasW = 660;
   let lastCanvasH = 500;
   const CAM_MARGIN = 128; // allow panning past the map edge for tall buildings
+
+  // Camera shake (bump feedback)
+  let shakeX = 0, shakeY = 0;
+  let shakeDecay = 0.85;
+
+  /** Trigger a camera shake (e.g., wall bump). Intensity ~2-4 pixels. */
+  function shake(intensity) {
+    const angle = Math.random() * Math.PI * 2;
+    shakeX += Math.cos(angle) * (intensity || 2);
+    shakeY += Math.sin(angle) * (intensity || 2);
+  }
+
+  function updateShake() {
+    shakeX *= shakeDecay;
+    shakeY *= shakeDecay;
+    if (Math.abs(shakeX) < 0.1) shakeX = 0;
+    if (Math.abs(shakeY) < 0.1) shakeY = 0;
+  }
 
   function setCamera(x, y) {
     if (!isFinite(x) || !isFinite(y)) return; // Reject NaN/Infinity
@@ -1414,6 +1436,29 @@ const IsoEngine = (() => {
     }
   }
 
+  /** Spawn small dust puffs when player bumps into a wall. */
+  function spawnBumpParticles(worldX, worldY, dirX, dirY) {
+    const { x, y } = gridToScreen(worldX / TILE_W, worldY / TILE_H);
+    const cx = x + TILE_W / 2;
+    const cy = y + TILE_H / 2;
+    const n = Math.min(6, MAX_PARTICLES - particles.length);
+    for (let i = 0; i < n; i++) {
+      const spread = (Math.random() - 0.5) * 2;
+      particles.push({
+        x: cx + dirX * 6 + spread * 4,
+        y: cy + dirY * 6 + spread * 4,
+        vx: dirX * (0.3 + Math.random() * 0.8) + spread * 0.5,
+        vy: dirY * (0.3 + Math.random() * 0.8) - Math.random() * 0.5,
+        size: 1.5 + Math.random() * 2,
+        color: '#C8B090',
+        alpha: 0.7,
+        life: 15 + Math.random() * 10,
+        age: 0,
+        type: 'square',
+      });
+    }
+  }
+
   function updateParticles() {
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
@@ -1484,7 +1529,7 @@ const IsoEngine = (() => {
     setPlayer, setPet, addEntity, clearEntities,
     drawTile, drawTileTransitions, drawTileHighlight,
     drawMap,
-    setCamera, moveCamera, centerOnTile, clampCamera,
+    setCamera, moveCamera, centerOnTile, clampCamera, shake,
     zoom, getZoom, setZoom, getCameraState,
     smoothFollow, getMapSize,
     saveViewportState, restoreViewportState, hasSavedViewport,
@@ -1493,7 +1538,7 @@ const IsoEngine = (() => {
     drawAnimal, drawFencePost,
     drawShadow, entityShadowRadius,
     setHoverTile, getHoverTile,
-    spawnHarvestParticles, updateParticles, drawParticles,
+    spawnHarvestParticles, spawnBumpParticles, updateParticles, drawParticles,
     drawMatureGlow,
     getHomeOffset,
     enterInteriorMode, exitInteriorMode, isInteriorMode,

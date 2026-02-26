@@ -888,6 +888,15 @@
             }
           },
         });
+        // Bump feedback: screen shake + dust particles on wall collision
+        Player.setBumpFn((wx, wy, dx, dy) => {
+          if (typeof IsoEngine !== 'undefined' && IsoEngine.shake) {
+            IsoEngine.shake(2.5);
+          }
+          if (typeof IsoEngine !== 'undefined' && IsoEngine.spawnBumpParticles) {
+            IsoEngine.spawnBumpParticles(wx, wy, dx, dy);
+          }
+        });
         playerInited = true;
       }
       if (!modalLock && !sceneLock) {

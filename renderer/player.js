@@ -51,6 +51,10 @@ const Player = (() => {
   let dirtParticleFn = null;
   let dirtTimer = 0;
 
+  // Bump callback (screen shake + dust on collision)
+  let bumpFn = null;
+  let bumpCooldown = 0;
+
   // Reference to collision checker
   let collisionFn = null;
 
@@ -77,6 +81,7 @@ const Player = (() => {
 
   function setCollisionFn(fn) { collisionFn = fn; }
   function setDirtParticleFn(fn) { dirtParticleFn = fn; }
+  function setBumpFn(fn) { bumpFn = fn; }
 
   /**
    * Update player position based on input keys.
@@ -168,6 +173,7 @@ const Player = (() => {
     const nextY = wy + vy;
     const NUDGE = 1.5;
 
+    let bumpedX = false, bumpedY = false;
     if (!isBlocked(nextX, wy)) {
       wx = nextX;
     } else if (!isBlocked(nextX, wy - NUDGE) && !isBlocked(wx, wy - NUDGE)) {
@@ -175,6 +181,7 @@ const Player = (() => {
     } else if (!isBlocked(nextX, wy + NUDGE) && !isBlocked(wx, wy + NUDGE)) {
       wx = nextX; wy += NUDGE;
     } else {
+      bumpedX = Math.abs(vx) > 0.5;
       vx = 0;
     }
     if (!isBlocked(wx, nextY)) {
@@ -184,8 +191,16 @@ const Player = (() => {
     } else if (!isBlocked(wx + NUDGE, nextY) && !isBlocked(wx + NUDGE, wy)) {
       wy = nextY; wx += NUDGE;
     } else {
+      bumpedY = Math.abs(vy) > 0.5;
       vy = 0;
     }
+
+    // Emit bump event (with cooldown to avoid spamming)
+    if ((bumpedX || bumpedY) && bumpFn && bumpCooldown <= 0) {
+      bumpFn(wx, wy, bumpedX ? (nextX > wx ? 1 : -1) : 0, bumpedY ? (nextY > wy ? 1 : -1) : 0);
+      bumpCooldown = 15; // ~0.25s cooldown
+    }
+    if (bumpCooldown > 0) bumpCooldown--;
 
     // Update facing direction
     if (moving) {
@@ -345,6 +360,7 @@ const Player = (() => {
     setPosition,
     setCollisionFn,
     setDirtParticleFn,
+    setBumpFn,
     update,
     restoreStamina,
     getEntity,
