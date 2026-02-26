@@ -39,6 +39,7 @@ class FarmState {
       currentGeneration: 1,
       sessionHistory: [], // Historical sessions for NPC system
       skills: null, // Skill progression state (farming/mining/fishing)
+      construction: null, // Progressive construction state
     };
   }
 
@@ -314,6 +315,7 @@ class FarmState {
       totalHarvests: this.state.stats.totalHarvests,
       sessionHistory: this.state.sessionHistory || [],
       skills: this.state.skills || null,
+      construction: this.state.construction || null,
       achievements: this.achievements.getRendererState(),
     };
   }

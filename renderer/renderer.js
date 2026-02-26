@@ -65,6 +65,11 @@
     AudioManager.setupListeners();
   }
 
+  // Initialize construction system + EventBus listeners
+  if (typeof ConstructionManager !== 'undefined') {
+    ConstructionManager.setupListeners();
+  }
+
   // Initialize player accessories event listeners
   if (typeof PlayerAccessories !== 'undefined') {
     PlayerAccessories.setupListeners();
@@ -126,6 +131,10 @@
       if (state && state.skills && typeof SkillSystem !== 'undefined') {
         SkillSystem.init(state.skills);
       }
+      // Initialize construction from persisted state
+      if (typeof ConstructionManager !== 'undefined') {
+        ConstructionManager.init(state && state.construction || null);
+      }
       // Check passive chunk unlock based on cumulative tokens
       if (state && state.energy && typeof ChunkManager !== 'undefined') {
         ChunkManager.checkPassiveUnlock(state.energy);
@@ -160,7 +169,12 @@
         prevMilestone = state.milestoneReached;
       }
     });
-    window.buddy.onFarmEnergyTick((pts) => { /* could add flash animation */ });
+    window.buddy.onFarmEnergyTick((pts) => {
+      // Route energy ticks to construction system as token burns
+      if (typeof EventBus !== 'undefined' && pts > 0) {
+        EventBus.emit('TOKEN_BURNED', { amount: pts });
+      }
+    });
     window.buddy.onVibeUpdate((vibe) => Farm.setVibe(vibe));
     window.buddy.onUsageUpdate((state) => Farm.setUsage(state));
     window.buddy.onAchievementUnlocked((notif) => {
@@ -341,6 +355,12 @@
     if (typeof ShopUI !== 'undefined' && ShopUI.isOpen()) {
       if (ShopUI.handleKey(e.key, tick)) return;
     }
+    // [T] key — token burn simulator for construction testing
+    if ((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.shiftKey) {
+      if (typeof ConstructionManager !== 'undefined' && !modalLock) {
+        ConstructionManager.setSimulating(true);
+      }
+    }
     // Screenshot to file (F12)
     if (e.key === 'F12') {
       if (window.buddy && window.buddy.captureToFile) {
@@ -376,7 +396,13 @@
       }
     }
   });
-  document.addEventListener('keyup', (e) => { keys[e.key] = false; });
+  document.addEventListener('keyup', (e) => {
+    keys[e.key] = false;
+    // Stop token simulator on T release
+    if ((e.key === 't' || e.key === 'T') && typeof ConstructionManager !== 'undefined') {
+      ConstructionManager.setSimulating(false);
+    }
+  });
 
   function getAnimFrame(state) {
     if (state === 'celebrating') return 0;
@@ -588,6 +614,11 @@
       // Update monument v2 (stage calculation)
       if (typeof MonumentV2 !== 'undefined') {
         MonumentV2.update(tick);
+      }
+
+      // Update construction system (progressive building)
+      if (typeof ConstructionManager !== 'undefined') {
+        ConstructionManager.update(tick);
       }
 
       // Update milestone snapshot theater

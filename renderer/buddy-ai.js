@@ -12,6 +12,7 @@ const BuddyAI = (() => {
     HARVESTING: 'harvesting',   // picking mature crops
     SOCIAL: 'social',           // chatting with nearby buddy
     SHELTER: 'shelter',         // seeking shelter from weather
+    BUILDING: 'building',       // hammering at construction site
   };
 
   // Movement speed (grid units per tick)
@@ -25,6 +26,9 @@ const BuddyAI = (() => {
   const SOCIAL_DURATION = 60;  // ~1 second chat
   const SOCIAL_DISTANCE = 1.5; // grid units to trigger
   const SOCIAL_COOLDOWN = 600; // ~10 seconds between chats per pair
+  const BUILD_DURATION = 150;   // ~2.5 seconds per hammering cycle
+  const BUILD_CHANCE = 0.15;    // 15% chance idle buddy walks to construction site
+  const MAX_BUILDERS = 2;       // max buddies assigned to build at once
 
   // Tool shed location (near field entrance on path row — local farm coords)
   const TOOL_SHED_COL = 2;
@@ -135,7 +139,7 @@ const BuddyAI = (() => {
     }
 
     // Action locking: ignore new events during walking or active animation
-    if (ai.state === STATE.FARMING || ai.state === STATE.TENDING || ai.state === STATE.WALKING || ai.state === STATE.HARVESTING || ai.state === STATE.PICKUP_TOOL || ai.state === STATE.SOCIAL) return;
+    if (ai.state === STATE.FARMING || ai.state === STATE.TENDING || ai.state === STATE.WALKING || ai.state === STATE.HARVESTING || ai.state === STATE.PICKUP_TOOL || ai.state === STATE.SOCIAL || ai.state === STATE.BUILDING) return;
 
     // Map event type to farm action
     if (eventType === 'tool_use' || eventType === 'text' || eventType === 'bash_progress') {
@@ -155,7 +159,7 @@ const BuddyAI = (() => {
 
     if (buddyState === 'idle' || buddyState === 'sleeping') {
       // If currently doing action, let it finish; otherwise walk home
-      if (ai.state === STATE.FARMING || ai.state === STATE.TENDING || ai.state === STATE.HARVESTING || ai.state === STATE.PICKUP_TOOL || ai.state === STATE.SOCIAL) return;
+      if (ai.state === STATE.FARMING || ai.state === STATE.TENDING || ai.state === STATE.HARVESTING || ai.state === STATE.PICKUP_TOOL || ai.state === STATE.SOCIAL || ai.state === STATE.BUILDING) return;
       assignHomeTarget(ai, sessionId);
     }
   }
@@ -186,6 +190,9 @@ const BuddyAI = (() => {
           break;
         case STATE.SOCIAL:
           updateSocial(ai, ent, tick);
+          break;
+        case STATE.BUILDING:
+          updateBuilding(ai, ent, tick);
           break;
         case STATE.SHELTER:
           updateShelter(ai, ent, tick);
@@ -348,7 +355,11 @@ const BuddyAI = (() => {
       // Arrived at target
       ent.gridX = ai.targetCol;
       ent.gridY = ai.targetRow;
-      if (ai.action === 'pickup') {
+      if (ai.action === 'building') {
+        ai.state = STATE.BUILDING;
+        ai.actionTimer = BUILD_DURATION;
+        spawnActionEffect(ent, 'building');
+      } else if (ai.action === 'pickup') {
         ai.state = STATE.PICKUP_TOOL;
         ai.actionTimer = PICKUP_DURATION;
         spawnActionEffect(ent, 'pickup');
@@ -602,6 +613,9 @@ const BuddyAI = (() => {
 
     // Slight sway when idle
     if (ai.idleTimer <= 0) {
+      // Check if there's an active construction site and maybe go help build
+      if (tryAssignBuilding(ai, ent)) return;
+
       // Pick a new nearby wander point (small radius)
       const wanderCol = ent.gridX + (Math.random() - 0.5) * 2;
       const wanderRow = ent.gridY + (Math.random() - 0.5) * 1;
@@ -612,6 +626,121 @@ const BuddyAI = (() => {
       const clampedCol = Math.max(off.col + 1, Math.min(wanderCol, off.col + farmW - 2));
       const clampedRow = Math.max(off.row + 1, Math.min(wanderRow, off.row + farmH - 2));
       setWalkTarget(ai, clampedCol, clampedRow, null);
+    }
+  }
+
+  // ===== Building state =====
+
+  /** Count how many buddies are currently in BUILDING state. */
+  function countBuilders() {
+    let count = 0;
+    for (const [, ai] of buddyAI) {
+      if (ai.state === STATE.BUILDING || (ai.state === STATE.WALKING && ai.action === 'building')) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /** Try to assign an idle buddy to walk to the active construction site. */
+  function tryAssignBuilding(ai, ent) {
+    if (typeof ConstructionManager === 'undefined') return false;
+    if (!ConstructionManager.hasActiveConstruction()) return false;
+    if (countBuilders() >= MAX_BUILDERS) return false;
+    if (Math.random() > BUILD_CHANCE) return false;
+
+    const site = ConstructionManager.getActiveSite();
+    if (!site) return false;
+
+    const off = _off();
+    // Walk to a spot next to the construction site (offset slightly so multiple builders spread out)
+    const offsetCol = (Math.random() - 0.5) * 1.5;
+    const offsetRow = 0.5 + Math.random() * 0.5;
+    setWalkTarget(ai, off.col + site.col + offsetCol, off.row + site.row + offsetRow, 'building');
+    return true;
+  }
+
+  /** Hammering animation at construction site. */
+  function updateBuilding(ai, ent, tick) {
+    ai.actionTimer--;
+
+    // Hammering animation: 3-phase cycle (raise → strike → pause)
+    const cycle = BUILD_DURATION - ai.actionTimer;
+    const phase = cycle % 30; // 30-tick cycle = ~0.5s per hammer swing
+
+    if (phase < 10) {
+      // Raise hammer — arm up
+      ent.z = (phase / 10) * 3;
+      ent.frame = 0;
+    } else if (phase < 16) {
+      // Strike down — quick descent
+      const strikeProgress = (phase - 10) / 6;
+      ent.z = 3 - strikeProgress * 4; // 3 → -1 (dip below)
+      ent.frame = 1;
+
+      // Spark/wood chip particles on impact (tick 15 of cycle)
+      if (phase === 14 && typeof IsoEffects !== 'undefined') {
+        // Sparks
+        const sparkColors = ['#FFD700', '#FF9944', '#FFA500'];
+        for (let i = 0; i < 2; i++) {
+          IsoEffects.spawnText(
+            ent.gridX + (Math.random() - 0.5) * 0.5,
+            ent.gridY + 0.1,
+            '\u{2728}',
+            { color: sparkColors[Math.floor(Math.random() * sparkColors.length)], life: 15, rise: 0.5 + Math.random() * 0.3 }
+          );
+        }
+      }
+      // Wood chip particles on each strike
+      if (phase === 14 && typeof IsoEngine !== 'undefined') {
+        IsoEngine.spawnHarvestParticles(ent.gridX + (Math.random() - 0.5) * 0.4, ent.gridY + 0.15, '#A0824A', 3);
+        IsoEngine.spawnHarvestParticles(ent.gridX + (Math.random() - 0.5) * 0.3, ent.gridY + 0.1, '#C8A870', 2);
+      }
+    } else {
+      // Pause — recover
+      ent.z = Math.max(0, -1 + ((phase - 16) / 14) * 1);
+      ent.frame = 0;
+    }
+
+    // Face the building (generally "up" toward construction)
+    ent.direction = 'up';
+
+    // Floating hammer emoji every 45 ticks
+    if (cycle % 45 === 0 && typeof IsoEffects !== 'undefined') {
+      IsoEffects.spawnText(ent.gridX, ent.gridY - 0.8,
+        '\u{1F528}', { color: '#FFD700', life: 35, rise: 0.6 });
+    }
+
+    // Sweat drops to show effort every 60 ticks
+    if (cycle % 60 === 30 && typeof IsoEffects !== 'undefined') {
+      IsoEffects.spawnText(ent.gridX + 0.3, ent.gridY - 0.5,
+        '\u{1F4A6}', { color: '#4FC3F7', life: 25, rise: 0.4 });
+    }
+
+    if (ai.actionTimer <= 0) {
+      ent.z = 0;
+
+      // Completion burst
+      if (typeof IsoEffects !== 'undefined') {
+        IsoEffects.spawnText(ent.gridX, ent.gridY - 0.5,
+          '\u{2714}\u{FE0F}', { color: '#4CAF50', life: 60 });
+      }
+      if (typeof IsoEngine !== 'undefined') {
+        IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, '#A0824A', 6);
+      }
+
+      if (typeof Farm !== 'undefined' && Farm.logEvent) {
+        Farm.logEvent('\u{1F528}', 'Buddy helped build');
+      }
+
+      // Check if construction still active — keep building or go idle
+      if (typeof ConstructionManager !== 'undefined' && ConstructionManager.hasActiveConstruction() && Math.random() < 0.6) {
+        // Continue hammering (60% chance)
+        ai.actionTimer = BUILD_DURATION;
+      } else {
+        ai.state = STATE.IDLE;
+        ai.idleTimer = IDLE_LINGER;
+      }
     }
   }
 
@@ -897,12 +1026,14 @@ const BuddyAI = (() => {
         IsoEffects.spawnText(ent.gridX, ent.gridY - 0.6, '\u{1F331}', { color: '#8BC34A', life: 50, rise: 0.9 });
       } else if (type === 'harvest') {
         IsoEffects.spawnText(ent.gridX, ent.gridY - 0.6, '\u{270A}', { color: '#FF8C00', life: 50, rise: 0.9 });
+      } else if (type === 'building') {
+        IsoEffects.spawnText(ent.gridX, ent.gridY - 0.6, '\u{1F528}', { color: '#FFD700', life: 50, rise: 0.9 });
       } else if (type === 'pickup') {
         IsoEffects.spawnText(ent.gridX, ent.gridY - 0.6, '\u{1F3E0}', { color: '#8B6B3E', life: 30, rise: 0.5 });
       }
     }
     if (typeof IsoEngine !== 'undefined') {
-      const color = type === 'water' ? '#4FC3F7' : type === 'pickup' ? '#C8A870' : '#FFD54F';
+      const color = type === 'building' ? '#A0824A' : type === 'water' ? '#4FC3F7' : type === 'pickup' ? '#C8A870' : '#FFD54F';
       IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, color, type === 'pickup' ? 4 : 8);
       if (type !== 'pickup') {
         IsoEngine.spawnHarvestParticles(ent.gridX, ent.gridY, '#FFFFFF', 3);

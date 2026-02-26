@@ -327,6 +327,13 @@ ipcMain.on('save-skills', (e, skillsState) => {
   }
 });
 
+ipcMain.on('save-construction', (e, constructionState) => {
+  if (constructionState) {
+    farm.state.construction = constructionState;
+    farm._dirty = true;
+  }
+});
+
 ipcMain.on('unlock-building', (e, id) => {
   if (!farm.state.buildings[id]) {
     farm.state.buildings[id] = true;

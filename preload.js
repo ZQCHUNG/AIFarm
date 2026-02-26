@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('buddy', {
   onSpritesReload: (cb) => ipcRenderer.on('sprites-reload', (_e, data) => cb(data)),
   setIgnoreMouseEvents: (ignore, opts) => ipcRenderer.send('set-ignore-mouse', ignore, opts),
   saveSkills: (state) => ipcRenderer.send('save-skills', state),
+  saveConstruction: (state) => ipcRenderer.send('save-construction', state),
   unlockBuilding: (id) => ipcRenderer.send('unlock-building', id),
   setWeather: (condition) => ipcRenderer.send('set-weather', condition),
   setSeason: (season) => ipcRenderer.send('set-season', season),
