@@ -437,6 +437,7 @@ ipcMain.on('save-trade-diplo', (e, s) => { if (s) { farm.state.tradeDiplo = s; f
 ipcMain.on('save-tutorial', (e, s) => { if (s) { farm.state.tutorial = s; farm._dirty = true; } });
 ipcMain.on('save-friendship', (e, s) => { if (s) { farm.state.friendship = s; farm._dirty = true; } });
 ipcMain.on('save-victory', (e, s) => { if (s) { farm.state.victory = s; farm._dirty = true; } });
+ipcMain.on('save-player-position', (e, pos) => { if (pos) { farm.state.playerPosition = pos; farm._dirty = true; } });
 
 ipcMain.on('unlock-building', (e, id) => {
   if (!farm.state.buildings[id]) {

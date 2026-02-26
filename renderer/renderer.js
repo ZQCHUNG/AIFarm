@@ -17,6 +17,7 @@
   // Player initialization flag
   let playerInited = false;
   let cameraSnappedToPlayer = false;
+  let savedPlayerPos = null; // { x, y } from farm state for position resume
 
   // Load sprites (async, graceful fallback to procedural rendering)
   let spritesLoaded = false;
@@ -221,6 +222,10 @@
       if (typeof TradeDiplomacy !== 'undefined') {
         TradeDiplomacy.init(state && state.tradeDiplo || null);
         if (!TradeDiplomacy._listenersReady) { TradeDiplomacy.setupListeners(); TradeDiplomacy._listenersReady = true; }
+      }
+      // Restore saved player position (only before player init)
+      if (state && state.playerPosition && !playerInited) {
+        savedPlayerPos = state.playerPosition;
       }
       // Check passive chunk unlock based on cumulative tokens
       if (state && state.energy && typeof ChunkManager !== 'undefined') {
@@ -959,6 +964,10 @@
             }
           },
         });
+        // Restore saved position if available (resume from last session)
+        if (savedPlayerPos && savedPlayerPos.x && savedPlayerPos.y) {
+          Player.setPosition(savedPlayerPos.x, savedPlayerPos.y);
+        }
         // Bump feedback: screen shake + dust particles + thud sound on wall collision
         Player.setBumpFn((wx, wy, dx, dy) => {
           if (typeof IsoEngine !== 'undefined' && IsoEngine.shake) {
@@ -999,6 +1008,12 @@
       if (isOW && typeof ChunkManager !== 'undefined') {
         const pt = Player.getTile();
         ChunkManager.updatePlayerPosition(pt.col, pt.row);
+      }
+
+      // Save player position every 5 seconds (300 ticks at 60Hz)
+      if (tick % 300 === 0 && window.buddy && window.buddy.savePlayerPosition) {
+        const pp = Player.getPosition();
+        window.buddy.savePlayerPosition({ x: pp.x, y: pp.y });
       }
 
       // Update persistent player entity for rendering

@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('buddy', {
   saveHouseCustom: (state) => ipcRenderer.send('save-house-custom', state),
   saveBroadcast: (state) => ipcRenderer.send('save-broadcast', state),
   saveTradeDiplo: (state) => ipcRenderer.send('save-trade-diplo', state),
+  savePlayerPosition: (pos) => ipcRenderer.send('save-player-position', pos),
   saveTutorial: (state) => ipcRenderer.send('save-tutorial', state),
   saveFriendship: (state) => ipcRenderer.send('save-friendship', state),
   saveVictory: (state) => ipcRenderer.send('save-victory', state),

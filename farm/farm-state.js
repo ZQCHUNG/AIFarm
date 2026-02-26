@@ -49,6 +49,7 @@ class FarmState {
       houseCustom: null, // House interior customization
       broadcast: null, // AI broadcast messages
       tradeDiplo: null, // Trade diplomacy state
+      playerPosition: null, // { x, y } world pixel coords for resume
     };
   }
 
@@ -363,6 +364,7 @@ class FarmState {
       houseCustom: this.state.houseCustom || null,
       broadcast: this.state.broadcast || null,
       tradeDiplo: this.state.tradeDiplo || null,
+      playerPosition: this.state.playerPosition || null,
       achievements: this.achievements.getRendererState(),
     };
   }
