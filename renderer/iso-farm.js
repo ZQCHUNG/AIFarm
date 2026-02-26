@@ -340,7 +340,7 @@ const IsoFarm = (() => {
   function drawFlower(ctx, sx, sy, tick, seed) {
     const colors = ['#E84393', '#FFD700', '#FF6B8A', '#9B59B6', '#E8734A'];
     const color = colors[seed % colors.length];
-    const sway = Math.sin(tick * 0.03 + seed) * 1;
+    const sway = 0; // Static flowers
 
     // Green base
     ctx.fillStyle = '#5AAE45';
@@ -892,7 +892,7 @@ const IsoFarm = (() => {
     ctx.ellipse(sx - 1, sy - 4, 4, 2, 0, 0, Math.PI * 2);
     ctx.fill();
     // Stray straw pieces
-    const sway = Math.sin(tick * 0.04 + sx * 0.1) * 0.8;
+    const sway = 0; // Static hay
     ctx.fillStyle = '#D4A843';
     ctx.fillRect(sx + 7 + sway, sy - 4, 3, 1);
     ctx.fillRect(sx - 9 + sway, sy - 1, 3, 1);

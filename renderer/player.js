@@ -284,7 +284,7 @@ const Player = (() => {
 
           // Draw equipped accessories (hat, backpack)
           if (typeof PlayerAccessories !== 'undefined') {
-            const bob = Math.sin(tick * 0.15 + animFrame) * 1.2;
+            const bob = Math.sin(tick * 0.06 + animFrame) * 0.5;
             PlayerAccessories.drawAccessories(ctx, sx, sy, direction, tick, bob);
           }
 

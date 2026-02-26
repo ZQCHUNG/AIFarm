@@ -87,9 +87,9 @@ const DebugDashboard = (() => {
     ctx.save();
 
     // Semi-transparent background panel (expand for error section)
-    const panelW = 200;
+    const panelW = 220;
     const errH = errorRing.length > 0 ? 20 + errorRing.length * 18 : 0;
-    const panelH = 210 + errH;
+    const panelH = 222 + errH;
     const px = 6;
     const py = 6;
 
@@ -131,6 +131,18 @@ const DebugDashboard = (() => {
         drawStat(ctx, px + 4, y, 'Tile', `${pt.col},${pt.row}`, '#0FF');
       }
       y += lineH;
+
+      // Tile type under player + adjacent (helps debug invisible walls)
+      if (typeof IsoEngine !== 'undefined') {
+        const pt = Player.getTile();
+        const ct = IsoEngine.getTile(pt.col, pt.row) || 'null';
+        const nt = IsoEngine.getTile(pt.col, pt.row - 1) || 'null';
+        const st = IsoEngine.getTile(pt.col, pt.row + 1) || 'null';
+        const wt = IsoEngine.getTile(pt.col - 1, pt.row) || 'null';
+        const et = IsoEngine.getTile(pt.col + 1, pt.row) || 'null';
+        drawStat(ctx, px + 4, y, 'TileT', `${ct} [N:${nt} S:${st} W:${wt} E:${et}]`, '#F0A');
+        y += lineH;
+      }
     }
 
     // Entity count

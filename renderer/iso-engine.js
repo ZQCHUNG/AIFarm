@@ -832,7 +832,7 @@ const IsoEngine = (() => {
   function drawIsoTree(ctx, sx, sy, tick) {
     sx = Math.round(sx);
     sy = Math.round(sy);
-    const sway = Math.round(Math.sin(tick * 0.02 + sx) * 0.7);
+    const sway = 0; // Static trees — no sway
     // Get seasonal palette (falls back to summer defaults)
     const pal = (typeof IsoSeasons !== 'undefined') ? IsoSeasons.getTreePalette() : null;
     const trunk = pal ? pal.trunk : '#8B6B3E';
@@ -890,7 +890,7 @@ const IsoEngine = (() => {
     // Round to avoid sub-pixel blurring on pixel art
     sx = Math.round(sx);
     sy = Math.round(sy);
-    const bob = Math.round(Math.sin(tick * 0.15 + frame) * 1.2);
+    const bob = Math.round(Math.sin(tick * 0.06 + frame) * 0.5);
     const bodyY = sy - 14 + bob;
 
     // Shadow
@@ -1053,7 +1053,7 @@ const IsoEngine = (() => {
   function _drawCarrot(ctx, sx, sy, mature, glow, tick) {
     for (let i = -1; i <= 1; i += 2) {
       const px = sx + i * 7;
-      const sway = Math.sin(tick * 0.04 + px * 0.1) * 0.6;
+      const sway = 0; // Static crops
       const h = mature ? 26 : 18;
       // Feathery green leaves
       ctx.fillStyle = '#4A9A3A';
@@ -1114,7 +1114,7 @@ const IsoEngine = (() => {
   function _drawCorn(ctx, sx, sy, mature, glow, tick) {
     for (let i = -1; i <= 1; i += 2) {
       const px = sx + i * 7;
-      const sway = Math.sin(tick * 0.03 + i * 2 + px * 0.05) * 1;
+      const sway = 0; // Static crops
       const h = mature ? 42 : 28;
       // Main stalk
       ctx.fillStyle = '#4A9A3A';
@@ -1151,7 +1151,7 @@ const IsoEngine = (() => {
   function _drawSunflower(ctx, sx, sy, mature, glow, tick) {
     for (let i = -1; i <= 1; i += 2) {
       const px = sx + i * 7;
-      const sway = Math.sin(tick * 0.025 + i * 3) * 1;
+      const sway = 0; // Static crops
       const h = mature ? 38 : 26;
       // Thick stem
       ctx.fillStyle = '#4A9030';
